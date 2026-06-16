@@ -1,35 +1,11 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useModal } from "@/hooks/useModal";
+import {Cell, EmployeeRecord, GridData, PlanningRecord, Post, POSTS, Shift, ShiftRecord, SHIFTS, TaskRecord } from "../components/calendar/types";
+import * as XLSX from 'xlsx';
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
-// ─── API types ────────────────────────────────────────────────────────────────
-
-interface ShiftRecord   { _id: string; startTime: string; endTime: string; }
-interface TaskRecord    { _id: string; taskId: number; taskName: string; }
-export interface EmployeeRecord { _id: string; empNumber: number; firstName: string; lastName: string; }
-interface PlanningRecord {
-  _id: string;
-  shiftId: ShiftRecord;
-  empId: EmployeeRecord;
-  taskId: number;
-  planDate: string;
-}
-
-// ─── Internal grid types ──────────────────────────────────────────────────────
-
-export interface Cell {
-  id: string;
-  title: string;
-  planningId?: string;
-}
-
-export interface Post  { id: number; label: string; mongoId: string; }
-export interface Shift { id: string; label: string; sub: string; }
-export type GridData = Record<number, Record<string, Cell[]>>;
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     headers: { "Content-Type": "application/json" }, ...init,
@@ -231,20 +207,24 @@ export const useShiftGrid = () => {
 
   // ── Save planning to DB ───────────────────────────────────────────────────
   const handleSavePlanning = useCallback(async () => {
+    const planDate = currentDate.toLocaleDateString('en-CA', { timeZone: 'Africa/Algiers' }); // → "YYYY-MM-DD"
+
     const entries: { shiftId: string; empId: string; taskId: number; planDate: string }[] = [];
     posts.forEach((post) => {
       shifts.forEach((shift) => {
         (grid[post.id]?.[shift.id] ?? []).forEach((cell) => {
-          entries.push({ shiftId: shift.id, empId: cell.id, taskId: post.id, planDate: currentDate.toISOString() });
+          entries.push({ shiftId: shift.id, empId: cell.id, taskId: post.id, planDate });
         });
       });
     });
+
     if (entries.length === 0) { alert("No employees planned for this day."); return; }
+
     try {
       const res = await fetch(`${BASE}/planning/bulk`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ entries, planDate: currentDate.toISOString().slice(0, 10) }),
+        body: JSON.stringify({ entries, planDate }),
       });
       if (!res.ok) throw new Error("Failed to save");
       alert("Planning saved!");
@@ -253,6 +233,46 @@ export const useShiftGrid = () => {
       alert("Error saving planning.");
     }
   }, [grid, currentDate, posts, shifts]);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  const data = await file.arrayBuffer();
+  const workbook = XLSX.read(data, { type: "array" });
+  const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json<Record<string, string>>(worksheet);
+
+  const importedGrid = buildEmptyGrid(posts, shifts);
+
+  rows.forEach((row) => {
+    const taskName = row.Task;
+    const post = posts.find((p) => p.label === taskName);
+    if (!post) return;
+
+    shifts.forEach((shift) => {
+      const cellValue = row[shift.label];
+      if (!cellValue) return;
+
+      importedGrid[post.id][shift.id] = String(cellValue)
+        .split("\n")
+        .filter(Boolean)
+        .map((name, index) => ({
+          id: `${post.id}-${shift.id}-${index}-${Date.now()}`,
+          title: name.trim(),
+        }));
+    });
+  });
+
+  setGrid(importedGrid);
+  e.target.value = "";
+  };
 
   return {
     posts, shifts, employees, filteredEmployees, loadingMeta, metaError, loadingGrid,
@@ -267,5 +287,6 @@ export const useShiftGrid = () => {
     isListModalOpen, setIsListModalOpen,
     listCell, setListCell, listEmployees,
     handleDelete, handleSavePlanning,
+    fileInputRef, handleImportClick, handleImportFile,
   };
 };

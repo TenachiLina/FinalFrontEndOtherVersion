@@ -1,9 +1,8 @@
 export interface Cell {
   id: string;
   title: string;
+  planningId?: string;
 }
-
-export type GridData = Record<number, Record<string, Cell[]>>;
 
 export const POSTS = [
   { id: 1,  label: "Pizzaiolo" },
@@ -25,3 +24,20 @@ export const SHIFTS = [
   { id: "shift-2", label: "16:00 PM - 00:00 AM", sub: "Evening" },
   { id: "shift-3", label: "16:00 PM - 00:00 AM", sub: "Evening" },
 ];
+
+// ─── API types ────────────────────────────────────────────────────────────────
+
+export interface ShiftRecord   { _id: string; startTime: string; endTime: string; }
+export interface TaskRecord    { _id: string; taskId: number; taskName: string; }
+export interface EmployeeRecord { _id: string; empNumber: number; firstName: string; lastName: string; }
+export interface PlanningRecord {
+  _id: string;
+  shiftId: ShiftRecord;
+  empId: EmployeeRecord;
+  taskId: number;
+  planDate: string;
+}
+
+export interface Post  { id: number; label: string; mongoId: string; }
+export interface Shift { id: string; label: string; sub: string; }
+export type GridData = Record<number, Record<string, Cell[]>>;

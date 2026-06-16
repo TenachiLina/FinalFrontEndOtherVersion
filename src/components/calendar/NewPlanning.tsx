@@ -19,6 +19,7 @@ const ShiftGrid: React.FC = () => {
   isListModalOpen, setIsListModalOpen,
   listCell, setListCell, listEmployees,
   handleDelete, handleSavePlanning,
+  fileInputRef, handleImportClick, handleImportFile,
 } = useShiftGrid();
 
   const activePost  = activeCell ? posts.find((p) => p.id === activeCell.postId)  : null;
@@ -119,10 +120,40 @@ const ShiftGrid: React.FC = () => {
                   <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
                 </button>
               </div>
-              <span className="text-sm font-medium text-gray-800 dark:text-white">{formattedDate}</span>
-              {loadingGrid && (
+              <span className="text-sm font-medium text-gray-800 dark:text-white mr-19">{formattedDate}</span>
+              {/* {loadingGrid && (
                 <span className="ml-2 text-xs text-gray-400 animate-pulse">Loading…</span>
-              )}
+              )} */}
+
+              <div className="flex items-center gap-3">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".xlsx,.xls"
+                  hidden
+                  onChange={handleImportFile}
+                />
+
+                <Button
+                  size="sm"
+                  variant="primary"
+                  onClick={handleImportClick}
+                >
+                  <ArrowDownTrayIcon
+                    className="w-4 h-4 text-gray-100"
+                    strokeWidth={3}
+                  />
+                  Import Planning
+                </Button>
+
+                <Button
+                  size="sm"
+                  variant="primary"
+                  onClick={() => handleSavePlanning()}  
+                >
+                  Save Planning
+                </Button>
+              </div>
             </div>
 
             {/* Table */}
@@ -200,83 +231,83 @@ const ShiftGrid: React.FC = () => {
           </div>
 
           {/* ── Add Modal ─────────────────────────────────────────────────── */}
-      <Modal isOpen={isOpen} onClose={handleClose} className="max-w-[500px] p-6 lg:p-10">
-  <div className="flex flex-col gap-6">
-    <div>
-      <h5 className="mb-1 font-semibold text-gray-800 text-theme-xl dark:text-white/90 lg:text-2xl">
-        Add Assignment
-      </h5>
-      {activePost && activeShift && (
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          {activePost.label}: {activeShift.label}
-        </p>
-      )}
-    </div>
+          <Modal isOpen={isOpen} onClose={handleClose} className="max-w-[500px] p-6 lg:p-10">
+            <div className="flex flex-col gap-6">
+              <div>
+                <h5 className="mb-1 font-semibold text-gray-800 text-theme-xl dark:text-white/90 lg:text-2xl">
+                  Add Assignment
+                </h5>
+                {activePost && activeShift && (
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {activePost.label}: {activeShift.label}
+                  </p>
+                )}
+              </div>
 
-    {/* Search input */}
-    <div className="relative">
-      <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
-        Search Employee
-      </label>
-      <input
-        autoFocus
-        type="text"
-        value={selectedEmployee
-          ? `${selectedEmployee.firstName} ${selectedEmployee.lastName}`
-          : empSearch}
-        onChange={(e) => { setEmpSearch(e.target.value); setSelectedEmployee(null); }}
-        placeholder="Type a name or employee number…"
-        className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
-      />
+              {/* Search input */}
+              <div className="relative">
+                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                  Search Employee
+                </label>
+                <input
+                  autoFocus
+                  type="text"
+                  value={selectedEmployee
+                    ? `${selectedEmployee.firstName} ${selectedEmployee.lastName}`
+                    : empSearch}
+                  onChange={(e) => { setEmpSearch(e.target.value); setSelectedEmployee(null); }}
+                  placeholder="Type a name or employee number…"
+                  className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+                />
 
-      {/* Dropdown list */}
-      {!selectedEmployee && empSearch.length > 0 && (
-        <ul className="absolute z-50 mt-1 w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg max-h-48 overflow-y-auto">
-          {filteredEmployees.length === 0 ? (
-            <li className="px-4 py-3 text-sm text-gray-400">No employees found</li>
-          ) : filteredEmployees.map((emp) => (
-            <li
-              key={emp._id}
-              onClick={() => { setSelectedEmployee(emp); setEmpSearch(""); }}
-              className="flex items-center justify-between px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-brand-50 dark:hover:bg-brand-900/20 cursor-pointer"
-            >
-              <span>{emp.firstName} {emp.lastName}</span>
-              <span className="text-xs text-gray-400 font-mono">#{emp.empNumber}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+                {/* Dropdown list */}
+                {!selectedEmployee && empSearch.length > 0 && (
+                  <ul className="absolute z-50 mt-1 w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg max-h-48 overflow-y-auto">
+                    {filteredEmployees.length === 0 ? (
+                      <li className="px-4 py-3 text-sm text-gray-400">No employees found</li>
+                    ) : filteredEmployees.map((emp) => (
+                      <li
+                        key={emp._id}
+                        onClick={() => { setSelectedEmployee(emp); setEmpSearch(""); }}
+                        className="flex items-center justify-between px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-brand-50 dark:hover:bg-brand-900/20 cursor-pointer"
+                      >
+                        <span>{emp.firstName} {emp.lastName}</span>
+                        <span className="text-xs text-gray-400 font-mono">#{emp.empNumber}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
 
-    {/* Selected badge */}
-    {selectedEmployee && (
-      <div className="flex items-center justify-between rounded-lg bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 px-3 py-2">
-        <span className="text-sm font-medium text-brand-700 dark:text-brand-300">
-          ✓ {selectedEmployee.firstName} {selectedEmployee.lastName}
-          <span className="ml-2 text-xs text-brand-400">#{selectedEmployee.empNumber}</span>
-        </span>
-        <button
-          onClick={() => { setSelectedEmployee(null); setEmpSearch(""); }}
-          className="text-brand-400 hover:text-brand-600 text-xs"
-        >
-          ✕
-        </button>
-      </div>
-    )}
+              {/* Selected badge */}
+              {selectedEmployee && (
+                <div className="flex items-center justify-between rounded-lg bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 px-3 py-2">
+                  <span className="text-sm font-medium text-brand-700 dark:text-brand-300">
+                    ✓ {selectedEmployee.firstName} {selectedEmployee.lastName}
+                    <span className="ml-2 text-xs text-brand-400">#{selectedEmployee.empNumber}</span>
+                  </span>
+                  <button
+                    onClick={() => { setSelectedEmployee(null); setEmpSearch(""); }}
+                    className="text-brand-400 hover:text-brand-600 text-xs"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
 
-    <div className="flex items-center gap-3 sm:justify-end">
-      <button onClick={handleClose} type="button"
-        className="flex w-full justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] sm:w-auto">
-        Cancel
-      </button>
-      <button onClick={handleSave} type="button"
-        disabled={!selectedEmployee}
-        className="flex w-full justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-40 disabled:cursor-not-allowed sm:w-auto">
-        Add
-      </button>
-    </div>
-  </div>
-</Modal>
+              <div className="flex items-center gap-3 sm:justify-end">
+                <button onClick={handleClose} type="button"
+                  className="flex w-full justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] sm:w-auto">
+                  Cancel
+                </button>
+                <button onClick={handleSave} type="button"
+                  disabled={!selectedEmployee}
+                  className="flex w-full justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-40 disabled:cursor-not-allowed sm:w-auto">
+                  Add
+                </button>
+              </div>
+            </div>
+          </Modal>
 
           {/* ── List Modal ────────────────────────────────────────────────── */}
           <Modal isOpen={isListModalOpen} onClose={() => setIsListModalOpen(false)} className="max-w-[400px] p-6 relative">
@@ -321,21 +352,6 @@ const ShiftGrid: React.FC = () => {
             </div>
           </Modal>
         </div>
-      </div>
-
-      {/* ── Action Buttons ─────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-5">
-        <Button size="sm" variant="primary" onClick={handleSavePlanning}>
-          Save Planning
-        </Button>
-        <Button size="md" variant="primary">
-          <ArrowDownTrayIcon className="w-4 h-4 text-gray-100" strokeWidth={3} />
-          Import Planning
-        </Button>
-        <Button size="md" variant="primary">
-          <ArrowTopRightOnSquareIcon className="w-4 h-4 text-gray-100" strokeWidth={3} />
-          Export Planning
-        </Button>
       </div>
     </>
   );
