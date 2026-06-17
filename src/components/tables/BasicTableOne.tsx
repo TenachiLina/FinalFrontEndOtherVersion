@@ -55,6 +55,22 @@ const emptyForm = () => ({
   baseSalary: "", address: "", phoneNumber: "", personalImage: "",
 });
 
+// ── Field helper ──────────────────────────────────────────────────────────
+ // ── Field helper — OUTSIDE the component ─────────────────────────────────────
+const Field = ({
+  label, name, type = "text", value, onChange,
+}: {
+  label: string; name: string; type?: string; value: string;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+}) => (
+  <div className="flex flex-col gap-1">
+    <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">{label}</label>
+    <input type={type} name={name} value={value} onChange={onChange}
+      className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 dark:border-white/[0.1] dark:bg-white/[0.05] dark:text-gray-200 transition"
+    />
+  </div>
+);
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function BasicTableOne() {
@@ -185,15 +201,7 @@ export default function BasicTableOne() {
     }
   };
 
-  // ── Field helper ──────────────────────────────────────────────────────────
-  const Field = ({ label, name, type = "text", value }: { label: string; name: string; type?: string; value: string }) => (
-    <div className="flex flex-col gap-1">
-      <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">{label}</label>
-      <input type={type} name={name} value={value} onChange={handleChange}
-        className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 dark:border-white/[0.1] dark:bg-white/[0.05] dark:text-gray-200 transition"
-      />
-    </div>
-  );
+  
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -209,14 +217,14 @@ export default function BasicTableOne() {
             </div>
             <div className="flex-1 overflow-y-auto px-6 py-5 flex flex-col gap-4">
               {apiError && <div className="rounded-lg border border-red-200 bg-red-50 dark:bg-red-900/20 px-3 py-2 text-sm text-red-600">⚠ {apiError}</div>}
-              <Field label="Employee Number" name="empNumber" type="number" value={form.empNumber} />
+<Field label="Employee Number" name="empNumber" type="number" value={form.empNumber} onChange={handleChange} />
               <div className="grid grid-cols-2 gap-3">
-                <Field label="First Name"  name="firstName" value={form.firstName} />
-                <Field label="Last Name"   name="lastName"  value={form.lastName} />
+<Field label="First Name"  name="firstName" value={form.firstName} onChange={handleChange} />
+<Field label="Last Name"   name="lastName"  value={form.lastName}  onChange={handleChange} />
               </div>
-              <Field label="Base Salary"  name="baseSalary"  type="number" value={form.baseSalary} />
-              <Field label="Address"      name="address"     value={form.address} />
-              <Field label="Phone"        name="phoneNumber" value={form.phoneNumber} />
+<Field label="Base Salary" name="baseSalary" type="number" value={form.baseSalary} onChange={handleChange} />
+<Field label="Address"     name="address"    value={form.address}   onChange={handleChange} />
+<Field label="Phone"       name="phoneNumber" value={form.phoneNumber} onChange={handleChange} />
             </div>
             <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 dark:border-white/[0.07]">
               <button onClick={() => setShowForm(false)} className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:border-white/[0.1] dark:text-gray-300 dark:hover:bg-white/[0.05] transition-colors">Cancel</button>
