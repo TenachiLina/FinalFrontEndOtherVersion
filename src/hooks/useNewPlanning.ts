@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useModal } from "@/hooks/useModal";
-import {Cell, EmployeeRecord, GridData, PlanningRecord, Post, POSTS, Shift, ShiftRecord, SHIFTS, TaskRecord } from "../components/calendar/types";
+import {Cell, EmployeeRecord, GridData, PlanningRecord, Post, Shift, ShiftRecord, TaskRecord } from "../components/calendar/types";
 import * as XLSX from 'xlsx';
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";

@@ -3,7 +3,7 @@ import React from "react";
 import { Modal } from "@/components/ui/modal";
 import Button from "@/components/ui/button/Button";
 import { ArrowDownTrayIcon, ArrowTopRightOnSquareIcon } from "@heroicons/react/24/outline";
-import { useShiftGrid } from "@/hooks/useShiftGrid";
+import { useShiftGrid } from "@/hooks/useNewPlanning";
 
 const ShiftGrid: React.FC = () => {
   const {

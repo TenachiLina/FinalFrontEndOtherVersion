@@ -38,28 +38,29 @@ const navItems: NavItem[] = [
     subItems: [
     { name: "New Planning", path: "/calendar/DoPlanning", pro: false },
     { name: "View Planning", path: "/calendar/ViewPlanning", pro: false },
+    { name: "Shifts Management", path: "/calendar/ShiftsManagment", pro: false },
     ]
   },
+  // {
+  //   icon: <UserCircleIcon />,
+  //   name: "User Profile",
+  //   path: "/profile",
+  // },
   {
-    icon: <UserCircleIcon />,
-    name: "User Profile",
-    path: "/profile",
-  },
-{
     icon: <UserCircleIcon />,
     name: "Clock In / Out",
     path: "/clockinpage",
   },
-{
-    icon: <UserCircleIcon />,
-    name: "Add Employee",
-    path: "/addEmployeeForm",
-},
-  {
-    name: "Forms",
-    icon: <ListIcon />,
-    subItems: [{ name: "Form Elements", path: "/addEmployeeForm", pro: false }],
-  },
+  // {
+  //   icon: <UserCircleIcon />,
+  //   name: "Add Employee",
+  //   path: "/addEmployeeForm",
+  // },
+  // {
+  //   name: "Forms",
+  //   icon: <ListIcon />,
+  //   subItems: [{ name: "Form Elements", path: "/addEmployeeForm", pro: false }],
+  // },
   {
     name: "Employees Management",
     icon: <TableIcon />,
@@ -67,15 +68,14 @@ const navItems: NavItem[] = [
       { name: "Basic Tables", path: "/basic-tables", pro: false },
     ],
   },
-  
-  {
-    name: "Pages",
-    icon: <PageIcon />,
-    subItems: [
-      { name: "Blank Page", path: "/blank", pro: false },
-      { name: "404 Error", path: "/error-404", pro: false },
-    ],
-  },
+  // {
+  //   name: "Pages",
+  //   icon: <PageIcon />,
+  //   subItems: [
+  //     { name: "Blank Page", path: "/blank", pro: false },
+  //     { name: "404 Error", path: "/error-404", pro: false },
+  //   ],
+  // },
 ];
 
 const othersItems: NavItem[] = [
