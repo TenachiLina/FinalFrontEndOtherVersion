@@ -65,7 +65,9 @@ const navItems: NavItem[] = [
     name: "Employees Management",
     icon: <TableIcon />,
     subItems: [
-      { name: "Basic Tables", path: "/basic-tables", pro: false },
+      { name: "Add Employee", path: "/addEmployeeForm", pro: false },
+      { name: "View Employees", path: "/basic-tables", pro: false },
+
     ],
   },
   // {
