@@ -99,13 +99,13 @@ export default function ShiftsManagementPage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={4} className="p-6 text-center">
+                  <td colSpan={3} className="p-6 text-center">
                     Loading...
                   </td>
                 </tr>
               ) : shifts.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="p-6 text-center">
+                  <td colSpan={3} className="p-6 text-center">
                     No shifts found.
                   </td>
                 </tr>
@@ -122,33 +122,33 @@ export default function ShiftsManagementPage() {
                           <>
                             <button
                               onClick={() => openEditModal(shift)}
-                              className="rounded border px-3 py-1"
+                              className="rounded border border-yellow-500 px-3 py-1 text-yellow-500 hover:bg-orange-50"
                             >
                               Edit
                             </button>
-
                             <button
                               onClick={() => archiveShift(shift)}
-                              className="rounded border px-3 py-1"
+                              className="rounded border border-orange-500 px-3 py-1 text-orange-500 hover:bg-orange-50"
                             >
                               Archive
                             </button>
                           </>
                         ) : (
-                          <button
+                          <>
+                           <button
                             onClick={() => restoreShift(shift)}
-                            className="rounded border px-3 py-1"
-                          >
+                            className="rounded border border-green-500 px-3 py-1 text-green-500 hover:bg-green-50"
+                           >
                             Restore
-                          </button>
+                           </button>
+                           <button
+                            onClick={() => requestDelete(shift)}
+                            className="rounded border border-red-300 px-3 py-1 text-red-600"
+                           >
+                              Delete
+                           </button>
+                          </>                          
                         )}
-
-                        <button
-                          onClick={() => requestDelete(shift)}
-                          className="rounded border border-red-300 px-3 py-1 text-red-600"
-                        >
-                          Delete
-                        </button>
                       </div>
                     </td>
                   </tr>
@@ -167,27 +167,32 @@ export default function ShiftsManagementPage() {
               {modalMode === "add" ? "Add Shift" : "Edit Shift"}
             </h2>
 
-            <div className="space-y-4">
-              <input
-                value={form.name}
-                onChange={(e) => updateForm("name", e.target.value)}
-                placeholder="Shift Name"
-                className="w-full rounded-lg border p-3"
-              />
+            <div className="space-y-3">
+              <div>
+                <label htmlFor="shift-start-time" className="mb-1.5 block text-sm font-medium text-gray-700">
+                  Start time
+                </label>
+                <input
+                  id="shift-start-time"
+                  type="time"
+                  value={form.startTime}
+                  onChange={(e) => updateForm("startTime", e.target.value)}
+                  className="w-full rounded-lg border p-3"
+                />
+              </div>
 
-              <input
-                type="time"
-                value={form.startTime}
-                onChange={(e) => updateForm("startTime", e.target.value)}
-                className="w-full rounded-lg border p-3"
-              />
-
-              <input
-                type="time"
-                value={form.endTime}
-                onChange={(e) => updateForm("endTime", e.target.value)}
-                className="w-full rounded-lg border p-3"
-              />
+              <div>
+                <label htmlFor="shift-end-time" className="mb-1.5 block text-sm font-medium text-gray-700">
+                  End time
+                </label>
+                <input
+                  id="shift-end-time"
+                  type="time"
+                  value={form.endTime}
+                  onChange={(e) => updateForm("endTime", e.target.value)}
+                  className="w-full rounded-lg border p-3"
+                />
+              </div>
 
               {formError && (
                 <div className="text-sm text-red-500">
@@ -261,3 +266,8 @@ export default function ShiftsManagementPage() {
     </div>
   );
 }
+
+
+
+
+

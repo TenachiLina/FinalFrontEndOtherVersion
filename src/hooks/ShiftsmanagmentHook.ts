@@ -19,16 +19,15 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
 
 export interface ManagedShift {
   _id: string;
-  name?: string;
   startTime: string; // "HH:mm"
   endTime: string; // "HH:mm"
   isArchived: boolean;
 }
 
 type ShiftView = "active" | "archived";
-type ShiftForm = { name: string; startTime: string; endTime: string };
+type ShiftForm = {startTime: string; endTime: string };
 
-const emptyForm: ShiftForm = { name: "", startTime: "", endTime: "" };
+const emptyForm: ShiftForm = {startTime: "", endTime: "" };
 
 export const useShiftsManagement = () => {
   const { isOpen, openModal, closeModal } = useModal();
@@ -77,7 +76,7 @@ export const useShiftsManagement = () => {
     (shift: ManagedShift) => {
       setModalMode("edit");
       setEditingShift(shift);
-      setForm({ name: shift.name ?? "", startTime: shift.startTime, endTime: shift.endTime });
+      setForm({startTime: shift.startTime, endTime: shift.endTime });
       setFormError(null);
       openModal();
     },
@@ -100,15 +99,20 @@ export const useShiftsManagement = () => {
       setFormError("Start time and end time are required.");
       return;
     }
-    if (form.endTime <= form.startTime) {
-      setFormError("End time must be after start time.");
+    if (form.startTime > form.endTime) {
+      setFormError("Start time must be before end time.");
       return;
     }
+    if (form.endTime === form.startTime) {
+      setFormError("Start time and end time can't be the same.");
+      return;
+    }
+    // Note: endTime <= startTime is allowed on purpose — it just means the
+    // shift crosses midnight (e.g. 16:00 → 01:00 runs into the next day).
     setSaving(true);
     setFormError(null);
     try {
       const payload = {
-        name: form.name.trim() || undefined,
         startTime: form.startTime,
         endTime: form.endTime,
       };
