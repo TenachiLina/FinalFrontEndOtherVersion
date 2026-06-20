@@ -361,40 +361,6 @@ export const useShiftGrid = () => {
   setGrid(importedGrid);
   e.target.value = "";
   };
-  // const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-  // const file = e.target.files?.[0];
-  // if (!file) return;
-
-  // const data = await file.arrayBuffer();
-  // const workbook = XLSX.read(data, { type: "array" });
-  // const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-  // const rows = XLSX.utils.sheet_to_json<Record<string, string>>(worksheet);
-
-  // const importedGrid = buildEmptyGrid(posts, shifts);
-
-  // rows.forEach((row) => {
-  //   const taskName = row.Task;
-  //   const post = posts.find((p) => p.label === taskName);
-  //   if (!post) return;
-
-  //   shifts.forEach((shift) => {
-  //     const cellValue = row[shift.label];
-  //     if (!cellValue) return;
-
-  //     importedGrid[post.id][shift.id] = String(cellValue)
-  //       .split("\n")
-  //       .filter(Boolean)
-  //       .map((name, index) => ({
-  //         id: `${post.id}-${shift.id}-${index}-${Date.now()}`,
-  //         title: name.trim(),
-  //       }));
-  //   });
-  // });
-
-  // setGrid(importedGrid);
-  // e.target.value = "";
-  // };
-
   return {
     posts, shifts, employees, filteredEmployees, loadingMeta, metaError, loadingGrid,
     grid,
