@@ -20,6 +20,7 @@ const ShiftGrid: React.FC = () => {
   listCell, setListCell, listEmployees,
   handleDelete, handleSavePlanning,
   fileInputRef, handleImportClick, handleImportFile,
+  handleDuplicateToWeekday,
 } = useShiftGrid();
 
   const activePost  = activeCell ? posts.find((p) => p.id === activeCell.postId)  : null;
@@ -120,12 +121,12 @@ const ShiftGrid: React.FC = () => {
                   <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
                 </button>
               </div>
-              <span className="text-sm font-medium text-gray-800 dark:text-white mr-15">{formattedDate}</span>
+              <span className="text-sm font-medium text-gray-800 dark:text-white mr-2">{formattedDate}</span>
               {/* {loadingGrid && (
                 <span className="ml-2 text-xs text-gray-400 animate-pulse">Loading…</span>
               )} */}
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1">
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -145,19 +146,17 @@ const ShiftGrid: React.FC = () => {
                   />
                   Import Planning
                 </Button>
-
+                
                 <Button
                   size="sm"
                   variant="primary"
-                  onClick={() => {
-                    const replaceExisting = window.confirm(
-                      "Replace existing planning for this day?\n\nOK = Replace\nCancel = Add only new entries"
-                    );
-
-                    handleSavePlanning(replaceExisting);
-                  }}
+                  onClick={() => handleSavePlanning()}  
                 >
                   Save Planning
+                </Button>
+
+                <Button size="sm" variant="primary" onClick={handleDuplicateToWeekday}>
+                  Copy to all {currentDate.toLocaleDateString("en-US", { weekday: "long" })}s
                 </Button>
               </div>
             </div>

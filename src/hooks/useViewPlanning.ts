@@ -39,7 +39,7 @@ export const useViewPlanning = () => {
   const goPrev = () => setCurrentDate((d) => { const n = new Date(d); n.setDate(d.getDate() - 1); return n; });
   const goNext = () => setCurrentDate((d) => { const n = new Date(d); n.setDate(d.getDate() + 1); return n; });
 
-  const formattedDate = currentDate.toLocaleDateString("en-US", {
+  const formattedDate = currentDate.toLocaleDateString("en-CA", {
     month: "long", day: "numeric", year: "numeric",
   });
 

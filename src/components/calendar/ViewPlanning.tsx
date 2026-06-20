@@ -49,7 +49,7 @@ const ViewCalender: React.FC = () => {
         <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] p-4 min-w-[260px]">
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm font-semibold text-gray-800 dark:text-white">
-              {calendarMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+              {calendarMonth.toLocaleDateString("en-CA", { month: "long", year: "numeric" })}
             </span>
             <div className="flex gap-1">
               <button onClick={() => setCalendarMonth((d) => new Date(d.getFullYear(), d.getMonth() - 1))} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500">

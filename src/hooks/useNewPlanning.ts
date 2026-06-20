@@ -205,89 +205,115 @@ export const useShiftGrid = () => {
     setActiveCell(null);
   }, [activeCell, closeModal]);
 
-  // // ── Save planning to DB ───────────────────────────────────────────────────
-  // const handleSavePlanning = useCallback(async () => {
-  //   const planDate = currentDate.toLocaleDateString('en-CA', { timeZone: 'Africa/Algiers' }); // → "YYYY-MM-DD"
+  // ── Save planning to DB ───────────────────────────────────────────────────
+  const handleSavePlanning = useCallback(async () => {
+    const planDate = currentDate.toLocaleDateString('en-CA', { timeZone: 'Africa/Algiers' }); // → "YYYY-MM-DD"
 
-  //   const entries: { shiftId: string; empId: string; taskId: number; planDate: string }[] = [];
-  //   posts.forEach((post) => {
-  //     shifts.forEach((shift) => {
-  //       (grid[post.id]?.[shift.id] ?? []).forEach((cell) => {
-  //         entries.push({ shiftId: shift.id, empId: cell.id, taskId: post.id, planDate });
-  //       });
-  //     });
-  //   });
-
-  //   if (entries.length === 0) { alert("No employees planned for this day."); return; }
-
-  //   try {
-  //     const res = await fetch(`${BASE}/planning/bulk`, {
-  //       method: "POST",
-  //       headers: { "Content-Type": "application/json" },
-  //       body: JSON.stringify({ entries, planDate }),
-  //     });
-  //     if (!res.ok) throw new Error("Failed to save");
-  //     alert("Planning saved!");
-  //   } catch (err) {
-  //     console.error(err);
-  //     alert("Error saving planning.");
-  //   }
-  // }, [grid, currentDate, posts, shifts]);
-  const handleSavePlanning = useCallback(
-  async (replaceExisting: boolean) => {
-    const planDate = currentDate.toLocaleDateString("en-CA", {
-      timeZone: "Africa/Algiers",
-    });
-
-    const entries: {
-      shiftId: string;
-      empId: string;
-      taskId: number;
-      planDate: string;
-    }[] = [];
-
+    const entries: { shiftId: string; empId: string; taskId: number; planDate: string }[] = [];
     posts.forEach((post) => {
       shifts.forEach((shift) => {
         (grid[post.id]?.[shift.id] ?? []).forEach((cell) => {
-          entries.push({
-            shiftId: shift.id,
-            empId: cell.id,
-            taskId: post.id,
-            planDate,
-          });
+          entries.push({ shiftId: shift.id, empId: cell.id, taskId: post.id, planDate });
         });
       });
     });
 
-    if (entries.length === 0) {
-      alert("No employees planned for this day.");
-      return;
-    }
+    if (entries.length === 0) { alert("No employees planned for this day."); return; }
 
     try {
       const res = await fetch(`${BASE}/planning/bulk`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          entries,
-          planDate,
-          replaceExisting,
-        }),
+        body: JSON.stringify({ entries, planDate }),
       });
-
       if (!res.ok) throw new Error("Failed to save");
-
       alert("Planning saved!");
     } catch (err) {
       console.error(err);
       alert("Error saving planning.");
     }
-  },
-  [grid, currentDate, posts, shifts]
-  );
+  }, [grid, currentDate, posts, shifts]);
+
+
+
+  // ── Save planning to weekday ───────────────────────────────────────────────────
+  const getSameWeekdayDatesInMonth = (date: Date): Date[] => {
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  const weekday = date.getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  const result: Date[] = [];
+  for (let day = 1; day <= daysInMonth; day++) {
+    const d = new Date(year, month, day);
+    if (d.getDay() === weekday) result.push(d);
+  }
+  return result;
+  };
+
+  const handleDuplicateToWeekday = useCallback(async () => {
+    const entries: { shiftId: string; empId: string; taskId: number }[] = [];
+    posts.forEach((post) => {
+      shifts.forEach((shift) => {
+        (grid[post.id]?.[shift.id] ?? []).forEach((cell) => {
+          entries.push({ shiftId: shift.id, empId: cell.id, taskId: post.id });
+        });
+      });
+    });
+   
+    if (entries.length === 0) {
+      alert("No employees planned for this day.");
+      return;
+    }
+
+    const targetDates = getSameWeekdayDatesInMonth(currentDate).filter(
+      (d) => d.toDateString() !== currentDate.toDateString()
+    );
+    if (targetDates.length === 0) return;
+
+    const weekdayName = currentDate.toLocaleDateString("en-US", { weekday: "long" });
+    const confirmed = confirm(
+      `Copy today's planning to ${targetDates.length} other ${weekdayName}(s) this month? This will overwrite any existing planning on those dates.`
+    );
+    if (!confirmed) return;
+
+    try {
+      const results = await Promise.allSettled(
+      targetDates.map(async (date) => {
+        const planDate = date.toLocaleDateString("en-CA", { timeZone: "Africa/Algiers" });
+        const entriesWithDate = entries.map((e) => ({ ...e, planDate }));
+
+        const res = await fetch(`${BASE}/planning/bulk`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ entries: entriesWithDate, planDate }),
+        });
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(`${planDate}: ${res.status} ${errText}`);
+        }
+        return planDate;
+      })
+      );
+
+      const failures = results.filter((r) => r.status === "rejected") as PromiseRejectedResult[];
+      if (failures.length > 0) {
+        console.error("Duplication failures:", failures.map((f) => f.reason.message));
+        alert(`Some dates failed: ${failures.map((f) => f.reason.message).join("; ")}`);
+      } else {
+        alert(`Planning duplicated to ${targetDates.length} day(s)!`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error duplicating planning.");
+    }
+  }, [grid, currentDate, posts, shifts]);
+
+
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // ── Import planning ───────────────────────────────────────────────────
   const handleImportClick = () => {
     fileInputRef.current?.click();
   };
@@ -302,6 +328,7 @@ export const useShiftGrid = () => {
   const rows = XLSX.utils.sheet_to_json<Record<string, string>>(worksheet);
 
   const importedGrid = buildEmptyGrid(posts, shifts);
+  const notFound: string[] = [];
 
   rows.forEach((row) => {
     const taskName = row.Task;
@@ -314,17 +341,59 @@ export const useShiftGrid = () => {
 
       importedGrid[post.id][shift.id] = String(cellValue)
         .split("\n")
+        .map((n) => n.trim())
         .filter(Boolean)
-        .map((name, index) => ({
-          id: `${post.id}-${shift.id}-${index}-${Date.now()}`,
-          title: name.trim(),
-        }));
+        .map((name) => {
+          const emp = employees.find(
+            (e) => `${e.firstName} ${e.lastName}`.toLowerCase() === name.toLowerCase()
+          );
+          if (!emp) { notFound.push(name); return null; }
+          return { id: emp._id, title: `${emp.firstName} ${emp.lastName}` };
+        })
+        .filter((c): c is Cell => c !== null);
     });
   });
+
+  if (notFound.length > 0) {
+    alert(`These names weren't found in the employee list and were skipped:\n${[...new Set(notFound)].join(", ")}`);
+  }
 
   setGrid(importedGrid);
   e.target.value = "";
   };
+  // const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // const file = e.target.files?.[0];
+  // if (!file) return;
+
+  // const data = await file.arrayBuffer();
+  // const workbook = XLSX.read(data, { type: "array" });
+  // const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+  // const rows = XLSX.utils.sheet_to_json<Record<string, string>>(worksheet);
+
+  // const importedGrid = buildEmptyGrid(posts, shifts);
+
+  // rows.forEach((row) => {
+  //   const taskName = row.Task;
+  //   const post = posts.find((p) => p.label === taskName);
+  //   if (!post) return;
+
+  //   shifts.forEach((shift) => {
+  //     const cellValue = row[shift.label];
+  //     if (!cellValue) return;
+
+  //     importedGrid[post.id][shift.id] = String(cellValue)
+  //       .split("\n")
+  //       .filter(Boolean)
+  //       .map((name, index) => ({
+  //         id: `${post.id}-${shift.id}-${index}-${Date.now()}`,
+  //         title: name.trim(),
+  //       }));
+  //   });
+  // });
+
+  // setGrid(importedGrid);
+  // e.target.value = "";
+  // };
 
   return {
     posts, shifts, employees, filteredEmployees, loadingMeta, metaError, loadingGrid,
@@ -340,5 +409,6 @@ export const useShiftGrid = () => {
     listCell, setListCell, listEmployees,
     handleDelete, handleSavePlanning,
     fileInputRef, handleImportClick, handleImportFile,
+    handleDuplicateToWeekday,
   };
 };
