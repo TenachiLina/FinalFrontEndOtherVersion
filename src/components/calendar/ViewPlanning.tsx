@@ -105,7 +105,7 @@ const ViewCalender: React.FC = () => {
                   <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
                 </button>
               </div>
-              <span className="text-sm font-medium text-gray-800 dark:text-white mr-50">{formattedDate}</span>
+              <span className="text-sm font-medium text-gray-800 dark:text-white mr-45">{formattedDate}</span>
             
               <div className="flex items-center gap-5">
                 <Button size="md" variant="primary" onClick={handleExport}>

@@ -88,29 +88,29 @@ export const useShiftGrid = () => {
   }, []);
 
   // ── Load planning for currentDate ─────────────────────────────────────────
-  useEffect(() => {
-    if (!posts.length || !shifts.length) return;
-    const dateStr = currentDate.toISOString().slice(0, 10);
-    setLoadingGrid(true);
-    apiFetch<PlanningRecord[]>(`/planning?planDate=${dateStr}`)
-      .then((records) => {
-        const newGrid = buildEmptyGrid(posts, shifts);
-        records.forEach((p) => {
-          const shiftId = p.shiftId._id;
-          const taskId  = p.taskId;
-          if (newGrid[taskId] && newGrid[taskId][shiftId] !== undefined) {
-            newGrid[taskId][shiftId].push({
-              id: p.empId._id,
-              title: `${p.empId.firstName} ${p.empId.lastName}`,
-              planningId: p._id,
-            });
-          }
-        });
-        setGrid(newGrid);
-      })
-      .catch((e) => console.warn("Planning fetch failed:", e))
-      .finally(() => setLoadingGrid(false));
-  }, [currentDate, posts, shifts]);
+  // useEffect(() => {
+  //   if (!posts.length || !shifts.length) return;
+  //   const dateStr = currentDate.toISOString().slice(0, 10);
+  //   setLoadingGrid(true);
+  //   apiFetch<PlanningRecord[]>(`/planning?planDate=${dateStr}`)
+  //     .then((records) => {
+  //       const newGrid = buildEmptyGrid(posts, shifts);
+  //       records.forEach((p) => {
+  //         const shiftId = p.shiftId._id;
+  //         const taskId  = p.taskId;
+  //         if (newGrid[taskId] && newGrid[taskId][shiftId] !== undefined) {
+  //           newGrid[taskId][shiftId].push({
+  //             id: p.empId._id,
+  //             title: `${p.empId.firstName} ${p.empId.lastName}`,
+  //             planningId: p._id,
+  //           });
+  //         }
+  //       });
+  //       setGrid(newGrid);
+  //     })
+  //     .catch((e) => console.warn("Planning fetch failed:", e))
+  //     .finally(() => setLoadingGrid(false));
+  // }, [currentDate, posts, shifts]);
 
   // ── Date navigation ───────────────────────────────────────────────────────
   const goToToday = () => { const d = new Date(); setCurrentDate(d); setCalendarMonth(d); };
@@ -205,34 +205,86 @@ export const useShiftGrid = () => {
     setActiveCell(null);
   }, [activeCell, closeModal]);
 
-  // ── Save planning to DB ───────────────────────────────────────────────────
-  const handleSavePlanning = useCallback(async () => {
-    const planDate = currentDate.toLocaleDateString('en-CA', { timeZone: 'Africa/Algiers' }); // → "YYYY-MM-DD"
+  // // ── Save planning to DB ───────────────────────────────────────────────────
+  // const handleSavePlanning = useCallback(async () => {
+  //   const planDate = currentDate.toLocaleDateString('en-CA', { timeZone: 'Africa/Algiers' }); // → "YYYY-MM-DD"
 
-    const entries: { shiftId: string; empId: string; taskId: number; planDate: string }[] = [];
+  //   const entries: { shiftId: string; empId: string; taskId: number; planDate: string }[] = [];
+  //   posts.forEach((post) => {
+  //     shifts.forEach((shift) => {
+  //       (grid[post.id]?.[shift.id] ?? []).forEach((cell) => {
+  //         entries.push({ shiftId: shift.id, empId: cell.id, taskId: post.id, planDate });
+  //       });
+  //     });
+  //   });
+
+  //   if (entries.length === 0) { alert("No employees planned for this day."); return; }
+
+  //   try {
+  //     const res = await fetch(`${BASE}/planning/bulk`, {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify({ entries, planDate }),
+  //     });
+  //     if (!res.ok) throw new Error("Failed to save");
+  //     alert("Planning saved!");
+  //   } catch (err) {
+  //     console.error(err);
+  //     alert("Error saving planning.");
+  //   }
+  // }, [grid, currentDate, posts, shifts]);
+  const handleSavePlanning = useCallback(
+  async (replaceExisting: boolean) => {
+    const planDate = currentDate.toLocaleDateString("en-CA", {
+      timeZone: "Africa/Algiers",
+    });
+
+    const entries: {
+      shiftId: string;
+      empId: string;
+      taskId: number;
+      planDate: string;
+    }[] = [];
+
     posts.forEach((post) => {
       shifts.forEach((shift) => {
         (grid[post.id]?.[shift.id] ?? []).forEach((cell) => {
-          entries.push({ shiftId: shift.id, empId: cell.id, taskId: post.id, planDate });
+          entries.push({
+            shiftId: shift.id,
+            empId: cell.id,
+            taskId: post.id,
+            planDate,
+          });
         });
       });
     });
 
-    if (entries.length === 0) { alert("No employees planned for this day."); return; }
+    if (entries.length === 0) {
+      alert("No employees planned for this day.");
+      return;
+    }
 
     try {
       const res = await fetch(`${BASE}/planning/bulk`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ entries, planDate }),
+        body: JSON.stringify({
+          entries,
+          planDate,
+          replaceExisting,
+        }),
       });
+
       if (!res.ok) throw new Error("Failed to save");
+
       alert("Planning saved!");
     } catch (err) {
       console.error(err);
       alert("Error saving planning.");
     }
-  }, [grid, currentDate, posts, shifts]);
+  },
+  [grid, currentDate, posts, shifts]
+  );
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 

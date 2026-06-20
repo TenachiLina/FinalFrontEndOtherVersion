@@ -120,7 +120,7 @@ const ShiftGrid: React.FC = () => {
                   <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
                 </button>
               </div>
-              <span className="text-sm font-medium text-gray-800 dark:text-white mr-19">{formattedDate}</span>
+              <span className="text-sm font-medium text-gray-800 dark:text-white mr-15">{formattedDate}</span>
               {/* {loadingGrid && (
                 <span className="ml-2 text-xs text-gray-400 animate-pulse">Loading…</span>
               )} */}
@@ -149,7 +149,13 @@ const ShiftGrid: React.FC = () => {
                 <Button
                   size="sm"
                   variant="primary"
-                  onClick={() => handleSavePlanning()}  
+                  onClick={() => {
+                    const replaceExisting = window.confirm(
+                      "Replace existing planning for this day?\n\nOK = Replace\nCancel = Add only new entries"
+                    );
+
+                    handleSavePlanning(replaceExisting);
+                  }}
                 >
                   Save Planning
                 </Button>
