@@ -152,7 +152,7 @@ const ViewCalender: React.FC = () => {
                           ].join(" ")}
                           style={{ minWidth: "160px", height: "64px" }}
                         >
-                          {employees.length > 0 ? (
+                          {/* {employees.length > 0 ? (
                             <div className="flex flex-col gap-[2px] overflow-hidden">
                               {employees.slice(0, 2).map((emp) => (
                                 <div
@@ -176,7 +176,39 @@ const ViewCalender: React.FC = () => {
                             <div className="flex items-center justify-center h-full">
                               <span className="text-xs text-gray-400 dark:text-gray-600">-</span>
                             </div>
-                          )}
+                          )} */}
+                          {employees.length > 0 ? (
+                            <div className="flex flex-col gap-[2px] overflow-hidden">
+                              {employees.slice(0, 2).map((emp) => (
+                                <div
+                                  key={emp.id}
+                                  className="flex flex-col cursor-pointer hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+                                  onClick={(e) => { e.stopPropagation(); handleListCellClick(task.taskId, shift._id); }}
+                                >
+                                  <span className="text-[11px] px-2 py-[2px] text-gray-800 dark:text-white truncate" title={emp.title}>
+                                    {emp.title}
+                                  </span>
+                                  {emp.tasks && emp.tasks.length > 0 && (
+                                    <span className="text-[10px] text-gray-400 px-2 truncate">
+                                      {emp.tasks.map((t) => `${t.startTime}-${t.endTime} ${t.label}`).join(" · ")}
+                                    </span>
+                                  )}
+                                </div>
+                              ))}
+                              {employees.length > 2 && (
+                                <div
+                                  className="text-[10px] text-gray-400 px-2 cursor-pointer hover:text-gray-600"
+                                  onClick={(e) => { e.stopPropagation(); handleListCellClick(task.taskId, shift._id); }}
+                                >
+                                  +{employees.length - 2}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-center h-full">
+                              <span className="text-xs text-gray-400 dark:text-gray-600">-</span>
+                            </div>
+                        )}
                         </td>
                       );
                     })}

@@ -94,6 +94,7 @@ export const useViewPlanning = () => {
             id: item.empId._id,
             title: `${item.empId.firstName} ${item.empId.lastName}`,
             planningId: item._id,
+            tasks: item.tasks ?? [],   // add this
           });
         } else {
           console.warn(`No grid cell for taskId=${taskId} shiftId=${shiftId}`);

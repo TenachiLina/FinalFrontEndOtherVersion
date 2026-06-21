@@ -15,13 +15,14 @@ const ShiftGrid: React.FC = () => {
   isOpen, activeCell, empSearch, setEmpSearch, selectedEmployee, setSelectedEmployee,
   handleCellClick, handleSave, handleClose,
   isEditModalOpen, editingEmployee, editTitle, setEditTitle,
+  editTasks, addEditTask, updateEditTask, removeEditTask,
   openEditModal, handleEdit, handleCloseEditModal,
   isListModalOpen, setIsListModalOpen,
   listCell, setListCell, listEmployees,
   handleDelete, handleSavePlanning,
   fileInputRef, handleImportClick, handleImportFile,
   handleDuplicateToWeekday,
-} = useShiftGrid();
+  } = useShiftGrid();
 
   const activePost  = activeCell ? posts.find((p) => p.id === activeCell.postId)  : null;
   const activeShift = activeCell ? shifts.find((s) => s.id === activeCell.shiftId) : null;
@@ -53,6 +54,7 @@ const ShiftGrid: React.FC = () => {
       ⚠ {metaError}
     </div>
   );
+
 
   return (
     <>
@@ -196,7 +198,7 @@ const ShiftGrid: React.FC = () => {
                         >
                           {events.length > 0 ? (
                             <div className="flex flex-col gap-[2px] overflow-hidden">
-                              {events.slice(0, 2).map((emp) => (
+                              {/* {events.slice(0, 2).map((emp) => (
                                 <div key={emp.id}
                                   className="text-[11px] px-2 py-[2px] text-gray-800 dark:text-white truncate"
                                   title={emp.title}
@@ -207,6 +209,16 @@ const ShiftGrid: React.FC = () => {
                                   }}
                                 >
                                   {emp.title}
+                                </div>
+                              ))} */}
+                              {events.slice(0, 2).map((emp) => (
+                                <div key={emp.id} className="flex flex-col" onClick={(e) => { e.stopPropagation(); setListCell({ postId: post.id, shiftId: shift.id }); setIsListModalOpen(true); }}>
+                                  <span className="text-[11px] px-2 py-[2px] text-gray-800 dark:text-white truncate" title={emp.title}>{emp.title}</span>
+                                  {emp.tasks && emp.tasks.length > 0 && (
+                                    <span className="text-[10px] text-gray-400 px-2 truncate">
+                                      {emp.tasks.map((t) => `${t.startTime}-${t.endTime} ${t.label}`).join(" · ")}
+                                    </span>
+                                  )}
                                 </div>
                               ))}
                               {events.length > 2 && (
@@ -315,7 +327,7 @@ const ShiftGrid: React.FC = () => {
           </Modal>
 
           {/* ── List Modal ────────────────────────────────────────────────── */}
-          <Modal isOpen={isListModalOpen} onClose={() => setIsListModalOpen(false)} className="max-w-[400px] p-6 relative">
+          {/* <Modal isOpen={isListModalOpen} onClose={() => setIsListModalOpen(false)} className="max-w-[400px] p-6 relative">
             <div className="flex flex-col gap-4">
               <div>
                 <h3 className="text-lg font-semibold text-gray-800 dark:text-white">Employees in Shift</h3>
@@ -335,10 +347,42 @@ const ShiftGrid: React.FC = () => {
               </div>
               <button onClick={() => setIsListModalOpen(false)} type="button" className="flex w-full justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600">Hide details</button>
             </div>
-          </Modal>
+          </Modal> */}
 
+          <Modal isOpen={isListModalOpen} onClose={() => setIsListModalOpen(false)} className="max-w-[400px] p-6 relative">
+          <div className="flex flex-col gap-4">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-white">Employees in Shift</h3>
+              <p className="text-xs text-gray-400 mt-1">{listEmployees.length} assigned employee(s)</p>
+            </div>
+            <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto pr-1">
+              {listEmployees.map((emp) => (
+                <div key={emp.id} className="px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-800 text-sm text-gray-700 dark:text-white">
+                  <div className="flex items-center justify-between">
+                    <span className="truncate">{emp.title}</span>
+                    <div className="flex items-center gap-2 ml-2 shrink-0">
+                      <button onClick={() => openEditModal(emp, listCell!)} type="button" className="text-blue-400 hover:text-blue-600 text-xs font-medium">Edit</button>
+                      <button onClick={() => { if (!listCell) return; handleDelete(emp.id, listCell); if (listEmployees.length <= 1) setIsListModalOpen(false); }} type="button" className="text-red-400 hover:text-red-600 text-xs font-medium">Remove</button>
+                    </div>
+                  </div>
+                  {emp.tasks && emp.tasks.length > 0 && (
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {emp.tasks.map((t) => (
+                        <span key={t.id} className="text-[10px] text-gray-500 bg-white dark:bg-gray-700 rounded px-1.5 py-0.5">
+                          {t.startTime}-{t.endTime} {t.label}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+              {listEmployees.length === 0 && <div className="text-sm text-gray-400 text-center py-6">No employees assigned</div>}
+            </div>
+            <button onClick={() => setIsListModalOpen(false)} type="button" className="flex w-full justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600">Hide details</button>
+          </div>
+        </Modal>
           {/* ── Edit Modal ────────────────────────────────────────────────── */}
-          <Modal isOpen={isEditModalOpen} onClose={handleCloseEditModal} className="max-w-[500px] p-6 lg:p-10">
+          {/* <Modal isOpen={isEditModalOpen} onClose={handleCloseEditModal} className="max-w-[500px] p-6 lg:p-10">
             <div className="flex flex-col gap-6">
               <div>
                 <h5 className="mb-1 font-semibold text-gray-800 text-theme-xl dark:text-white/90 lg:text-2xl">Edit Assignment</h5>
@@ -350,6 +394,64 @@ const ShiftGrid: React.FC = () => {
                   className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
                 />
               </div>
+              <div className="flex items-center gap-3 sm:justify-end">
+                <button onClick={handleCloseEditModal} type="button" className="flex w-full justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] sm:w-auto">Cancel</button>
+                <button onClick={handleEdit} type="button" className="flex w-full justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 sm:w-auto">Update</button>
+              </div>
+            </div>
+          </Modal> */}
+          {/* ── Edit Modal ────────────────────────────────────────────────── */}
+          <Modal isOpen={isEditModalOpen} onClose={handleCloseEditModal} className="max-w-[500px] p-6 lg:p-10">
+            <div className="flex flex-col gap-6">
+              <div>
+                <h5 className="mb-1 font-semibold text-gray-800 text-theme-xl dark:text-white/90 lg:text-2xl">Edit Assignment</h5>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Title</label>
+                <input autoFocus type="text" value={editTitle} onChange={(e) => setEditTitle(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleEdit()} placeholder="ex: John Doe"
+                  className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+                />
+              </div>
+
+              {/* ── NEW: task breakdown ─────────────────────────────────────── */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-400">
+                    Tasks within this shift
+                  </label>
+                  <button type="button" onClick={addEditTask} className="text-xs font-medium text-brand-500 hover:text-brand-600">
+                    + Add task
+                  </button>
+                </div>
+
+                {editTasks.length === 0 && (
+                  <p className="text-xs text-gray-400 mb-2">
+                    No tasks yet — the employee is shown for the full shift. Add a task to split the time.
+                  </p>
+                )}
+
+                <div className="flex flex-col gap-2">
+                  {editTasks.map((task) => (
+                    <div key={task.id} className="flex items-center gap-2 rounded-lg border border-gray-200 dark:border-gray-700 p-2">
+                      <input type="time" value={task.startTime}
+                        onChange={(e) => updateEditTask(task.id, { startTime: e.target.value })}
+                        className="h-9 w-24 rounded-md border border-gray-300 bg-transparent px-2 text-xs text-gray-800 dark:border-gray-700 dark:text-white/90" />
+                      <span className="text-xs text-gray-400">–</span>
+                      <input type="time" value={task.endTime}
+                        onChange={(e) => updateEditTask(task.id, { endTime: e.target.value })}
+                        className="h-9 w-24 rounded-md border border-gray-300 bg-transparent px-2 text-xs text-gray-800 dark:border-gray-700 dark:text-white/90" />
+                      <input type="text" value={task.label} placeholder="Task, e.g. Reception"
+                        onChange={(e) => updateEditTask(task.id, { label: e.target.value })}
+                        className="h-9 flex-1 rounded-md border border-gray-300 bg-transparent px-2 text-xs text-gray-800 placeholder:text-gray-400 dark:border-gray-700 dark:text-white/90" />
+                      <button type="button" onClick={() => removeEditTask(task.id)} className="text-red-400 hover:text-red-600 text-xs shrink-0">✕</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {/* ── end new block ───────────────────────────────────────────── */}
+
               <div className="flex items-center gap-3 sm:justify-end">
                 <button onClick={handleCloseEditModal} type="button" className="flex w-full justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] sm:w-auto">Cancel</button>
                 <button onClick={handleEdit} type="button" className="flex w-full justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 sm:w-auto">Update</button>

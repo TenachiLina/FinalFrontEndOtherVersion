@@ -1,7 +1,8 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useModal } from "@/hooks/useModal";
-import {Cell, EmployeeRecord, GridData, PlanningRecord, Post, Shift, ShiftRecord, TaskRecord } from "../components/calendar/types";
+import {Cell, EmployeeRecord, GridData, PlanningRecord, Post, Shift, ShiftRecord, TaskRecord, ShiftTask } from "../components/calendar/types";
 import * as XLSX from 'xlsx';
+
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -47,6 +48,7 @@ export const useShiftGrid = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Cell | null>(null);
   const [editTitle,       setEditTitle]       = useState("");
+  const [editTasks, setEditTasks] = useState<ShiftTask[]>([]);
 
   // ── List modal ────────────────────────────────────────────────────────────
   const [isListModalOpen, setIsListModalOpen] = useState(false);
@@ -156,36 +158,99 @@ export const useShiftGrid = () => {
   }, [closeModal]);
 
   // ── Edit handlers ─────────────────────────────────────────────────────────
+  // const openEditModal = useCallback((emp: Cell, cell: { postId: number; shiftId: string }) => {
+  //   setActiveCell(cell);
+  //   setEditingEmployee(emp);
+  //   setEditTitle(emp.title);
+  //   setIsListModalOpen(false);
+  //   setIsEditModalOpen(true);
+  // }, []);
   const openEditModal = useCallback((emp: Cell, cell: { postId: number; shiftId: string }) => {
-    setActiveCell(cell);
-    setEditingEmployee(emp);
-    setEditTitle(emp.title);
-    setIsListModalOpen(false);
-    setIsEditModalOpen(true);
+  setActiveCell(cell);
+  setEditingEmployee(emp);
+  setEditTitle(emp.title);
+  setEditTasks(emp.tasks ?? []);
+  setIsListModalOpen(false);
+  setIsEditModalOpen(true);
+  }, []);
+  // task CRUD for the edit modal
+  const addEditTask = useCallback(() => {
+    setEditTasks((prev) => [
+      ...prev,
+      { id: crypto.randomUUID(), label: "", startTime: "", endTime: "" },
+    ]);
   }, []);
 
+  const updateEditTask = useCallback((taskId: string, patch: Partial<ShiftTask>) => {
+    setEditTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, ...patch } : t)));
+  }, []);
+
+  const removeEditTask = useCallback((taskId: string) => {
+    setEditTasks((prev) => prev.filter((t) => t.id !== taskId));
+  }, []);
+
+
+  // const handleEdit = useCallback(() => {
+  //   if (!activeCell || !editingEmployee || !editTitle.trim()) return;
+  //   const { postId, shiftId } = activeCell;
+  //   setGrid((prev) => ({
+  //     ...prev,
+  //     [postId]: {
+  //       ...prev[postId],
+  //       [shiftId]: prev[postId][shiftId].map((emp) =>
+  //         emp.id === editingEmployee.id ? { ...emp, title: editTitle.trim() } : emp
+  //       ),
+  //     },
+  //   }));
+  //   setIsEditModalOpen(false);
+  //   setEditingEmployee(null);
+  //   setEditTitle("");
+  //   setActiveCell(null);
+  // }, [activeCell, editingEmployee, editTitle]);
+
+  // const handleCloseEditModal = useCallback(() => {
+  //   setIsEditModalOpen(false);
+  //   setEditingEmployee(null);
+  //   setEditTitle("");
+  //   setActiveCell(null);
+  // }, []);
+  // handleEdit: validate + persist tasks alongside the title
   const handleEdit = useCallback(() => {
     if (!activeCell || !editingEmployee || !editTitle.trim()) return;
+
+    const invalid = editTasks.find(
+      (t) => !t.label.trim() || !t.startTime || !t.endTime || t.endTime <= t.startTime
+    );
+    if (invalid) {
+      alert("Each task needs a label, a start time, and an end time after the start time.");
+      return;
+    }
+
     const { postId, shiftId } = activeCell;
     setGrid((prev) => ({
       ...prev,
       [postId]: {
         ...prev[postId],
         [shiftId]: prev[postId][shiftId].map((emp) =>
-          emp.id === editingEmployee.id ? { ...emp, title: editTitle.trim() } : emp
+          emp.id === editingEmployee.id
+            ? { ...emp, title: editTitle.trim(), tasks: editTasks }
+            : emp
         ),
       },
     }));
     setIsEditModalOpen(false);
     setEditingEmployee(null);
     setEditTitle("");
+    setEditTasks([]);
     setActiveCell(null);
-  }, [activeCell, editingEmployee, editTitle]);
+  }, [activeCell, editingEmployee, editTitle, editTasks]);
 
+  // handleCloseEditModal: also clear editTasks
   const handleCloseEditModal = useCallback(() => {
     setIsEditModalOpen(false);
     setEditingEmployee(null);
     setEditTitle("");
+    setEditTasks([]);
     setActiveCell(null);
   }, []);
 
@@ -209,11 +274,19 @@ export const useShiftGrid = () => {
   const handleSavePlanning = useCallback(async () => {
     const planDate = currentDate.toLocaleDateString('en-CA', { timeZone: 'Africa/Algiers' }); // → "YYYY-MM-DD"
 
-    const entries: { shiftId: string; empId: string; taskId: number; planDate: string }[] = [];
+    // const entries: { shiftId: string; empId: string; taskId: number; planDate: string }[] = [];
+    // posts.forEach((post) => {
+    //   shifts.forEach((shift) => {
+    //     (grid[post.id]?.[shift.id] ?? []).forEach((cell) => {
+    //       entries.push({ shiftId: shift.id, empId: cell.id, taskId: post.id, planDate });
+    //     });
+    //   });
+    // });
+    const entries: { shiftId: string; empId: string; taskId: number; planDate: string; tasks: ShiftTask[] }[] = [];
     posts.forEach((post) => {
       shifts.forEach((shift) => {
         (grid[post.id]?.[shift.id] ?? []).forEach((cell) => {
-          entries.push({ shiftId: shift.id, empId: cell.id, taskId: post.id, planDate });
+          entries.push({ shiftId: shift.id, empId: cell.id, taskId: post.id, planDate, tasks: cell.tasks ?? [] });
         });
       });
     });
@@ -252,14 +325,23 @@ export const useShiftGrid = () => {
   };
 
   const handleDuplicateToWeekday = useCallback(async () => {
-    const entries: { shiftId: string; empId: string; taskId: number }[] = [];
+    // const entries: { shiftId: string; empId: string; taskId: number }[] = [];
+    // posts.forEach((post) => {
+    //   shifts.forEach((shift) => {
+    //     (grid[post.id]?.[shift.id] ?? []).forEach((cell) => {
+    //       entries.push({ shiftId: shift.id, empId: cell.id, taskId: post.id });
+    //     });
+    //   });
+    // });
+    const entries: { shiftId: string; empId: string; taskId: number; tasks: ShiftTask[] }[] = [];
     posts.forEach((post) => {
       shifts.forEach((shift) => {
         (grid[post.id]?.[shift.id] ?? []).forEach((cell) => {
-          entries.push({ shiftId: shift.id, empId: cell.id, taskId: post.id });
+          entries.push({ shiftId: shift.id, empId: cell.id, taskId: post.id, tasks: cell.tasks ?? [] });
         });
       });
     });
+
    
     if (entries.length === 0) {
       alert("No employees planned for this day.");
@@ -376,5 +458,6 @@ export const useShiftGrid = () => {
     handleDelete, handleSavePlanning,
     fileInputRef, handleImportClick, handleImportFile,
     handleDuplicateToWeekday,
+    editTasks, addEditTask, updateEditTask, removeEditTask,
   };
 };
