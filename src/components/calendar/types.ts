@@ -1,9 +1,3 @@
-export interface Cell {
-  id: string;
-  title: string;
-  planningId?: string;
-}
-
 export const POSTS = [
   { id: 1,  label: "Pizzaiolo" },
   { id: 2,  label: "Livreur" },
@@ -25,6 +19,21 @@ export const SHIFTS = [
   { id: "shift-3", label: "16:00 PM - 00:00 AM", sub: "Evening" },
 ];
 
+export type ShiftTask = {
+  id: string;
+  label: string;     // e.g. "Reception desk"
+  startTime: string; // "06:00"
+  endTime: string;   // "10:00"
+};
+
+// add tasks to your existing Cell type
+export type Cell = {
+  id: string;
+  title: string;
+  planningId?: string;
+  tasks?: ShiftTask[]; // new
+};
+
 // ─── API types ────────────────────────────────────────────────────────────────
 
 export interface ShiftRecord   { _id: string; startTime: string; endTime: string; }
@@ -36,6 +45,7 @@ export interface PlanningRecord {
   empId: EmployeeRecord;
   taskId: number;
   planDate: string;
+  tasks?: ShiftTask[]; 
 }
 
 export interface Post  { id: number; label: string; mongoId: string; }
