@@ -112,6 +112,25 @@ function entryToPayload(
   };
 }
 
+
+// ─── localStorage persistence ─────────────────────────────────────────────────
+
+const LS_KEY = (date: string) => `worktime_${date}`;
+
+function saveEntriesToStorage(date: string, entries: Record<string, EmployeeTimeEntry>) {
+  try {
+    localStorage.setItem(LS_KEY(date), JSON.stringify(entries));
+  } catch {}
+}
+
+function loadEntriesFromStorage(date: string): Record<string, EmployeeTimeEntry> {
+  try {
+    const raw = localStorage.getItem(LS_KEY(date));
+    return raw ? JSON.parse(raw) : {};
+  } catch { return {}; }
+}
+
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 interface AttendancePageProps {
@@ -195,20 +214,26 @@ export default function AttendancePage({
 
   // ── Load existing worktime records for the date ───────────────────────────
   useEffect(() => {
-    if (!currentDate) return;
-    getWorktimesByDate(currentDate)
-      .then((records) => {
-        setEntries((prev) => {
-          const next = { ...prev };
-          records.forEach((r) => {
-            const k = `${r.emp_id}-${r.shift_id}`;
-            if (!next[k]?._dirty) next[k] = recordToEntry(r);
-          });
-          return next;
+  if (!currentDate) return;
+  getWorktimesByDate(currentDate)
+    .then((records) => {
+      setEntries((prev) => {
+        // Start with whatever is in localStorage
+        const fromStorage = loadEntriesFromStorage(currentDate);
+        const next = { ...fromStorage };
+
+        // Overlay DB records (but don't overwrite dirty local changes)
+        records.forEach((r: any) => {
+          const k = `${r.emp_id}-${r.shift_id}`;
+          if (!next[k]?._dirty) {
+            next[k] = recordToEntry(r);
+          }
         });
-      })
-      .catch((e) => setApiError(String(e)));
-  }, [currentDate]);
+        return next;
+      });
+    })
+    .catch((e) => setApiError(String(e)));
+}, [currentDate]);
 
   // ── Derived ───────────────────────────────────────────────────────────────
 
@@ -261,14 +286,16 @@ export default function AttendancePage({
   }, [currentDate, shifts]);
 
   const updateEntry = useCallback((empNum: number, patch: Partial<EmployeeTimeEntry>) => {
-    if (!currentTab) return;
-    const k = entryKey(empNum);
-    setEntries((prev) => {
-      const updated = { ...(prev[k] ?? getEntry(empNum)), ...patch, _dirty: true };
-      scheduleSave(empNum, currentTab, updated);
-      return { ...prev, [k]: updated };
-    });
-  }, [currentTab, scheduleSave]);
+  if (!currentTab) return;
+  const k = entryKey(empNum);
+  setEntries((prev) => {
+    const updated = { ...(prev[k] ?? getEntry(empNum)), ...patch, _dirty: true };
+    scheduleSave(empNum, currentTab, updated);
+    const next = { ...prev, [k]: updated };
+    saveEntriesToStorage(currentDate, next); // ← save to localStorage
+    return next;
+  });
+}, [currentTab, currentDate, scheduleSave]);
 
   // ── Actions ───────────────────────────────────────────────────────────────
 
