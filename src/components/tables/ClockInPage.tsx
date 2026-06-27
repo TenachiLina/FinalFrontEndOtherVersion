@@ -22,10 +22,12 @@ type ShiftStatus = "present" | "absent" | "pending";
 
 /** Internal employee shape used by the table */
 interface Employee {
-  num: number;          // empNumber (numeric)
-  mongoId: string;      // _id
-  empNumber: string;    // display string e.g. "EMP-101"
+  num: number;
+  mongoId: string;
+  empNumber: string;
   FirstName: string;
+  specialClockIn?: string;  // ← add
+  specialClockOut?: string; // ← add
 }
 
 /** Internal shift shape used by the tabs */
@@ -153,7 +155,7 @@ export default function AttendancePage({
   const [search, setSearch]         = useState("");
   const [apiError, setApiError]     = useState<string | null>(null);
   const [loading, setLoading]       = useState(true);
-
+const [specialTimes, setSpecialTimes] = useState<Record<string, { clockIn?: string; clockOut?: string }>>({});
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   // ── Load employees, shifts, planning for the selected date ───────────────
@@ -202,7 +204,15 @@ export default function AttendancePage({
             assigned[empNum].push(p.shiftId._id);
           }
         });
-
+const special: Record<string, { clockIn?: string; clockOut?: string }> = {};
+planningRecords.forEach((p: any) => {
+  const firstTask = p.tasks?.[0];
+  if (firstTask?.startTime) {
+    const k = `${p.empId._id}-${p.shiftId._id}`;
+    special[k] = { clockIn: firstTask.startTime, clockOut: firstTask.endTime };
+  }
+});
+setSpecialTimes(special);
         setEmployees(mappedEmployees);
         setShifts(mappedShifts);
         setAssignedShifts(assigned);
@@ -465,8 +475,11 @@ if (!loading && !shifts.length) return (
               ) : filteredEmployees.map((emp) => {
                 const entry   = getEntry(emp.num);
                 const status  = getStatus(entry);
-                const lateMin = calcLate(entry.clockIn, currentShift?.start_time ?? "");
-                const otMin   = calcOvertime(entry.clockOut, currentShift?.end_time ?? "");
+                const st = specialTimes[`${emp.mongoId}-${currentTab}`];
+const effectiveStart = st?.clockIn  ?? currentShift?.start_time ?? "";
+const effectiveEnd   = st?.clockOut ?? currentShift?.end_time   ?? "";
+const lateMin = calcLate(entry.clockIn, effectiveStart);
+const otMin   = calcOvertime(entry.clockOut, effectiveEnd);
                 const hours   = calcHours(entry.clockIn, entry.clockOut);
 
                 return (
