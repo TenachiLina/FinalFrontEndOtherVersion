@@ -50,6 +50,24 @@ export const useViewPlanning = () => {
   const [listCell, setListCell] = useState<{ postId: number; shiftId: string } | null>(null);
   const listEmployees = listCell ? (grid[listCell.postId]?.[listCell.shiftId] ?? []) : [];
 
+  const [showExportDayMenu, setShowExportDayMenu] = useState(false);
+  const [showWeeklyExportMenu, setShowWeeklyExportMenu] = useState(false);
+
+  const toggleExportMenu = () => {
+    setShowExportDayMenu((prev) => !prev);
+    setShowWeeklyExportMenu(false);
+  };
+
+  const toggleWeeklyExportMenu = () => {
+    setShowWeeklyExportMenu((prev) => !prev);
+    setShowExportDayMenu(false);
+  };
+
+  const closeMenus = () => {
+    setShowExportDayMenu(false);
+    setShowWeeklyExportMenu(false);
+  };
+
   // ── Fetch meta once ──────────────────────────────────────────────
   useEffect(() => {
     setLoadingMeta(true);
@@ -127,33 +145,67 @@ export const useViewPlanning = () => {
   }, []);
 
   const handleExport = () => {
-    const shiftLabels = shifts.map((s) => `${s.startTime} - ${s.endTime}`);
+      const shiftLabels = shifts.map((s) => `${s.startTime} - ${s.endTime}`);
 
-    const rows = tasks.map((task) => {
-      const row: Record<string, string> = { Task: task.taskName };
-      shifts.forEach((shift) => {
-        const emps = grid[task.taskId]?.[shift._id] ?? [];
-        row[`${shift.startTime} - ${shift.endTime}`] = emps.map((emp) => emp.title).join('\n');
+      const rows = tasks.map((task) => {
+        const row: Record<string, string> = { Task: task.taskName };
+        shifts.forEach((shift) => {
+          const emps = grid[task.taskId]?.[shift._id] ?? [];
+          row[`${shift.startTime} - ${shift.endTime}`] = emps.map((emp) => emp.title).join('\n');
+        });
+        return row;
       });
-      return row;
-    });
 
-    const worksheet = XLSX.utils.json_to_sheet(rows, { header: ['Task', ...shiftLabels] });
+      const worksheet = XLSX.utils.json_to_sheet(rows, { header: ['Task', ...shiftLabels] });
 
-    Object.keys(worksheet).forEach((key) => {
-      if (key.startsWith('!')) return;
-      if (!worksheet[key].s) worksheet[key].s = {};
-      worksheet[key].s = { alignment: { wrapText: true, vertical: 'top' } };
-    });
+      Object.keys(worksheet).forEach((key) => {
+        if (key.startsWith('!')) return;
+        if (!worksheet[key].s) worksheet[key].s = {};
+        worksheet[key].s = { alignment: { wrapText: true, vertical: 'top' } };
+      });
 
-    worksheet['!cols'] = [{ wch: 20 }, ...shifts.map(() => ({ wch: 30 }))];
+      worksheet['!cols'] = [{ wch: 20 }, ...shifts.map(() => ({ wch: 30 }))];
 
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Planning');
-    workbook.Workbook = { Views: [{ RTL: false }] };
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Planning');
+      workbook.Workbook = { Views: [{ RTL: false }] };
 
-    XLSX.writeFile(workbook, `planning_${formattedDate}.xlsx`, { cellStyles: true });
+      XLSX.writeFile(workbook, `planning_${formattedDate}.xlsx`, { cellStyles: true });
   };
+
+    const handleWeeklyExport = (format: "excel" | "pdf") => {
+      const date = new Date(currentDate);
+
+      const year = date.getFullYear();
+      const month = date.getMonth() + 1; // JavaScript months are 0-based
+
+      window.location.href =
+        `http://localhost:3001/planning/export-first-week?year=${year}&month=${month}&format=${format}`;
+    };
+  //   const handleWeeklyExport = () => {
+  //   // Copy the currently selected date
+  //   const date = new Date(currentDate);
+
+
+  //   // JavaScript:
+  //   // Sunday = 0
+  //   // Monday = 1
+  //   // ...
+  //   // Saturday = 6
+  //   const day = date.getDay();
+
+  //   // Calculate how many days to go back to Saturday
+  //   const daysSinceSaturday = (day + 1) % 7;
+
+  //   date.setDate(date.getDate() - daysSinceSaturday);
+
+  //   // Format as YYYY-MM-DD
+  //   const weekStart = date.toISOString().split("T")[0];
+
+  //   // Download the file
+  //   window.location.href =
+  //     `http://localhost:3001/planning/export-week?weekStart=${'2026-07-01'}`;
+  // };
 
   return {
     tasks, shifts, employees,
@@ -169,5 +221,11 @@ export const useViewPlanning = () => {
     handleListCellClick,
     loading, error,
     handleExport,
+    handleWeeklyExport,
+    showExportDayMenu,
+    showWeeklyExportMenu,
+    toggleExportMenu,
+    toggleWeeklyExportMenu,
+    closeMenus,
   };
 };

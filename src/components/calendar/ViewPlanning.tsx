@@ -20,6 +20,12 @@ const ViewCalender: React.FC = () => {
     handleListCellClick,
     loading, error,
     handleExport,
+    handleWeeklyExport,
+    showExportDayMenu,
+    showWeeklyExportMenu,
+    toggleExportMenu,
+    toggleWeeklyExportMenu,
+    closeMenus,  
   } = useViewPlanning();
 
   const getCalendarDays = (date: Date) => {
@@ -105,16 +111,63 @@ const ViewCalender: React.FC = () => {
                   <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
                 </button>
               </div>
-              <span className="text-sm font-medium text-gray-800 dark:text-white mr-45">{formattedDate}</span>
+              <span className="text-sm font-medium text-gray-800 dark:text-white mr-10">{formattedDate}</span>
             
-              <div className="flex items-center gap-5">
-                <Button size="md" variant="primary" onClick={handleExport}>
-                  <ArrowTopRightOnSquareIcon className="w-4 h-4 text-gray-100" strokeWidth={3} />
+              <div className="flex items-center gap-2">
+
+              {/* Export Planning */}
+              <div className="relative">
+                <Button
+                  size="sm"
+                  variant="primary"
+                  onClick={handleExport}
+                >
+                  <ArrowTopRightOnSquareIcon
+                    className="w-4 h-4 text-gray-100"
+                    strokeWidth={3}
+                  />
                   Export Planning
                 </Button>
               </div>
-            </div>
+              {/* Weekly Planning */}
+              <div className="relative">
+                <Button
+                  size="sm"
+                  variant="primary"
+                  onClick={toggleWeeklyExportMenu}
+                >
+                  <ArrowTopRightOnSquareIcon
+                    className="w-4 h-4 text-gray-100"
+                    strokeWidth={3}
+                  />
+                  Weekly Planning
+                </Button>
+                {showWeeklyExportMenu && (
+                  <div className="absolute right-0 mt-2 w-48 rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800 z-50">
+                    <button
+                      className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                      onClick={() => {
+                        handleWeeklyExport("excel");
+                        closeMenus();
+                      }}
+                    >
+                      📊 Excel (.xlsx)
+                    </button>
 
+                    <button
+                      className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                      onClick={() => {
+                        handleWeeklyExport("pdf");
+                        closeMenus();
+                      }}
+                    >
+                      📄 PDF (.pdf)
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+            </div>
             <table className="w-full border-collapse">
               <thead>
                 <tr>
