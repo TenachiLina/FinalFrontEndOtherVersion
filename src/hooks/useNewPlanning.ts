@@ -1,10 +1,14 @@
+"use client";
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useModal } from "@/hooks/useModal";
 import {Cell, EmployeeRecord, GridData, PlanningRecord, Post, Shift, ShiftRecord, TaskRecord, ShiftTask } from "../components/calendar/types";
 import * as XLSX from 'xlsx';
-
+import * as pdfjsLib from "pdfjs-dist";
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
@@ -40,14 +44,22 @@ export const useShiftGrid = () => {
   const [loadingGrid,   setLoadingGrid]   = useState(false);
 
   // ── Add modal state ───────────────────────────────────────────────────────
+  //For Main Employee:
   const [activeCell,       setActiveCell]       = useState<{ postId: number; shiftId: string } | null>(null);
   const [empSearch,        setEmpSearch]        = useState("");
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeRecord | null>(null);
-
+  //Optional Backup Employee:
+  const [backupEmpSearch, setBackupEmpSearch] = useState("");
+  const [selectedBackupEmployee, setSelectedBackupEmployee] = useState<EmployeeRecord | null>(null);
+  
   // ── Edit modal ────────────────────────────────────────────────────────────
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  //For Main Employee:
   const [editingEmployee, setEditingEmployee] = useState<Cell | null>(null);
   const [editTitle,       setEditTitle]       = useState("");
+  //For Backup Employee:
+  const [editBackupEmployee, setEditBackupEmployee] = useState<EmployeeRecord | null>(null);
+  const [editBackupSearch, setEditBackupSearch] = useState("");
   const [editTasks, setEditTasks] = useState<ShiftTask[]>([]);
 
   // ── List modal ────────────────────────────────────────────────────────────
@@ -58,6 +70,7 @@ export const useShiftGrid = () => {
   // ── Importing modal ────────────────────────────────────────────────────────────
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importDate, setImportDate] = useState("");
+  const [showImportMenu, setShowImportMenu] = useState(false);
 
   // ── Filtered employee list for dropdown ───────────────────────────────────
   const filteredEmployees = employees.filter((e) => {
@@ -68,7 +81,34 @@ export const useShiftGrid = () => {
       String(e.empNumber).includes(q)
     );
   });
+  //Filtred backup employee list for dropdown
+  const filteredBackupEmployees = employees.filter((e) => {
+    if (selectedEmployee && e._id === selectedEmployee._id) {
+      return false;
+    }
 
+    const q = backupEmpSearch.toLowerCase();
+
+    return (
+      e.firstName.toLowerCase().includes(q) ||
+      e.lastName.toLowerCase().includes(q) ||
+      String(e.empNumber).includes(q)
+    );
+  });
+  //Editing Modal Employees filtering:
+  const filteredEditBackupEmployees = employees.filter((e) => {
+    if (editingEmployee && e._id === editingEmployee.id) {
+      return false;
+    }
+
+    const q = editBackupSearch.toLowerCase();
+
+    return (
+      e.firstName.toLowerCase().includes(q) ||
+      e.lastName.toLowerCase().includes(q) ||
+      String(e.empNumber).includes(q)
+    );
+  });
   // ── Load tasks, shifts, employees once ───────────────────────────────────
   useEffect(() => {
     setLoadingMeta(true);
@@ -125,14 +165,33 @@ export const useShiftGrid = () => {
   const formattedDate = currentDate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
 
   // ── Add modal handlers ────────────────────────────────────────────────────
-  const handleCellClick = useCallback((postId: number, shiftId: string) => {
-    setActiveCell({ postId, shiftId });
+  const handleCellClick = useCallback(
+    (postId: number, shiftId: string) => {
+      setActiveCell({ postId, shiftId });
+      // Main
+      setEmpSearch("");
+      setSelectedEmployee(null);
+      // Backup
+      setBackupEmpSearch("");
+      setSelectedBackupEmployee(null);
+      openModal();
+    },
+    [openModal]
+  );
+
+  const handleClose = useCallback(() => {
+    closeModal();
+    setActiveCell(null);
+    // Main
     setEmpSearch("");
     setSelectedEmployee(null);
-    openModal();
-  }, [openModal]);
+    // Backup
+    setBackupEmpSearch("");
+    setSelectedBackupEmployee(null);
+  }, [closeModal]);
 
   const handleSave = useCallback(() => {
+    console.log("handleSave called with:", { activeCell, selectedEmployee, selectedBackupEmployee });
     if (!activeCell || !selectedEmployee) return;
     const { postId, shiftId } = activeCell;
     // Prevent duplicates in the same cell
@@ -144,7 +203,13 @@ export const useShiftGrid = () => {
         ...prev[postId],
         [shiftId]: [
           ...prev[postId][shiftId],
-          { id: selectedEmployee._id, title: `${selectedEmployee.firstName} ${selectedEmployee.lastName}` },
+          { id: selectedEmployee._id, 
+            title: `${selectedEmployee.firstName} ${selectedEmployee.lastName}`,
+            backupEmployeeId: selectedBackupEmployee?._id ?? null,
+            backupTitle: selectedBackupEmployee
+              ? `${selectedBackupEmployee.firstName} ${selectedBackupEmployee.lastName}`
+              : null,
+          },
         ],
       },
     }));
@@ -152,31 +217,32 @@ export const useShiftGrid = () => {
     setActiveCell(null);
     setEmpSearch("");
     setSelectedEmployee(null);
-  }, [activeCell, selectedEmployee, grid, closeModal]);
+    setBackupEmpSearch("");    
+    setSelectedBackupEmployee(null);
+  }, [activeCell, selectedEmployee, selectedBackupEmployee,grid, closeModal]);
 
-  const handleClose = useCallback(() => {
-    closeModal();
-    setActiveCell(null);
-    setEmpSearch("");
-    setSelectedEmployee(null);
-  }, [closeModal]);
-
-  // ── Edit handlers ─────────────────────────────────────────────────────────
-  // const openEditModal = useCallback((emp: Cell, cell: { postId: number; shiftId: string }) => {
-  //   setActiveCell(cell);
-  //   setEditingEmployee(emp);
-  //   setEditTitle(emp.title);
-  //   setIsListModalOpen(false);
-  //   setIsEditModalOpen(true);
-  // }, []);
-  const openEditModal = useCallback((emp: Cell, cell: { postId: number; shiftId: string }) => {
-  setActiveCell(cell);
-  setEditingEmployee(emp);
-  setEditTitle(emp.title);
-  setEditTasks(emp.tasks ?? []);
-  setIsListModalOpen(false);
-  setIsEditModalOpen(true);
-  }, []);
+  const openEditModal = useCallback(
+    (emp: Cell, cell: { postId: number; shiftId: string }) => {
+      setActiveCell(cell);
+      setEditingEmployee(emp);
+      // Main employee
+      setEditTitle(emp.title);
+      // Backup employee
+      if (emp.backupEmployeeId) {
+        const backup = employees.find(
+          (e) => e._id === emp.backupEmployeeId
+        );
+        setEditBackupEmployee(backup ?? null);
+      } else {
+        setEditBackupEmployee(null);
+      }
+      setEditBackupSearch("");
+      setEditTasks(emp.tasks ?? []);
+      setIsListModalOpen(false);
+      setIsEditModalOpen(true);
+    },
+    [employees]
+  );
   // task CRUD for the edit modal
   const addEditTask = useCallback(() => {
     setEditTasks((prev) => [
@@ -184,16 +250,12 @@ export const useShiftGrid = () => {
       { id: crypto.randomUUID(), label: "", startTime: "", endTime: "" },
     ]);
   }, []);
-
   const updateEditTask = useCallback((taskId: string, patch: Partial<ShiftTask>) => {
     setEditTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, ...patch } : t)));
   }, []);
-
   const removeEditTask = useCallback((taskId: string) => {
     setEditTasks((prev) => prev.filter((t) => t.id !== taskId));
   }, []);
-
-
   // const handleEdit = useCallback(() => {
   //   if (!activeCell || !editingEmployee || !editTitle.trim()) return;
   //   const { postId, shiftId } = activeCell;
@@ -237,7 +299,19 @@ export const useShiftGrid = () => {
         ...prev[postId],
         [shiftId]: prev[postId][shiftId].map((emp) =>
           emp.id === editingEmployee.id
-            ? { ...emp, title: editTitle.trim(), tasks: editTasks }
+            ? {   ...emp,
+                title: editTitle.trim(),
+
+                backupEmployeeId:
+                  editBackupEmployee?._id ?? null,
+
+                backupTitle:
+                  editBackupEmployee
+                    ? `${editBackupEmployee.firstName} ${editBackupEmployee.lastName}`
+                    : null,
+
+                tasks: editTasks, 
+              }
             : emp
         ),
       },
@@ -245,19 +319,21 @@ export const useShiftGrid = () => {
     setIsEditModalOpen(false);
     setEditingEmployee(null);
     setEditTitle("");
+    setEditBackupEmployee(null);
+    setEditBackupSearch("");
     setEditTasks([]);
     setActiveCell(null);
   }, [activeCell, editingEmployee, editTitle, editTasks]);
-
   // handleCloseEditModal: also clear editTasks
   const handleCloseEditModal = useCallback(() => {
     setIsEditModalOpen(false);
     setEditingEmployee(null);
     setEditTitle("");
+    setEditBackupEmployee(null);
+    setEditBackupSearch("");
     setEditTasks([]);
     setActiveCell(null);
   }, []);
-
   // ── Delete ────────────────────────────────────────────────────────────────
   const handleDelete = useCallback((employeeId: string, cell?: { postId: number; shiftId: string }) => {
     const target = cell ?? activeCell;
@@ -286,11 +362,27 @@ export const useShiftGrid = () => {
     //     });
     //   });
     // });
-    const entries: { shiftId: string; empId: string; taskId: number; planDate: string; tasks: ShiftTask[] }[] = [];
+    const entries: { 
+      shiftId: string; 
+      empId: string; 
+      backupEmpId?: string | null;
+      taskId: number; 
+      planDate: string; 
+      tasks: ShiftTask[] 
+    }[] = [];
+
     posts.forEach((post) => {
       shifts.forEach((shift) => {
         (grid[post.id]?.[shift.id] ?? []).forEach((cell) => {
-          entries.push({ shiftId: shift.id, empId: cell.id, taskId: post.id, planDate, tasks: cell.tasks ?? [] });
+          entries.push(
+            { 
+              shiftId: shift.id, 
+              empId: cell.id, 
+              backupEmpId: cell.backupEmployeeId ?? null,
+              taskId: post.id, 
+              planDate, 
+              tasks: cell.tasks ?? [] 
+            });
         });
       });
     });
@@ -327,17 +419,31 @@ export const useShiftGrid = () => {
   }
   return result;
   };
-
+  
   const handleDuplicateToWeekday = useCallback(async () => {
-    const entries: { shiftId: string; empId: string; taskId: number; tasks: ShiftTask[] }[] = [];
+    const entries: {
+      shiftId: string;
+      empId: string;
+      backupEmpId?: string | null;
+      taskId: number;
+      tasks: ShiftTask[];
+    }[] = [];
+
     posts.forEach((post) => {
       shifts.forEach((shift) => {
         (grid[post.id]?.[shift.id] ?? []).forEach((cell) => {
-          entries.push({ shiftId: shift.id, empId: cell.id, taskId: post.id, tasks: cell.tasks ?? [] });
+          entries.push({
+            shiftId: shift.id,
+            empId: cell.id,
+            // ✅ Include backup employee
+            backupEmpId: cell.backupEmployeeId ?? null,
+            taskId: post.id,
+            tasks: cell.tasks ?? [],
+          });
         });
       });
     });
-   
+
     if (entries.length === 0) {
       alert("No employees planned for this day.");
       return;
@@ -347,32 +453,63 @@ export const useShiftGrid = () => {
 
     if (targetDates.length === 0) return;
 
-    const weekdayName = currentDate.toLocaleDateString("en-US", { weekday: "long" });
+    const weekdayName = currentDate.toLocaleDateString("en-US", {
+      weekday: "long",
+    });
+
     try {
       const results = await Promise.allSettled(
-      targetDates.map(async (date) => {
-        const planDate = date.toLocaleDateString("en-CA", { timeZone: "Africa/Algiers" });
-        const entriesWithDate = entries.map((e) => ({ ...e, planDate }));
+        targetDates.map(async (date) => {
+          const planDate = date.toLocaleDateString("en-CA", {
+            timeZone: "Africa/Algiers",
+          });
 
-        const res = await fetch(`${BASE}/planning/bulk`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ entries: entriesWithDate, planDate }),
-        });
-        if (!res.ok) {
-          const errText = await res.text();
-          throw new Error(`${planDate}: ${res.status} ${errText}`);
-        }
-        return planDate;
-      })
+          const entriesWithDate = entries.map((e) => ({
+            ...e,
+            planDate,
+          }));
+
+          const res = await fetch(`${BASE}/planning/bulk`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              entries: entriesWithDate,
+              planDate,
+            }),
+          });
+
+          if (!res.ok) {
+            const errText = await res.text();
+            throw new Error(
+              `${planDate}: ${res.status} ${errText}`
+            );
+          }
+
+          return planDate;
+        })
       );
 
-      const failures = results.filter((r) => r.status === "rejected") as PromiseRejectedResult[];
+      const failures = results.filter(
+        (r) => r.status === "rejected"
+      ) as PromiseRejectedResult[];
+
       if (failures.length > 0) {
-        console.error("Duplication failures:", failures.map((f) => f.reason.message));
-        alert(`Some dates failed: ${failures.map((f) => f.reason.message).join("; ")}`);
+        console.error(
+          "Duplication failures:",
+          failures.map((f) => f.reason.message)
+        );
+
+        alert(
+          `Some dates failed: ${failures
+            .map((f) => f.reason.message)
+            .join("; ")}`
+        );
       } else {
-        alert(`Planning duplicated to ${targetDates.length} ${weekdayName}s!`);
+        alert(
+          `Planning duplicated to ${targetDates.length} ${weekdayName}s!`
+        );
       }
     } catch (err) {
       console.error(err);
@@ -380,58 +517,1008 @@ export const useShiftGrid = () => {
     }
   }, [grid, currentDate, posts, shifts]);
 
+  // const handleDuplicateToWeekday = useCallback(async () => {
+  //   const entries: { shiftId: string; empId: string; taskId: number; tasks: ShiftTask[] }[] = [];
+  //   posts.forEach((post) => {
+  //     shifts.forEach((shift) => {
+  //       (grid[post.id]?.[shift.id] ?? []).forEach((cell) => {
+  //         entries.push({ shiftId: shift.id, empId: cell.id, taskId: post.id, tasks: cell.tasks ?? [] });
+  //       });
+  //     });
+  //   });
+   
+  //   if (entries.length === 0) {
+  //     alert("No employees planned for this day.");
+  //     return;
+  //   }
 
+  //   const targetDates = getSameWeekdayDatesInMonth(currentDate);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  //   if (targetDates.length === 0) return;
 
-  // ── Import planning ───────────────────────────────────────────────────
+  //   const weekdayName = currentDate.toLocaleDateString("en-US", { weekday: "long" });
+  //   try {
+  //     const results = await Promise.allSettled(
+  //     targetDates.map(async (date) => {
+  //       const planDate = date.toLocaleDateString("en-CA", { timeZone: "Africa/Algiers" });
+  //       const entriesWithDate = entries.map((e) => ({ ...e, planDate }));
+
+  //       const res = await fetch(`${BASE}/planning/bulk`, {
+  //         method: "POST",
+  //         headers: { "Content-Type": "application/json" },
+  //         body: JSON.stringify({ entries: entriesWithDate, planDate }),
+  //       });
+  //       if (!res.ok) {
+  //         const errText = await res.text();
+  //         throw new Error(`${planDate}: ${res.status} ${errText}`);
+  //       }
+  //       return planDate;
+  //     })
+  //     );
+
+  //     const failures = results.filter((r) => r.status === "rejected") as PromiseRejectedResult[];
+  //     if (failures.length > 0) {
+  //       console.error("Duplication failures:", failures.map((f) => f.reason.message));
+  //       alert(`Some dates failed: ${failures.map((f) => f.reason.message).join("; ")}`);
+  //     } else {
+  //       alert(`Planning duplicated to ${targetDates.length} ${weekdayName}s!`);
+  //     }
+  //   } catch (err) {
+  //     console.error(err);
+  //     alert("Error duplicating planning.");
+  //   }
+  // }, [grid, currentDate, posts, shifts]);
+
+  const excelInputRef = useRef<HTMLInputElement>(null);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
+
   const handleImportClick = () => {
-    fileInputRef.current?.click();
+    setShowImportMenu((prev) => !prev);
   };
 
-  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleExcelImportClick = () => {
+    excelInputRef.current?.click();
+    setShowImportMenu(false);
+  };
+
+  const handlePdfImportClick = () => {
+    pdfInputRef.current?.click();
+    setShowImportMenu(false);
+  };
+
+  // const handleImportFile = async (
+  //   e: React.ChangeEvent<HTMLInputElement>
+  // ) => {
+  //   const file = e.target.files?.[0];
+
+  //   if (!file) return;
+
+  //   try {
+  //     // --------------------------------------------------
+  //     // 1. Read Excel file
+  //     // --------------------------------------------------
+
+  //     const data = await file.arrayBuffer();
+
+  //     const workbook = XLSX.read(data, {
+  //       type: "array",
+  //     });
+
+  //     const worksheet =
+  //       workbook.Sheets[workbook.SheetNames[0]];
+
+  //     const rows = XLSX.utils.sheet_to_json<string[]>(
+  //       worksheet,
+  //       {
+  //         header: 1,
+  //         defval: "",
+  //       }
+  //     );
+
+  //     // --------------------------------------------------
+  //     // 2. Check file structure
+  //     // --------------------------------------------------
+
+  //     if (rows.length < 2) {
+  //       alert("The Excel file is empty or invalid.");
+  //       return;
+  //     }
+
+  //     // First row:
+  //     // ["Hour", "Monday"]
+
+  //     const header = rows[0];
+
+  //     if (
+  //       String(header[0]).trim().toLowerCase() !== "hour"
+  //     ) {
+  //       alert(
+  //         "Invalid planning file. The first column must be 'Hour'."
+  //       );
+  //       return;
+  //     }
+
+
+  //     // --------------------------------------------------
+  //     // 3. The imported planning needs a post
+  //     // --------------------------------------------------
+
+  //     if (posts.length === 0) {
+  //       alert("No posts/tasks are available.");
+  //       return;
+  //     }
+
+  //     // Use the first post as the default post.
+  //     // Change this if you have a selected post.
+  //     const defaultPost = posts[0];
+
+
+  //     // --------------------------------------------------
+  //     // 4. Start with an empty grid
+  //     // --------------------------------------------------
+
+  //     const importedGrid = buildEmptyGrid(
+  //       posts,
+  //       shifts
+  //     );
+
+  //     const notFound: string[] = [];
+
+
+  //     // --------------------------------------------------
+  //     // 5. Process each Excel row
+  //     // --------------------------------------------------
+
+  //     rows.slice(1).forEach((row) => {
+
+  //       const hourValue = String(row[0] ?? "").trim();
+
+  //       const employeeValue =
+  //         String(row[1] ?? "").trim();
+
+
+  //       if (!hourValue || !employeeValue) {
+  //         return;
+  //       }
+
+
+  //       // ------------------------------------------------
+  //       // 6. Find shift from the hour
+  //       // ------------------------------------------------
+
+  //       const hour = hourValue
+  //         .replace(/H/i, "")
+  //         .padStart(2, "0");
+
+  //       const shift = shifts.find((s) => {
+  //         const shiftStart = s.label
+  //           .split(" - ")[0]
+  //           .trim();
+
+  //         const match = shiftStart.match(/^(\d{1,2})/);
+
+  //         if (!match) return false;
+
+  //         const shiftHour = match[1].padStart(2, "0");
+
+  //         return shiftHour === hour;
+  //       });
+
+  //       if (!shift) {
+  //         console.warn(
+  //           `No shift found for hour ${hourValue}`
+  //         );
+  //         return;
+  //       }
+
+
+  //       // ------------------------------------------------
+  //       // 7. Parse employees
+  //       //
+  //       // Example:
+  //       //
+  //       // John Doe
+  //       // Backup: Jane Smith
+  //       // Ahmed Ali
+  //       // Backup: No backup
+  //       // ------------------------------------------------
+
+  //       const lines = employeeValue
+  //         .split(/\r?\n/)
+  //         .map((line) => line.trim())
+  //         .filter(Boolean);
+
+
+  //       let currentEmployee: Cell | null = null;
+
+
+  //       lines.forEach((line) => {
+
+  //         // ----------------------------------------------
+  //         // Backup employee
+  //         // ----------------------------------------------
+
+  //         if (
+  //           line.toLowerCase().startsWith("backup:")
+  //         ) {
+
+  //           if (!currentEmployee) {
+  //             return;
+  //           }
+
+  //           const backupName = line
+  //             .substring("Backup:".length)
+  //             .trim();
+
+
+  //           // "No backup" means no backup employee
+  //           if (
+  //             !backupName ||
+  //             backupName.toLowerCase() === "no backup"
+  //           ) {
+  //             currentEmployee = {
+  //               ...currentEmployee,
+  //               backupEmployeeId: null,
+  //               backupTitle: null,
+  //             };
+
+  //           } else {
+
+  //             const backupEmployee =
+  //               employees.find(
+  //                 (emp) =>
+  //                   `${emp.firstName} ${emp.lastName}`
+  //                     .trim()
+  //                     .toLowerCase() ===
+  //                   backupName.toLowerCase()
+  //               );
+
+
+  //             if (!backupEmployee) {
+
+  //               notFound.push(backupName);
+
+  //             } else {
+
+  //               currentEmployee = {
+  //                 ...currentEmployee,
+  //                 backupEmployeeId:
+  //                   backupEmployee._id,
+
+  //                 backupTitle:
+  //                   `${backupEmployee.firstName} ${backupEmployee.lastName}`,
+  //               };
+  //             }
+  //           }
+
+
+  //           // Replace the employee in the grid
+  //           const cellIndex =
+  //             importedGrid[defaultPost.id][shift.id]
+  //               .findIndex(
+  //                 (emp) => emp.id === currentEmployee?.id
+  //               );
+
+  //           if (cellIndex !== -1) {
+  //             importedGrid[
+  //               defaultPost.id
+  //             ][shift.id][cellIndex] = currentEmployee;
+  //           }
+
+  //           return;
+  //         }
+
+
+  //         // ----------------------------------------------
+  //         // Main employee
+  //         // ----------------------------------------------
+
+  //         const employee =
+  //           employees.find(
+  //             (emp) =>
+  //               `${emp.firstName} ${emp.lastName}`
+  //                 .trim()
+  //                 .toLowerCase() ===
+  //               line.toLowerCase()
+  //           );
+
+
+  //         if (!employee) {
+
+  //           notFound.push(line);
+
+  //           currentEmployee = null;
+
+  //           return;
+  //         }
+
+
+  //         currentEmployee = {
+  //           id: employee._id,
+
+  //           title:
+  //             `${employee.firstName} ${employee.lastName}`,
+
+  //           backupEmployeeId: null,
+
+  //           backupTitle: null,
+  //         };
+
+
+  //         importedGrid[
+  //           defaultPost.id
+  //         ][shift.id].push(currentEmployee);
+  //       });
+  //     });
+
+
+  //     // --------------------------------------------------
+  //     // 8. Show employees that were not found
+  //     // --------------------------------------------------
+
+  //     if (notFound.length > 0) {
+
+  //       alert(
+  //         `These employees were not found and were skipped:\n\n` +
+  //         [...new Set(notFound)].join("\n")
+  //       );
+  //     }
+
+
+  //     // --------------------------------------------------
+  //     // 9. Put imported data into the grid
+  //     // --------------------------------------------------
+
+  //     setGrid(importedGrid);
+
+  //   } catch (error) {
+
+  //     console.error(
+  //       "Error importing planning:",
+  //       error
+  //     );
+
+  //     alert(
+  //       "Failed to import the Excel planning file."
+  //     );
+
+  //   } finally {
+
+  //     // Allow importing the same file again
+  //     e.target.value = "";
+  //   }
+  // };
+  const handleImportFile = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const file = e.target.files?.[0];
+
     if (!file) return;
 
-    const data = await file.arrayBuffer();
-    const workbook = XLSX.read(data, { type: "array" });
-    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json<Record<string, string>>(worksheet);
+    try {
+      // =========================================================
+      // 1. Make sure posts and shifts exist
+      // =========================================================
 
-    const importedGrid = buildEmptyGrid(posts, shifts);
-    const notFound: string[] = [];
+      if (posts.length === 0) {
+        alert("No posts/tasks are available.");
+        return;
+      }
 
-    rows.forEach((row) => {
-      const taskName = row.Task;
-      const post = posts.find((p) => p.label === taskName);
-      if (!post) return;
+      if (shifts.length === 0) {
+        alert("No shifts are available.");
+        return;
+      }
 
-      shifts.forEach((shift) => {
-        const cellValue = row[shift.label];
-        if (!cellValue) return;
+      // =========================================================
+      // 2. Default post
+      // =========================================================
 
-        importedGrid[post.id][shift.id] = String(cellValue)
-          .split("\n")
-          .map((n) => n.trim())
-          .filter(Boolean)
-          .map((name) => {
-            const emp = employees.find(
-              (e) => `${e.firstName} ${e.lastName}`.toLowerCase() === name.toLowerCase()
+      const defaultPost = posts[0];
+
+      // =========================================================
+      // 3. Empty grid
+      // =========================================================
+
+      const importedGrid = buildEmptyGrid(posts, shifts);
+
+      const notFound: string[] = [];
+
+      // =========================================================
+      // 4. Helper: find shift using exported hour
+      // =========================================================
+
+      const findShiftByHour = (hourValue: string) => {
+        const hour = hourValue
+          .trim()
+          .replace(/H$/i, "")
+          .padStart(2, "0");
+
+        return shifts.find((shift) => {
+          // IMPORTANT:
+          // Use the properties that actually exist in your Shift type.
+          //
+          // If your Shift has:
+          //   label = "06:00 - 14:00"
+          //
+          // then use label.
+          //
+          // If your Shift has:
+          //   start = "06:00"
+          //
+          // use shift.start.
+
+          const label = String(shift.label ?? "");
+
+          const startTime = label
+            .split(" - ")[0]
+            ?.substring(0, 2)
+            .padStart(2, "0");
+
+          return startTime === hour;
+        });
+      };
+
+      // =========================================================
+      // 5. Find employee by full name
+      // =========================================================
+
+      const findEmployee = (name: string) => {
+        const normalizedName = name
+          .trim()
+          .replace(/\s+/g, " ")
+          .toLowerCase();
+
+        return employees.find((emp) => {
+          const fullName =
+            `${emp.firstName} ${emp.lastName}`
+              .trim()
+              .replace(/\s+/g, " ")
+              .toLowerCase();
+
+          return fullName === normalizedName;
+        });
+      };
+
+      // =========================================================
+      // 6. Add employee to grid
+      // =========================================================
+
+      const addEmployeeToGrid = (
+        shiftId: string,
+        employee: EmployeeRecord,
+        backupEmployee?: EmployeeRecord | null
+      ) => {
+        importedGrid[defaultPost.id][shiftId].push({
+          id: employee._id,
+
+          title:
+            `${employee.firstName} ${employee.lastName}`,
+
+          backupEmployeeId:
+            backupEmployee?._id ?? null,
+
+          backupTitle:
+            backupEmployee
+              ? `${backupEmployee.firstName} ${backupEmployee.lastName}`
+              : null,
+        });
+      };
+
+      // =========================================================
+      // 7. EXCEL IMPORT
+      // =========================================================
+
+      if (
+        file.name.toLowerCase().endsWith(".xlsx") ||
+        file.name.toLowerCase().endsWith(".xls")
+      ) {
+        const data = await file.arrayBuffer();
+
+        const workbook = XLSX.read(data, {
+          type: "array",
+        });
+
+        const worksheet =
+          workbook.Sheets[workbook.SheetNames[0]];
+
+        const rows = XLSX.utils.sheet_to_json(
+          worksheet,
+          {
+            header: 1,
+            defval: "",
+          }
+        ) as unknown as string[][];
+
+        if (rows.length < 2) {
+          alert("The Excel file is empty or invalid.");
+          return;
+        }
+
+        const header = rows[0];
+
+        if (
+          String(header[0])
+            .trim()
+            .toLowerCase() !== "hour"
+        ) {
+          alert(
+            "Invalid planning file. The first column must be 'Hour'."
+          );
+          return;
+        }
+
+        rows.slice(1).forEach((row) => {
+          const hourValue =
+            String(row[0] ?? "").trim();
+
+          const employeeValue =
+            String(row[1] ?? "").trim();
+
+          if (!hourValue || !employeeValue) {
+            return;
+          }
+
+          const shift = findShiftByHour(hourValue);
+
+          if (!shift) {
+            console.warn(
+              `No shift found for ${hourValue}`
             );
-            if (!emp) { notFound.push(name); return null; }
-            return { id: emp._id, title: `${emp.firstName} ${emp.lastName}` };
-          })
-          .filter((c): c is Cell => c !== null);
-      });
-    });
+            return;
+          }
 
-    if (notFound.length > 0) {
-      alert(`These names weren't found in the employee list and were skipped:\n${[...new Set(notFound)].join(", ")}`);
+          const lines = employeeValue
+            .split(/\r?\n/)
+            .map((line) => line.trim())
+            .filter(Boolean);
+
+          let currentEmployee: Cell | null = null;
+
+          lines.forEach((line) => {
+
+            // ---------------------------------------------
+            // BACKUP
+            // ---------------------------------------------
+
+            if (
+              line
+                .toLowerCase()
+                .startsWith("backup:")
+            ) {
+
+              if (!currentEmployee) {
+                return;
+              }
+
+              const backupName = line
+                .substring("Backup:".length)
+                .trim();
+
+              if (
+                !backupName ||
+                backupName.toLowerCase() ===
+                  "no backup"
+              ) {
+                currentEmployee = {
+                  ...currentEmployee,
+                  backupEmployeeId: null,
+                  backupTitle: null,
+                };
+              } else {
+
+                const backupEmployee =
+                  findEmployee(backupName);
+
+                if (!backupEmployee) {
+                  notFound.push(backupName);
+                  return;
+                }
+
+                currentEmployee = {
+                  ...currentEmployee,
+
+                  backupEmployeeId:
+                    backupEmployee._id,
+
+                  backupTitle:
+                    `${backupEmployee.firstName} ${backupEmployee.lastName}`,
+                };
+              }
+
+              const cellIndex =
+                importedGrid[
+                  defaultPost.id
+                ][shift.id].findIndex(
+                  (emp) =>
+                    emp.id === currentEmployee?.id
+                );
+
+              if (cellIndex !== -1) {
+                importedGrid[
+                  defaultPost.id
+                ][shift.id][cellIndex] =
+                  currentEmployee;
+              }
+
+              return;
+            }
+
+            // ---------------------------------------------
+            // MAIN EMPLOYEE
+            // ---------------------------------------------
+
+            const employee =
+              findEmployee(line);
+
+            if (!employee) {
+              notFound.push(line);
+              currentEmployee = null;
+              return;
+            }
+
+            currentEmployee = {
+              id: employee._id,
+
+              title:
+                `${employee.firstName} ${employee.lastName}`,
+
+              backupEmployeeId: null,
+
+              backupTitle: null,
+            };
+
+            importedGrid[
+              defaultPost.id
+            ][shift.id].push(currentEmployee);
+          });
+        });
+      }
+
+      // =========================================================
+      // 8. PDF IMPORT
+      // =========================================================
+
+      else if (
+        file.name.toLowerCase().endsWith(".pdf")
+      ) {
+
+        const data = await file.arrayBuffer();
+
+        const pdf = await pdfjsLib.getDocument({
+          data,
+        }).promise;
+
+        const extractedLines: string[] = [];
+
+        // ---------------------------------------------
+        // Read every PDF page
+        // ---------------------------------------------
+
+        for (
+          let pageNumber = 1;
+          pageNumber <= pdf.numPages;
+          pageNumber++
+        ) {
+
+          const page =
+            await pdf.getPage(pageNumber);
+
+          const content =
+            await page.getTextContent();
+
+          /*
+          * PDF.js returns individual text items.
+          * We collect their strings in the same order
+          * as the exported PDF.
+          */
+
+          content.items.forEach((item: any) => {
+
+            const text =
+              String(item.str ?? "").trim();
+
+            if (text) {
+              extractedLines.push(text);
+            }
+          });
+        }
+
+        console.log(
+          "PDF extracted text:",
+          extractedLines
+        );
+
+        // =====================================================
+        // Find the exported hour rows
+        // =====================================================
+
+        const validHours = new Set(
+          [
+            "06H",
+            "07H",
+            "08H",
+            "09H",
+            "10H",
+            "11H",
+            "12H",
+            "14H",
+            "15H",
+            "16H",
+          ]
+        );
+
+        let currentShiftId: string | null = null;
+        let currentEmployee: Cell | null = null;
+
+        // =====================================================
+        // Process PDF text
+        // =====================================================
+
+        extractedLines.forEach((line) => {
+
+          const cleanLine = line
+            .trim()
+            .replace(/\s+/g, " ");
+
+          if (!cleanLine) {
+            return;
+          }
+
+          // ---------------------------------------------
+          // Ignore PDF title
+          // ---------------------------------------------
+
+          if (
+            cleanLine
+              .toLowerCase()
+              .startsWith("daily planning")
+          ) {
+            return;
+          }
+
+          // ---------------------------------------------
+          // Ignore headers
+          // ---------------------------------------------
+
+          if (
+            cleanLine.toLowerCase() === "hour"
+          ) {
+            return;
+          }
+
+          // ---------------------------------------------
+          // Detect hour
+          // ---------------------------------------------
+
+          const hourMatch =
+            cleanLine.match(
+              /^(06|07|08|09|10|11|12|14|15|16)H$/i
+            );
+
+          if (hourMatch) {
+
+            const hour =
+              `${hourMatch[1]}H`;
+
+            const shift =
+              findShiftByHour(hour);
+
+            if (!shift) {
+              console.warn(
+                `No existing shift found for ${hour}`
+              );
+
+              currentShiftId = null;
+              return;
+            }
+
+            currentShiftId = shift.id;
+            currentEmployee = null;
+
+            return;
+          }
+
+          // ---------------------------------------------
+          // No shift selected yet
+          // ---------------------------------------------
+
+          if (!currentShiftId) {
+            return;
+          }
+
+          // ---------------------------------------------
+          // BACKUP EMPLOYEE
+          // ---------------------------------------------
+
+          if (
+            cleanLine
+              .toLowerCase()
+              .startsWith("backup:")
+          ) {
+
+            const backupName =
+              cleanLine
+                .substring("Backup:".length)
+                .trim();
+
+            if (
+              !backupName ||
+              backupName.toLowerCase() ===
+                "no backup"
+            ) {
+              return;
+            }
+
+            if (!currentEmployee) {
+              return;
+            }
+
+            const backupEmployee =
+              findEmployee(backupName);
+
+            if (!backupEmployee) {
+              notFound.push(backupName);
+              return;
+            }
+
+            currentEmployee = {
+              ...currentEmployee,
+
+              backupEmployeeId:
+                backupEmployee._id,
+
+              backupTitle:
+                `${backupEmployee.firstName} ${backupEmployee.lastName}`,
+            };
+
+            const cellIndex =
+              importedGrid[
+                defaultPost.id
+              ][currentShiftId].findIndex(
+                (emp) =>
+                  emp.id === currentEmployee?.id
+              );
+
+            if (cellIndex !== -1) {
+              importedGrid[
+                defaultPost.id
+              ][currentShiftId][cellIndex] =
+                currentEmployee;
+            }
+
+            return;
+          }
+
+          // ---------------------------------------------
+          // MAIN EMPLOYEE
+          // ---------------------------------------------
+
+          const employee =
+            findEmployee(cleanLine);
+
+          if (!employee) {
+            notFound.push(cleanLine);
+            currentEmployee = null;
+            return;
+          }
+
+          currentEmployee = {
+            id: employee._id,
+
+            title:
+              `${employee.firstName} ${employee.lastName}`,
+
+            backupEmployeeId: null,
+
+            backupTitle: null,
+          };
+
+          importedGrid[
+            defaultPost.id
+          ][currentShiftId].push(
+            currentEmployee
+          );
+        });
+      }
+
+      // =========================================================
+      // 9. Unsupported file
+      // =========================================================
+
+      else {
+        alert(
+          "Please select an Excel (.xlsx/.xls) or PDF (.pdf) file."
+        );
+
+        return;
+      }
+
+      // =========================================================
+      // 10. Show employees that were not found
+      // =========================================================
+
+      if (notFound.length > 0) {
+
+        alert(
+          `These employees were not found and were skipped:\n\n` +
+          [...new Set(notFound)].join("\n")
+        );
+      }
+
+      // =========================================================
+      // 11. Update grid
+      // =========================================================
+
+      setGrid(importedGrid);
+
+    } catch (error) {
+
+      console.error(
+        "Error importing planning:",
+        error
+      );
+
+      alert(
+        "Failed to import the planning file."
+      );
+
+    } finally {
+
+      // Allow importing the same file again
+      e.target.value = "";
     }
-
-    setGrid(importedGrid);
-    e.target.value = "";
   };
+  // const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // // ── Import planning ───────────────────────────────────────────────────
+  // const handleImportClick = () => {
+  //   fileInputRef.current?.click();
+  // };
+
+  // const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  //   const file = e.target.files?.[0];
+  //   if (!file) return;
+
+  //   const data = await file.arrayBuffer();
+  //   const workbook = XLSX.read(data, { type: "array" });
+  //   const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+  //   const rows = XLSX.utils.sheet_to_json<Record<string, string>>(worksheet);
+
+  //   const importedGrid = buildEmptyGrid(posts, shifts);
+  //   const notFound: string[] = [];
+
+  //   rows.forEach((row) => {
+  //     const taskName = row.Task;
+  //     const post = posts.find((p) => p.label === taskName);
+  //     if (!post) return;
+
+  //     shifts.forEach((shift) => {
+  //       const cellValue = row[shift.label];
+  //       if (!cellValue) return;
+
+  //       importedGrid[post.id][shift.id] = String(cellValue)
+  //         .split("\n")
+  //         .map((n) => n.trim())
+  //         .filter(Boolean)
+  //         .map((name) => {
+  //           const emp = employees.find(
+  //             (e) => `${e.firstName} ${e.lastName}`.toLowerCase() === name.toLowerCase()
+  //           );
+  //           if (!emp) { notFound.push(name); return null; }
+  //           return { id: emp._id, title: `${emp.firstName} ${emp.lastName}` };
+  //         })
+  //         .filter((c): c is Cell => c !== null);
+  //     });
+  //   });
+
+  //   if (notFound.length > 0) {
+  //     alert(`These names weren't found in the employee list and were skipped:\n${[...new Set(notFound)].join(", ")}`);
+  //   }
+
+  //   setGrid(importedGrid);
+  //   e.target.value = "";
+  // };
 
   const handleImportFromDate = useCallback(async (date: Date) => {
     try {
@@ -444,6 +1531,8 @@ export const useShiftGrid = () => {
       const records = await apiFetch<PlanningRecord[]>(
       `/planning/import/${dateStr}`
       );
+
+      console.log("Imported records:", records);
       const importedGrid = buildEmptyGrid(posts, shifts);
 
       records.forEach((record: any) => {
@@ -454,6 +1543,7 @@ export const useShiftGrid = () => {
           importedGrid[record.taskId][record.shiftId].push({
             id: record.empId,
             title: record.title,
+            backupTitle: record.backupTitle,
             tasks: record.tasks ?? [],
             planningId: record.id,
           });
@@ -469,8 +1559,6 @@ export const useShiftGrid = () => {
     }
   }, [posts, shifts]);
 
-
-
   
   return {
     posts, shifts, employees, filteredEmployees, loadingMeta, metaError, loadingGrid,
@@ -478,20 +1566,23 @@ export const useShiftGrid = () => {
     currentDate, setCurrentDate,
     calendarMonth, setCalendarMonth,
     goToToday, goPrev, goNext, formattedDate,
-    isOpen, activeCell, empSearch, setEmpSearch, selectedEmployee, setSelectedEmployee,
+    isOpen, activeCell, empSearch, setEmpSearch, selectedEmployee, setSelectedEmployee, backupEmpSearch, setBackupEmpSearch, selectedBackupEmployee, setSelectedBackupEmployee,
+    filteredBackupEmployees,
     handleCellClick, handleSave, handleClose,
-    isEditModalOpen, editingEmployee, editTitle, setEditTitle,
+    isEditModalOpen, editingEmployee, editTitle, setEditTitle, editBackupEmployee, setEditBackupEmployee, editBackupSearch, setEditBackupSearch,
+    filteredEditBackupEmployees,
     openEditModal, handleEdit, handleCloseEditModal,
     isListModalOpen, setIsListModalOpen,
     listCell, setListCell, listEmployees,
     handleDelete, handleSavePlanning,
-    fileInputRef, handleImportClick, handleImportFile,
+    excelInputRef, pdfInputRef, handleImportClick, handleExcelImportClick, handlePdfImportClick ,handleImportFile,
+    showImportMenu, setShowImportMenu,
     handleDuplicateToWeekday,
     editTasks, addEditTask, updateEditTask, removeEditTask,
     isImportModalOpen,
     setIsImportModalOpen,
     importDate,
     setImportDate,
-    handleImportFromDate,
+    handleImportFromDate, 
   };
 };

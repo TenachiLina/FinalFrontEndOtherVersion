@@ -115,19 +115,42 @@ const ViewCalender: React.FC = () => {
             
               <div className="flex items-center gap-2">
 
-              {/* Export Planning */}
+              {/* Export current day Planning */}
               <div className="relative">
                 <Button
                   size="sm"
                   variant="primary"
-                  onClick={handleExport}
+                  onClick={toggleExportMenu}
                 >
                   <ArrowTopRightOnSquareIcon
                     className="w-4 h-4 text-gray-100"
                     strokeWidth={3}
                   />
-                  Export Planning
+                  Export Day
                 </Button>
+                {showExportDayMenu && (
+                  <div className="absolute right-0 mt-2 w-48 rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800 z-50">
+                    <button
+                      className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                      onClick={() => {
+                        handleExport("excel");
+                        closeMenus();
+                      }}
+                    >
+                      📊 Excel (.xlsx)
+                    </button>
+
+                    <button
+                      className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                      onClick={() => {
+                        handleExport("pdf");
+                        closeMenus();
+                      }}
+                    >
+                      📄 PDF (.pdf)
+                    </button>
+                  </div>
+                )}
               </div>
               {/* Weekly Planning */}
               <div className="relative">
@@ -140,7 +163,7 @@ const ViewCalender: React.FC = () => {
                     className="w-4 h-4 text-gray-100"
                     strokeWidth={3}
                   />
-                  Weekly Planning
+                  Export Week
                 </Button>
                 {showWeeklyExportMenu && (
                   <div className="absolute right-0 mt-2 w-48 rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800 z-50">
@@ -230,38 +253,53 @@ const ViewCalender: React.FC = () => {
                               <span className="text-xs text-gray-400 dark:text-gray-600">-</span>
                             </div>
                           )} */}
-                          {employees.length > 0 ? (
-                            <div className="flex flex-col gap-[2px] overflow-hidden">
-                              {employees.slice(0, 2).map((emp) => (
-                                <div
-                                  key={emp.id}
-                                  className="flex flex-col cursor-pointer hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
-                                  onClick={(e) => { e.stopPropagation(); handleListCellClick(task.taskId, shift._id); }}
-                                >
-                                  <span className="text-[11px] px-2 py-[2px] text-gray-800 dark:text-white truncate" title={emp.title}>
-                                    {emp.title}
-                                  </span>
-                                  {emp.tasks && emp.tasks.length > 0 && (
-                                    <span className="text-[10px] text-gray-400 px-2 truncate">
-                                      {emp.tasks.map((t) => `${t.startTime}-${t.endTime} ${t.label}`).join(" · ")}
-                                    </span>
-                                  )}
-                                </div>
-                              ))}
-                              {employees.length > 2 && (
-                                <div
-                                  className="text-[10px] text-gray-400 px-2 cursor-pointer hover:text-gray-600"
-                                  onClick={(e) => { e.stopPropagation(); handleListCellClick(task.taskId, shift._id); }}
-                                >
-                                  +{employees.length - 2}
-                                </div>
+                          {employees.slice(0, 2).map((emp) => (
+                            <div
+                              key={emp.id}
+                              className="flex flex-col cursor-pointer hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleListCellClick(task.taskId, shift._id);
+                              }}
+                            >
+                              <span
+                                className="text-[11px] px-2 py-[2px] text-gray-800 dark:text-white truncate"
+                                title={
+                                  emp.backupTitle
+                                    ? `${emp.title} (${emp.backupTitle})`
+                                    : emp.title
+                                }
+                              >
+                                {emp.title}
+                                {emp.backupTitle && (
+                                  <>
+                                    {" ("}
+                                    <strong>Backup:</strong> {emp.backupTitle}
+                                    {")"}
+                                  </>
+                                )}
+                              </span>
+
+                              {emp.tasks && emp.tasks.length > 0 && (
+                                <span className="text-[10px] text-gray-400 px-2 truncate">
+                                  {emp.tasks
+                                    .map((t) => `${t.startTime}-${t.endTime} ${t.label}`)
+                                    .join(" · ")}
+                                </span>
                               )}
                             </div>
-                          ) : (
-                            <div className="flex items-center justify-center h-full">
-                              <span className="text-xs text-gray-400 dark:text-gray-600">-</span>
+                          ))}
+                          {employees.length > 2 && (
+                            <div
+                              className="text-[10px] text-gray-400 px-2 cursor-pointer hover:text-gray-600"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleListCellClick(task.taskId, shift._id);
+                              }}
+                            >
+                              +{employees.length - 2}
                             </div>
-                        )}
+                          )}
                         </td>
                       );
                     })}
@@ -284,24 +322,65 @@ const ViewCalender: React.FC = () => {
               </div>
             </div>
           </Modal>
-
-          <Modal isOpen={isListModalOpen} onClose={() => setIsListModalOpen(false)} className="max-w-[400px] p-6 relative">
+          <Modal
+            isOpen={isListModalOpen}
+            onClose={() => setIsListModalOpen(false)}
+            className="max-w-[400px] p-6 relative"
+          >
             <div className="flex flex-col gap-4">
+
+              {/* Header */}
               <div>
-                <h3 className="text-lg font-semibold text-gray-800 dark:text-white">Employees in Shift</h3>
-                <p className="text-xs text-gray-400 mt-1">{listEmployees.length} assigned employee(s)</p>
+                <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
+                  Employees in Shift
+                </h3>
+
+                <p className="text-xs text-gray-400 mt-1">
+                  {listEmployees.length} assigned employee(s)
+                </p>
               </div>
+
+              {/* Employee list */}
               <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto pr-1">
                 {listEmployees.map((emp) => (
-                  <div key={emp.id} className="px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-800 text-sm text-gray-700 dark:text-white cursor-pointer hover:bg-brand-100 dark:hover:bg-brand-900/30 transition-colors">
-                    {emp.title}
+                  <div
+                    key={emp.id}
+                    className="px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-800 text-sm text-gray-700 dark:text-white cursor-pointer hover:bg-brand-100 dark:hover:bg-brand-900/30 transition-colors"
+                  >
+                    {/* Main employee */}
+                    <div>
+                      {emp.title}
+                    </div>
+
+                    {/* Backup employee */}
+                    {emp.backupTitle && (
+                      <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        <span className="font-bold text-gray-700 dark:text-gray-300">
+                          Backup:
+                        </span>{" "}
+                        {emp.backupTitle}
+                      </div>
+                    )}
                   </div>
                 ))}
+
+                {/* No employees */}
                 {listEmployees.length === 0 && (
-                  <div className="text-sm text-gray-400 text-center py-6">No employees assigned</div>
+                  <div className="text-sm text-gray-400 text-center py-6">
+                    No employees assigned
+                  </div>
                 )}
               </div>
-              <button onClick={() => setIsListModalOpen(false)} type="button" className="flex w-full justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 sm:w-auto">Close</button>
+
+              {/* Close */}
+              <button
+                onClick={() => setIsListModalOpen(false)}
+                type="button"
+                className="flex w-full justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 sm:w-auto"
+              >
+                Close
+              </button>
+
             </div>
           </Modal>
         </div>

@@ -93,7 +93,7 @@ export const useViewPlanning = () => {
     setError(null);
     try {
       const data = await apiFetch<PlanningRecord[]>("/planning");
-
+      console.log("📈📈📈📈Fetched planning data:", data);
       const currentDateStr = currentDate.toLocaleDateString('en-CA', { timeZone: 'Africa/Algiers' });
 
       const filteredData = data.filter((item) => {
@@ -103,21 +103,30 @@ export const useViewPlanning = () => {
 
       const newGrid = buildEmptyGrid(taskRecords, shiftRecords);
 
-      filteredData.forEach((item) => {
-        const taskId = item.taskId;       // number
-        const shiftId = item.shiftId._id;     // MongoDB _id string from /shifts
+     filteredData.forEach((item) => {
+      const taskId = item.taskId;
+      const shiftId = item.shiftId._id;
 
-        if (newGrid[taskId]?.[shiftId] !== undefined) {
-          newGrid[taskId][shiftId].push({
-            id: item.empId._id,
-            title: `${item.empId.firstName} ${item.empId.lastName}`,
-            planningId: item._id,
-            tasks: item.tasks ?? [],   // add this
-          });
-        } else {
-          console.warn(`No grid cell for taskId=${taskId} shiftId=${shiftId}`);
-        }
-      });
+      if (newGrid[taskId]?.[shiftId] !== undefined) {
+        newGrid[taskId][shiftId].push({
+          id: item.empId._id,
+          title: `${item.empId.firstName} ${item.empId.lastName}`,
+
+          // Backup employee
+          backupEmployeeId: item.backupEmpId?._id ?? null,
+          backupTitle: item.backupEmpId
+            ? `${item.backupEmpId.firstName} ${item.backupEmpId.lastName}`
+            : null,
+
+          planningId: item._id,
+          tasks: item.tasks ?? [],
+        });
+      } else {
+        console.warn(
+          `No grid cell for taskId=${taskId} shiftId=${shiftId}`
+        );
+      }
+    });
 
       setGrid(newGrid);
     } catch (err) {
@@ -143,45 +152,27 @@ export const useViewPlanning = () => {
     setListCell({ postId, shiftId });
     setIsListModalOpen(true);
   }, []);
+  
+  const handleExport = (format: "excel" | "pdf") => {
+    const date = new Date(currentDate);
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
 
-  const handleExport = () => {
-      const shiftLabels = shifts.map((s) => `${s.startTime} - ${s.endTime}`);
-
-      const rows = tasks.map((task) => {
-        const row: Record<string, string> = { Task: task.taskName };
-        shifts.forEach((shift) => {
-          const emps = grid[task.taskId]?.[shift._id] ?? [];
-          row[`${shift.startTime} - ${shift.endTime}`] = emps.map((emp) => emp.title).join('\n');
-        });
-        return row;
-      });
-
-      const worksheet = XLSX.utils.json_to_sheet(rows, { header: ['Task', ...shiftLabels] });
-
-      Object.keys(worksheet).forEach((key) => {
-        if (key.startsWith('!')) return;
-        if (!worksheet[key].s) worksheet[key].s = {};
-        worksheet[key].s = { alignment: { wrapText: true, vertical: 'top' } };
-      });
-
-      worksheet['!cols'] = [{ wch: 20 }, ...shifts.map(() => ({ wch: 30 }))];
-
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Planning');
-      workbook.Workbook = { Views: [{ RTL: false }] };
-
-      XLSX.writeFile(workbook, `planning_${formattedDate}.xlsx`, { cellStyles: true });
+    window.location.href =
+      `http://localhost:3001/planning/export-current-day` +
+      `?year=${year}` +
+      `&month=${month}` +
+      `&day=${day}` +
+      `&format=${format}`;
   };
-
-    const handleWeeklyExport = (format: "excel" | "pdf") => {
-      const date = new Date(currentDate);
-
-      const year = date.getFullYear();
-      const month = date.getMonth() + 1; // JavaScript months are 0-based
-
+  const handleWeeklyExport = (format: "excel" | "pdf") => {
+    const date = new Date(currentDate);
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1; // JavaScript months are 0-based
       window.location.href =
         `http://localhost:3001/planning/export-first-week?year=${year}&month=${month}&format=${format}`;
-    };
+  };
   //   const handleWeeklyExport = () => {
   //   // Copy the currently selected date
   //   const date = new Date(currentDate);

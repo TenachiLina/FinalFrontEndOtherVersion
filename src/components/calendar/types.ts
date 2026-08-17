@@ -30,6 +30,11 @@ export type ShiftTask = {
 export type Cell = {
   id: string;
   title: string;
+
+  // New properties for backu feature:
+  backupEmployeeId?: string | null;
+  backupTitle?: string | null;
+  
   planningId?: string;
   tasks?: ShiftTask[]; // new
 };
@@ -41,13 +46,17 @@ export interface TaskRecord    { _id: string; taskId: number; taskName: string; 
 export interface EmployeeRecord { _id: string; empNumber: number; firstName: string; lastName: string; }
 export interface PlanningRecord {
   _id: string;
+
   shiftId: ShiftRecord;
   empId: EmployeeRecord;
+
+  // Backup employee returned by the API
+  backupEmpId?: EmployeeRecord | null;
+
   taskId: number;
   planDate: string;
-  tasks?: ShiftTask[]; 
+  tasks?: ShiftTask[];
 }
-
 export interface Post  { id: number; label: string; mongoId: string; }
 export interface Shift { id: string; label: string; sub: string; }
 export type GridData = Record<number, Record<string, Cell[]>>;
