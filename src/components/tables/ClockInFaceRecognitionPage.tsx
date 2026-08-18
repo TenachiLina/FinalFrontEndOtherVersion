@@ -11,10 +11,11 @@ import {
   getEmployees,
   getShifts,
   getPlanningByDate,
-  type EmployeeRecord,
-  type ShiftRecord,
-  type PlanningRecord,
 } from "./shifts.api";
+import type {
+  EmployeeRecord,
+  PlanningRecord,
+} from "./../calendar/types";
 
 /* Face-recognition attendance API.
    The browser should call your backend, not MongoDB/the device directly. */
