@@ -12,9 +12,11 @@ const ShiftGrid: React.FC = () => {
   currentDate, setCurrentDate,
   calendarMonth, setCalendarMonth,
   goToToday, goPrev, goNext, formattedDate,
-  isOpen, activeCell, empSearch, setEmpSearch, selectedEmployee, setSelectedEmployee,
+  isOpen, activeCell, empSearch, setEmpSearch, selectedEmployee, setSelectedEmployee, backupEmpSearch, setBackupEmpSearch, selectedBackupEmployee, setSelectedBackupEmployee,
+  filteredBackupEmployees,
   handleCellClick, handleSave, handleClose,
-  isEditModalOpen, editingEmployee, editTitle, setEditTitle,
+  isEditModalOpen, editingEmployee, editTitle, setEditTitle, editBackupEmployee, setEditBackupEmployee, editBackupSearch, setEditBackupSearch,
+  filteredEditBackupEmployees,
   editTasks, addEditTask, updateEditTask, removeEditTask,
   openEditModal, handleEdit, handleCloseEditModal,
   isListModalOpen, setIsListModalOpen,
@@ -24,7 +26,8 @@ const ShiftGrid: React.FC = () => {
   setIsImportModalOpen,
   importDate,
   setImportDate,
-  fileInputRef, handleImportClick, handleImportFile,handleImportFromDate,
+  excelInputRef, pdfInputRef, handleImportClick, handleExcelImportClick, handlePdfImportClick ,handleImportFile, handleImportFromDate,
+  showImportMenu,
   handleDuplicateToWeekday,
   } = useShiftGrid();
 
@@ -110,29 +113,66 @@ const ShiftGrid: React.FC = () => {
             </div>
           </div>
 
-          {/* ── Import actions, stacked under the mini calendar ─────────────── */}
           <div className="flex flex-col gap-2">
             <input
-              ref={fileInputRef}
+              ref={excelInputRef}
               type="file"
               accept=".xlsx,.xls"
               hidden
               onChange={handleImportFile}
             />
 
-            <Button
-              size="sm"
-              variant="primary"
-              onClick={handleImportClick}
-              className="w-full justify-center"
-            >
-              <ArrowDownTrayIcon
-                className="w-4 h-4 text-gray-100"
-                strokeWidth={3}
-              />
-              Import from Excel
-            </Button>
+            <input
+              ref={pdfInputRef}
+              type="file"
+              accept=".pdf"
+              hidden
+              onChange={handleImportFile}
+            />
 
+            {/* Import File Dropdown */}
+            <div className="relative">
+              <Button
+                size="sm"
+                variant="primary"
+                onClick={handleImportClick}
+                className="w-full justify-center"
+              >
+                <ArrowDownTrayIcon
+                  className="w-4 h-4 text-gray-100"
+                  strokeWidth={3}
+                />
+                Import from File
+              </Button>
+
+              {showImportMenu && (
+                <div className="absolute left-0 right-0 mt-2 z-50 rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
+
+                  {/* Excel */}
+                  <button
+                    type="button"
+                    onClick={handleExcelImportClick}
+                    className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+                  >
+                    📊
+                    <span>Import from Excel</span>
+                  </button>
+
+                  {/* PDF */}
+                  <button
+                    type="button"
+                    onClick={handlePdfImportClick}
+                    className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+                  >
+                    📄
+                    <span>Import from PDF</span>
+                  </button>
+
+                </div>
+              )}
+            </div>
+
+            {/* Import from Date */}
             <Button
               size="sm"
               variant="primary"
@@ -143,7 +183,7 @@ const ShiftGrid: React.FC = () => {
                 className="w-4 h-4 text-gray-100"
                 strokeWidth={3}
               />
-              Import from Date 
+              Import from Date
             </Button>
           </div>
         </div>
@@ -228,20 +268,61 @@ const ShiftGrid: React.FC = () => {
                           {events.length > 0 ? (
                             <div className="flex flex-col gap-[2px] overflow-hidden">
                               {events.slice(0, 2).map((emp) => (
-                                <div key={emp.id} className="flex flex-col" onClick={(e) => { e.stopPropagation(); setListCell({ postId: post.id, shiftId: shift.id }); setIsListModalOpen(true); }}>
-                                  <span className="text-[11px] px-2 py-[2px] text-gray-800 dark:text-white truncate" title={emp.title}>{emp.title}</span>
+                                <div
+                                  key={emp.id}
+                                  className="flex flex-col"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setListCell({
+                                      postId: post.id,
+                                      shiftId: shift.id
+                                    });
+                                    setIsListModalOpen(true);
+                                  }}
+                                >
+                                  {/* Main employee */}
+                                  <span
+                                    className="text-[11px] px-2 py-[2px] text-gray-800 dark:text-white truncate"
+                                    title={emp.title}
+                                  >
+                                    {emp.title}
+                                  </span>
+
+                                  {/* Backup employee */}
+                                  <span
+                                    className="text-[10px] px-2 text-gray-400 dark:text-gray-500 truncate"
+                                    title={
+                                      emp.backupTitle
+                                        ? `Backup: ${emp.backupTitle}`
+                                        : "No backup"
+                                    }
+                                  >
+                                    Backup: {emp.backupTitle ?? "No backup"}
+                                  </span>
+
+                                  {/* Tasks */}
                                   {emp.tasks && emp.tasks.length > 0 && (
                                     <span className="text-[10px] text-gray-400 px-2 truncate">
-                                      {emp.tasks.map((t) => `${t.startTime}-${t.endTime} ${t.label}`).join(" · ")}
+                                      {emp.tasks
+                                        .map(
+                                          (t) =>
+                                            `${t.startTime}-${t.endTime} ${t.label}`
+                                        )
+                                        .join(" · ")}
                                     </span>
                                   )}
                                 </div>
                               ))}
+
                               {events.length > 2 && (
-                                <div className="text-[10px] text-gray-400 px-2 cursor-pointer hover:text-gray-600"
+                                <div
+                                  className="text-[10px] text-gray-400 px-2 cursor-pointer hover:text-gray-600"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    setListCell({ postId: post.id, shiftId: shift.id });
+                                    setListCell({
+                                      postId: post.id,
+                                      shiftId: shift.id
+                                    });
                                     setIsListModalOpen(true);
                                   }}
                                 >
@@ -251,7 +332,9 @@ const ShiftGrid: React.FC = () => {
                             </div>
                           ) : (
                             <div className="flex items-center justify-center h-full opacity-0 hover:opacity-100 transition-opacity">
-                              <span className="text-xs text-gray-400 dark:text-gray-600">+ Add</span>
+                              <span className="text-xs text-gray-400 dark:text-gray-600">
+                                + Add
+                              </span>
                             </div>
                           )}
                         </td>
@@ -280,7 +363,7 @@ const ShiftGrid: React.FC = () => {
               {/* Search input */}
               <div className="relative">
                 <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
-                  Search Employee
+                  Main Employee
                 </label>
                 <input
                   autoFocus
@@ -292,7 +375,6 @@ const ShiftGrid: React.FC = () => {
                   placeholder="Type a name or employee number…"
                   className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
                 />
-
                 {/* Dropdown list */}
                 {!selectedEmployee && empSearch.length > 0 && (
                   <ul className="absolute z-50 mt-1 w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg max-h-48 overflow-y-auto">
@@ -311,7 +393,6 @@ const ShiftGrid: React.FC = () => {
                   </ul>
                 )}
               </div>
-
               {/* Selected badge */}
               {selectedEmployee && (
                 <div className="flex items-center justify-between rounded-lg bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 px-3 py-2">
@@ -327,7 +408,80 @@ const ShiftGrid: React.FC = () => {
                   </button>
                 </div>
               )}
+              {/* Backup Employee */}
+              <div className="relative">
+                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                  Backup Employee
+                  <span className="ml-1 text-xs text-gray-400">
+                    (optional)
+                  </span>
+                </label>
+                <input
+                  autoFocus
+                  type="text"
+                  value={
+                    selectedBackupEmployee
+                      ? `${selectedBackupEmployee.firstName} ${selectedBackupEmployee.lastName}`
+                      : backupEmpSearch
+                  }
+                  onChange={(e) => {
+                    setBackupEmpSearch(e.target.value);
+                    setSelectedBackupEmployee(null);
+                  }}
+                  placeholder="Search backup employee..."
+                  className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
+                />
+                {!selectedBackupEmployee && backupEmpSearch.length > 0 && (
+                  <ul className="absolute z-50 mt-1 w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg max-h-48 overflow-y-auto">
+                    {filteredBackupEmployees.length === 0 ? (
+                      <li className="px-4 py-3 text-sm text-gray-400">
+                        No employees found
+                      </li>
+                    ) : (
+                      filteredBackupEmployees.map((emp) => (
+                        <li
+                          key={emp._id}
+                          onClick={() => {
+                            console.log("BACKUP SELECTED:", emp);
+                            setSelectedBackupEmployee(emp);
+                            setBackupEmpSearch("");
+                          }}
+                          className="flex items-center justify-between px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-brand-50 dark:hover:bg-brand-900/20 cursor-pointer"
+                        >
+                          <span>
+                            {emp.firstName} {emp.lastName}
+                          </span>
 
+                          <span className="text-xs text-gray-400 font-mono">
+                            #{emp.empNumber}
+                          </span>
+                        </li>
+                      ))
+                    )}
+                  </ul>
+                )}
+              </div>
+              {selectedBackupEmployee && (
+                <div className="flex items-center justify-between rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-3 py-2">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                    ✓ {selectedBackupEmployee.firstName}{" "}
+                    {selectedBackupEmployee.lastName}
+                    <span className="ml-2 text-xs text-gray-400">
+                      #{selectedBackupEmployee.empNumber}
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedBackupEmployee(null);
+                      setBackupEmpSearch("");
+                    }}
+                    className="text-gray-400 hover:text-gray-600 text-xs"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
               <div className="flex items-center gap-3 sm:justify-end">
                 <button onClick={handleClose} type="button"
                   className="flex w-full justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] sm:w-auto">
@@ -353,7 +507,15 @@ const ShiftGrid: React.FC = () => {
                 {listEmployees.map((emp) => (
                   <div key={emp.id} className="px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-800 text-sm text-gray-700 dark:text-white">
                     <div className="flex items-center justify-between">
-                      <span className="truncate">{emp.title}</span>
+                      <div className="flex flex-col min-w-0">
+                        <span className="truncate font-medium">
+                          {emp.title}
+                        </span>
+
+                        <span className="text-xs text-gray-400 truncate">
+                          Backup: {emp.backupTitle ?? "No backup"}
+                        </span>
+                      </div>
                       <div className="flex items-center gap-2 ml-2 shrink-0">
                         <button onClick={() => openEditModal(emp, listCell!)} type="button" className="text-blue-400 hover:text-blue-600 text-xs font-medium">Edit</button>
                         <button onClick={() => { if (!listCell) return; handleDelete(emp.id, listCell); if (listEmployees.length <= 1) setIsListModalOpen(false); }} type="button" className="text-red-400 hover:text-red-600 text-xs font-medium">Remove</button>
@@ -390,7 +552,70 @@ const ShiftGrid: React.FC = () => {
                   className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
                 />
               </div>
+              {/* It allows to edit both main and backup employees, if the backup doesn't exist yet it displays it displays "to add a backup" or its name with remove button to add another one */}
+              <div className="relative">
+                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                  Backup Employee
+                  <span className="ml-1 text-xs text-gray-400">
+                    (optional)
+                  </span>
+                </label>
+                <input
+                  type="text"
+                  value={
+                    editBackupEmployee
+                      ? `${editBackupEmployee.firstName} ${editBackupEmployee.lastName}`
+                      : editBackupSearch
+                  }
+                  onChange={(e) => {
+                    setEditBackupSearch(e.target.value);
+                    setEditBackupEmployee(null);
+                  }}
+                  placeholder="Search backup employee..."
+                  className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+                />
+                {!editBackupEmployee && editBackupSearch.length > 0 && (
+                  <ul className="absolute z-50 mt-1 w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg max-h-48 overflow-y-auto">
+                    {filteredEditBackupEmployees.map((emp) => (
+                      <li
+                        key={emp._id}
+                        onClick={() => {
+                          setEditBackupEmployee(emp);
+                          setEditBackupSearch("");
+                        }}
+                        className="flex items-center justify-between px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-brand-50 dark:hover:bg-brand-900/20 cursor-pointer"
+                      >
+                        <span>
+                          {emp.firstName} {emp.lastName}
+                        </span>
 
+                        <span className="text-xs text-gray-400 font-mono">
+                          #{emp.empNumber}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {editBackupEmployee && (
+                  <div className="mt-2 flex items-center justify-between rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-3 py-2">
+                    <span className="text-sm text-gray-700 dark:text-gray-200">
+                      {editBackupEmployee.firstName}{" "}
+                      {editBackupEmployee.lastName}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditBackupEmployee(null);
+                        setEditBackupSearch("");
+                      }}
+                      className="text-red-400 hover:text-red-600 text-xs"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                )}
+              </div>
+              
               {/* ── task breakdown ─────────────────────────────────────── */}
               <div>
                 <div className="flex items-center justify-between mb-2">
