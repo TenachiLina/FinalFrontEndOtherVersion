@@ -58,6 +58,13 @@ const navItems: NavItem[] = [
     name: "Clock In / Out",
     path: "/clockinpage",
   },
+
+  {
+    icon: <UserCircleIcon />,
+    name: "Clock In/Out with Face recognition",
+    path: "/clockinfacerecognitionpage",
+  },
+
   // {
   //   icon: <UserCircleIcon />,
   //   name: "Add Employee",
