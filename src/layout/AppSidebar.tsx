@@ -65,6 +65,11 @@ const navItems: NavItem[] = [
     path: "/clockinfacerecognitionpage",
   },
 
+   {
+    icon: <UserCircleIcon />,
+    name: "Clock In/Out History",
+    path: "/clockinpagehistory",
+  },
   // {
   //   icon: <UserCircleIcon />,
   //   name: "Add Employee",
