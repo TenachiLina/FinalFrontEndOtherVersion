@@ -11,24 +11,16 @@ import {
   getEmployees,
   getShifts,
   getPlanningByDate,
-  type EmployeeRecord,
-  type ShiftRecord,
-  type PlanningRecord,
 } from "./shifts.api";
-
+import type {
+  EmployeeRecord,
+  PlanningRecord,
+  AttendanceEmployee,
+  AttendanceRow,
+} from "./../calendar/types";
 // ─── Types ────────────────────────────────────────────────────────────────────
-
 type ShiftStatus = "present" | "absent" | "pending";
-
-/** Internal employee shape used by the table */
-interface Employee {
-  num: number;
-  mongoId: string;
-  empNumber: string;
-  FirstName: string;
-  specialClockIn?: string;  // ← add
-  specialClockOut?: string; // ← add
-}
+type Employee = AttendanceEmployee;
 
 /** Internal shift shape used by the tabs */
 interface Shift {
@@ -36,7 +28,6 @@ interface Shift {
   start_time: string;
   end_time: string;
 }
-
 interface EmployeeTimeEntry {
   clockIn: string;
   clockOut: string;
@@ -48,7 +39,6 @@ interface EmployeeTimeEntry {
   _dirty?: boolean;
   _saving?: boolean;
 }
-
 interface ManualInputState {
   employee: number | null;
   type: "clockIn" | "clockOut" | null;
@@ -56,7 +46,6 @@ interface ManualInputState {
 }
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
-
 const ClockInIcon = () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>);
 const EditIcon    = () => (<svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>);
 const CloseIcon   = () => (<svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>);
@@ -64,7 +53,6 @@ const TrashIcon   = () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="no
 const SaveIcon    = () => (<svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>);
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
 const toMinutes    = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
 const formatMin    = (n: number) => n <= 0 ? "00:00" : `${Math.floor(n/60).toString().padStart(2,"0")}:${(n%60).toString().padStart(2,"0")}`;
 const calcHours    = (i: string, o: string) => { if (i==="00:00"||o==="00:00") return "00:00"; let d=toMinutes(o)-toMinutes(i); if(d<0) d+=1440; return formatMin(d); };
@@ -74,7 +62,6 @@ const nowTime      = () => { const d=new Date(); return `${d.getHours().toString
 const getStatus    = (e: EmployeeTimeEntry): ShiftStatus => e.absent ? "absent" : e.clockIn!=="00:00" ? "present" : "pending";
 const badgeColor   = (s: ShiftStatus) => s==="present"?"success":s==="absent"?"error":"warning";
 const badgeLabel   = (s: ShiftStatus) => s==="present"?"Present":s==="absent"?"Absent":"Pending";
-
 function recordToEntry(r: WorktimeRecord): EmployeeTimeEntry {
   return {
     clockIn:       r.clock_in       ?? "00:00",
@@ -86,7 +73,6 @@ function recordToEntry(r: WorktimeRecord): EmployeeTimeEntry {
     workTimeId:    r._id,
   };
 }
-
 function entryToPayload(
   entry: EmployeeTimeEntry,
   empNum: number,
@@ -113,18 +99,22 @@ function entryToPayload(
     absent_comment:   entry.absentComment || undefined,
   };
 }
-
+const employeeRecordToEmployee = (
+  employee: EmployeeRecord
+): Employee => ({
+  num: employee.empNumber,
+  mongoId: employee._id,
+  empNumber: `EMP-${employee.empNumber}`,
+  FirstName: `${employee.firstName} ${employee.lastName}`,
+});
 
 // ─── localStorage persistence ─────────────────────────────────────────────────
-
 const LS_KEY = (date: string) => `worktime_${date}`;
-
 function saveEntriesToStorage(date: string, entries: Record<string, EmployeeTimeEntry>) {
   try {
     localStorage.setItem(LS_KEY(date), JSON.stringify(entries));
   } catch {}
 }
-
 function loadEntriesFromStorage(date: string): Record<string, EmployeeTimeEntry> {
   try {
     const raw = localStorage.getItem(LS_KEY(date));
@@ -132,13 +122,10 @@ function loadEntriesFromStorage(date: string): Record<string, EmployeeTimeEntry>
   } catch { return {}; }
 }
 
-
 // ─── Component ────────────────────────────────────────────────────────────────
-
 interface AttendancePageProps {
   currentDate?: string;
 }
-
 export default function AttendancePage({
   currentDate = new Date().toISOString().slice(0, 10),
 }: AttendancePageProps) {
@@ -148,6 +135,7 @@ export default function AttendancePage({
   const [employees, setEmployees]   = useState<Employee[]>([]);
   // Map: empNum -> shiftId[]  (built from planning)
   const [assignedShifts, setAssignedShifts] = useState<Record<number, string[]>>({});
+  const [planningRecords, setPlanningRecords] = useState<PlanningRecord[]>([]);
 
   const [currentTab, setCurrentTab] = useState<string | null>(null);
   const [entries, setEntries]       = useState<Record<string, EmployeeTimeEntry>>({});
@@ -155,7 +143,7 @@ export default function AttendancePage({
   const [search, setSearch]         = useState("");
   const [apiError, setApiError]     = useState<string | null>(null);
   const [loading, setLoading]       = useState(true);
-const [specialTimes, setSpecialTimes] = useState<Record<string, { clockIn?: string; clockOut?: string }>>({});
+  const [specialTimes, setSpecialTimes] = useState<Record<string, { clockIn?: string; clockOut?: string }>>({});
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   // ── Load employees, shifts, planning for the selected date ───────────────
@@ -204,19 +192,23 @@ const [specialTimes, setSpecialTimes] = useState<Record<string, { clockIn?: stri
             assigned[empNum].push(p.shiftId._id);
           }
         });
-const special: Record<string, { clockIn?: string; clockOut?: string }> = {};
-planningRecords.forEach((p: any) => {
-  const firstTask = p.tasks?.[0];
-  if (firstTask?.startTime) {
-    const k = `${p.empId._id}-${p.shiftId._id}`;
-    special[k] = { clockIn: firstTask.startTime, clockOut: firstTask.endTime };
-  }
-});
-setSpecialTimes(special);
+        const special: Record<string, { clockIn?: string; clockOut?: string }> = {};
+        planningRecords.forEach((p: any) => {
+          const firstTask = p.tasks?.[0];
+          if (firstTask?.startTime) {
+            const k = `${p.empId._id}-${p.shiftId._id}`;
+            special[k] = { clockIn: firstTask.startTime, clockOut: firstTask.endTime };
+          }
+        });
+        setSpecialTimes(special);
         setEmployees(mappedEmployees);
         setShifts(mappedShifts);
         setAssignedShifts(assigned);
-        if (mappedShifts.length) setCurrentTab(mappedShifts[0].shift_id);
+        setPlanningRecords(planningRecords);
+
+        if (mappedShifts.length) {
+          setCurrentTab(mappedShifts[0].shift_id);
+        }
       })
       .catch((e) => setApiError(String(e)))
       .finally(() => setLoading(false));
@@ -246,12 +238,10 @@ setSpecialTimes(special);
 }, [currentDate]);
 
   // ── Derived ───────────────────────────────────────────────────────────────
-
   const currentShift = useMemo(
     () => shifts.find((s) => s.shift_id === currentTab) ?? null,
     [shifts, currentTab]
   );
-
   const filteredEmployees = useMemo(() => {
     if (!currentTab) return [];
     const q = search.toLowerCase();
@@ -263,18 +253,28 @@ setSpecialTimes(special);
       );
     });
   }, [currentTab, employees, assignedShifts, search]);
-
   const entryKey = (empNum: number, shiftId = currentTab) => `${empNum}-${shiftId}`;
-
   const getEntry = (empNum: number): EmployeeTimeEntry =>
     entries[entryKey(empNum)] ?? {
       clockIn: "00:00", clockOut: "00:00",
       absent: false, absentComment: "",
       consomation: 0, penalty: 0, workTimeId: null,
-    };
+  };
+  // const getBackupEmployee = (
+  // emp: Employee,
+  // shiftId: string | null
+  // ): EmployeeRecord | null => {
+  //   if (!shiftId) return null;
 
+  //   const planning = planningRecords.find(
+  //     (p) =>
+  //       p.empId?._id === emp.mongoId &&
+  //       p.shiftId?._id === shiftId
+  //   );
+
+  //   return planning?.backupEmpId ?? null;
+  // };
   // ── Auto-save ─────────────────────────────────────────────────────────────
-
   const scheduleSave = useCallback((empNum: number, shiftId: string, updatedEntry: EmployeeTimeEntry) => {
     const k = `${empNum}-${shiftId}`;
     const shift = shifts.find((s) => s.shift_id === shiftId);
@@ -294,7 +294,6 @@ setSpecialTimes(special);
       }
     }, 800);
   }, [currentDate, shifts]);
-
   const updateEntry = useCallback((empNum: number, patch: Partial<EmployeeTimeEntry>) => {
   if (!currentTab) return;
   const k = entryKey(empNum);
@@ -308,13 +307,10 @@ setSpecialTimes(special);
 }, [currentTab, currentDate, scheduleSave]);
 
   // ── Actions ───────────────────────────────────────────────────────────────
-
   const handleClockIn  = (empNum: number) => updateEntry(empNum, { clockIn:  nowTime() });
   const handleClockOut = (empNum: number) => updateEntry(empNum, { clockOut: nowTime() });
-
   const openManualInput = (empNum: number, type: "clockIn" | "clockOut") =>
     setManualInput({ employee: empNum, type, value: getEntry(empNum)[type] });
-
   const saveManualTime = () => {
     const { employee, type, value } = manualInput;
     if (!employee || !type) return;
@@ -322,10 +318,8 @@ setSpecialTimes(special);
     updateEntry(employee, { [type]: value });
     setManualInput({ employee: null, type: null, value: "" });
   };
-
   const toggleAbsent = (empNum: number, absent: boolean) =>
     updateEntry(empNum, { absent, ...(absent ? { clockIn: "00:00", clockOut: "00:00" } : {}) });
-
   const clearAllData = () => {
     if (!window.confirm("Reset all clock-in/out data for today?")) return;
     setEntries((prev) => {
@@ -336,9 +330,77 @@ setSpecialTimes(special);
       return reset;
     });
   };
+  const getAttendanceRows = (
+    employees: Employee[],
+    shiftId: string | null
+  ): AttendanceRow[] => {
+    if (!shiftId) {
+      return employees.map((employee) => ({
+        employee,
+        isBackup: false,
+      }));
+    }
+
+    const rows: AttendanceRow[] = [];
+
+    for (const employee of employees) {
+      // Always display the main employee
+      rows.push({
+        employee,
+        isBackup: false,
+      });
+
+      // Get this employee's attendance entry
+      const entry = getEntry(employee.num);
+
+      // Backup only appears when the main employee is absent
+      if (!entry.absent) {
+        continue;
+      }
+
+      // Find planning for this employee + shift
+      const planning = planningRecords.find(
+        (p) =>
+          p.empId?._id === employee.mongoId &&
+          p.shiftId?._id === shiftId
+      );
+
+      // No planning or no backup
+      if (!planning?.backupEmpId) {
+        continue;
+      }
+
+      // Convert API EmployeeRecord -> frontend Employee
+      const backupEmployee = employeeRecordToEmployee(
+        planning.backupEmpId
+      );
+
+      // Prevent duplicate rows
+      if (
+        rows.some(
+          (row) =>
+            row.employee.mongoId === backupEmployee.mongoId
+        )
+      ) {
+        continue;
+      }
+
+      // Add backup as a real attendance employee
+      rows.push({
+        employee: backupEmployee,
+        isBackup: true,
+        backupOfEmpNum: employee.num,
+      });
+    }
+
+    return rows;
+  };
 
   // ── Stats ─────────────────────────────────────────────────────────────────
-
+  const attendanceRows = useMemo(
+    () => getAttendanceRows(filteredEmployees, currentTab),
+    [filteredEmployees, currentTab, entries, planningRecords]
+  );
   const stats = useMemo(() => {
     let present = 0, absent = 0, pending = 0;
     filteredEmployees.forEach((emp) => {
@@ -351,18 +413,17 @@ setSpecialTimes(special);
   }, [filteredEmployees, entries]);
 
   // ── Render ────────────────────────────────────────────────────────────────
-
   if (loading) return (
-  <div className="flex items-center justify-center h-32 text-gray-400 text-sm animate-pulse">
-    Loading attendance data…
-  </div>
-);
+    <div className="flex items-center justify-center h-32 text-gray-400 text-sm animate-pulse">
+      Loading attendance data…
+    </div>
+  );
 
-if (!loading && !shifts.length) return (
-  <div className="flex items-center justify-center h-32 text-gray-400 text-sm">
-    No shifts found — check that <code className="mx-1 font-mono bg-gray-100 px-1 rounded">localhost:3001/shifts</code> returns data and CORS is enabled.
-  </div>
-);
+  if (!loading && !shifts.length) return (
+    <div className="flex items-center justify-center h-32 text-gray-400 text-sm">
+      No shifts found — check that <code className="mx-1 font-mono bg-gray-100 px-1 rounded">localhost:3001/shifts</code> returns data and CORS is enabled.
+    </div>
+  );
 
   return (
     <>
@@ -466,29 +527,58 @@ if (!loading && !shifts.length) return (
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
-              {filteredEmployees.length === 0 ? (
+              {attendanceRows.length === 0 ? (
                 <tr><td colSpan={12} className="px-5 py-12 text-center text-sm text-gray-400">
                   {employees.length === 0
                     ? "No employees found in the database."
                     : "No employees assigned to this shift for today."}
                 </td></tr>
-              ) : filteredEmployees.map((emp) => {
-                const entry   = getEntry(emp.num);
-                const status  = getStatus(entry);
-                const st = specialTimes[`${emp.mongoId}-${currentTab}`];
-const effectiveStart = st?.clockIn  ?? currentShift?.start_time ?? "";
-const effectiveEnd   = st?.clockOut ?? currentShift?.end_time   ?? "";
-const lateMin = calcLate(entry.clockIn, effectiveStart);
-const otMin   = calcOvertime(entry.clockOut, effectiveEnd);
-                const hours   = calcHours(entry.clockIn, entry.clockOut);
+              ) : attendanceRows.map(({ employee: emp, isBackup, backupOfEmpNum }) => {
+                    const entry = getEntry(emp.num);
+                    const status = getStatus(entry);
+
+                    const mainEmployee = backupOfEmpNum
+                      ? employees.find((e) => e.num === backupOfEmpNum)
+                      : null;
+
+                    const st = specialTimes[`${emp.mongoId}-${currentTab}`];
+
+                    const effectiveStart =
+                      st?.clockIn ?? currentShift?.start_time ?? "";
+
+                    const effectiveEnd =
+                      st?.clockOut ?? currentShift?.end_time ?? "";
+
+                    const lateMin = calcLate(entry.clockIn, effectiveStart);
+                    const otMin = calcOvertime(entry.clockOut, effectiveEnd);
+                    const hours = calcHours(entry.clockIn, entry.clockOut);
 
                 return (
                   <tr key={`${emp.num}-${currentTab}`}
                     className={`transition-colors ${entry.absent ? "bg-red-50/40 dark:bg-red-900/10" : "hover:bg-gray-50 dark:hover:bg-white/[0.02]"}`}
                   >
                     <td className="px-4 py-3">
-                      <p className="text-sm font-medium text-gray-800 dark:text-white/90">{emp.FirstName}</p>
-                      <p className="text-xs text-gray-400 dark:text-gray-500 font-mono mt-0.5">{emp.empNumber}</p>
+                      <div className="flex items-center gap-2">
+                        {isBackup && (
+                          <span className="text-blue-500 text-xs">↳</span>
+                        )}
+
+                        <div>
+                          <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+                            {emp.FirstName}
+                          </p>
+
+                          <p className="text-xs text-gray-400 dark:text-gray-500 font-mono mt-0.5">
+                            {emp.empNumber}
+                          </p>
+
+                          {isBackup && (
+                            <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                              Backup for {mainEmployee?.FirstName ?? "employee"}
+                            </p>
+                          )}
+                        </div>
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <Badge size="sm" color={badgeColor(status)}>{badgeLabel(status)}</Badge>

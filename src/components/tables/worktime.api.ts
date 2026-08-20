@@ -29,17 +29,34 @@ export interface WorktimeRecord extends WorktimePayload {
 }
 
 // ─── API helpers ──────────────────────────────────────────────────────────────
-
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     headers: { "Content-Type": "application/json" },
     ...init,
   });
+
+  const text = await res.text();
+
+  console.log("========== WORKTIME API RESPONSE ==========");
+  console.log("PATH:", path);
+  console.log("METHOD:", init?.method ?? "GET");
+  console.log("STATUS:", res.status);
+  console.log("BODY:", JSON.stringify(text));
+  console.log("============================================");
+
   if (!res.ok) {
-    const text = await res.text().catch(() => res.statusText);
-    throw new Error(`[worktime] ${res.status} ${text}`);
+    throw new Error(
+      `[worktime] ${res.status} ${text || res.statusText}`
+    );
   }
-  return res.json() as Promise<T>;
+
+  if (!text.trim()) {
+    throw new Error(
+      `[worktime] ${res.status} - Empty response from ${path}`
+    );
+  }
+
+  return JSON.parse(text) as T;
 }
 
 // ─── CRUD ─────────────────────────────────────────────────────────────────────
@@ -84,17 +101,30 @@ export async function upsertWorktime(
   payload: WorktimePayload,
   existingId?: string | null
 ): Promise<WorktimeRecord> {
+
+  // 1. If we have an existing ID, try to update it
   if (existingId) {
-    return updateWorktime(existingId, payload);
+    try {
+      return await updateWorktime(existingId, payload);
+    } catch (error) {
+      console.warn(
+        "Existing worktime ID is invalid or no longer exists. Searching by employee/shift/date..."
+      );
+    }
   }
-  // Try to find an existing record first to avoid duplicates on re-mount
+
+  // 2. Search for an existing record by employee + shift + date
   const existing = await getWorktimes({
     emp_id: String(payload.emp_id),
     shift_id: String(payload.shift_id),
     work_date: payload.work_date,
   });
+
+  // 3. If found, update it
   if (existing.length > 0) {
     return updateWorktime(existing[0]._id, payload);
   }
+
+  // 4. Otherwise create a new record
   return createWorktime(payload);
 }
