@@ -90,6 +90,11 @@ export default function ClockInLogsPage() {
     timestamp: "",
   });
 
+  connected: boolean;
+  name: string;
+  ip?: string;
+} | null>(null);
+
   // ---------------------------------------------------------
   // LOAD ATTENDANCE LOGS
   // ---------------------------------------------------------
@@ -203,6 +208,40 @@ export default function ClockInLogsPage() {
     page * PAGE_SIZE
   );
 
+  useEffect(() => {
+  let cancelled = false;
+
+  const checkDeviceStatus = async () => {
+    try {
+      const response = await fetch(
+        "http://localhost:3001/device/status",
+        { cache: "no-store" }
+      );
+
+      const data = await response.json();
+
+      if (!cancelled) {
+        setDeviceStatus(data);
+      }
+    } catch {
+      if (!cancelled) {
+        setDeviceStatus({
+          connected: false,
+          name: "Face Recognition Machine",
+        });
+      }
+    }
+  };
+
+  checkDeviceStatus();
+
+  const interval = setInterval(checkDeviceStatus, 30000);
+
+  return () => {
+    cancelled = true;
+    clearInterval(interval);
+  };
+}, []);
   // ---------------------------------------------------------
   // SELECT LOG
   // ---------------------------------------------------------

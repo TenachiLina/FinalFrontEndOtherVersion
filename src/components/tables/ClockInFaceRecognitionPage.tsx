@@ -255,6 +255,47 @@ export default function AttendancePage({
 const [deviceEntries, setDeviceEntries] = useState<Record<string, { clockIn: string; clockOut: string }>>({});
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
+  const [deviceStatus, setDeviceStatus] = useState<{
+  connected: boolean;
+  name: string;
+  ip?: string;
+} | null>(null);
+
+useEffect(() => {
+  let cancelled = false;
+
+  const checkDeviceStatus = async () => {
+    try {
+      const response = await fetch(
+        "http://localhost:3001/device/status",
+        { cache: "no-store" }
+      );
+
+      const data = await response.json();
+
+      if (!cancelled) {
+        setDeviceStatus(data);
+      }
+    } catch {
+      if (!cancelled) {
+        setDeviceStatus({
+          connected: false,
+          name: "Face Recognition Machine",
+        });
+      }
+    }
+  };
+
+  checkDeviceStatus();
+
+  const interval = setInterval(checkDeviceStatus, 30000);
+
+  return () => {
+    cancelled = true;
+    clearInterval(interval);
+  };
+}, []);
+
   // ── Load employees, shifts, planning for the selected date ───────────────
   useEffect(() => {
     setLoading(true);
@@ -603,13 +644,47 @@ if (!loading && !shifts.length) return (
               {s.start_time.slice(0, 5)} – {s.end_time.slice(0, 5)}
             </button>
           ))}
-          <span className={`ml-2 rounded-lg px-3 py-1.5 text-xs font-medium ${
-            deviceLoading
-              ? "bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400"
-              : "bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400"
-          }`}>
-            {deviceLoading ? "Reading machine…" : `Machine punches: ${deviceLogs.length}`}
-          </span>
+          {/* Machine connection status */}
+<div
+  className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium ${
+    deviceStatus === null
+      ? "bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400"
+      : deviceStatus.connected
+        ? "bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400"
+        : "bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400"
+  }`}
+>
+  <span
+    className={`h-2 w-2 rounded-full ${
+      deviceStatus === null
+        ? "bg-amber-500"
+        : deviceStatus.connected
+          ? "bg-green-500"
+          : "bg-red-500"
+    }`}
+  />
+
+  <span>
+    {deviceStatus === null
+      ? "Checking machine…"
+      : `${deviceStatus.name} — ${
+          deviceStatus.connected ? "Connected" : "Disconnected"
+        }`}
+  </span>
+</div>
+
+{/* Number of punches */}
+<span
+  className={`ml-2 rounded-lg px-3 py-1.5 text-xs font-medium ${
+    deviceLoading
+      ? "bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400"
+      : "bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400"
+  }`}
+>
+  {deviceLoading
+    ? "Reading machine…"
+    : `Machine punches: ${deviceLogs.length}`}
+</span>
 
           <button onClick={clearAllData} className="ml-2 flex items-center gap-1.5 rounded-lg border border-red-200 dark:border-red-900/50 px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
             <TrashIcon /> Reset
