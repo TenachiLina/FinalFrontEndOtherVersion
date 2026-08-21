@@ -90,6 +90,7 @@ export default function ClockInLogsPage() {
     timestamp: "",
   });
 
+  const [deviceStatus, setDeviceStatus] = useState<{
   connected: boolean;
   name: string;
   ip?: string;
