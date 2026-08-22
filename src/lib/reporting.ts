@@ -245,8 +245,22 @@ export async function fetchAdvances(
       ? `${API_BASE_URL}/advances/employee/${empId}${qs}`
       : `${API_BASE_URL}/advances${qs}`;
 
-  const res = await fetch(url);
-  if (!res.ok) throw new Error("Failed to fetch advances.");
+ const res = await fetch(url);
+
+if (!res.ok) {
+  const errorText = await res.text();
+
+  console.error("ADVANCES API ERROR:", {
+    url,
+    status: res.status,
+    statusText: res.statusText,
+    response: errorText,
+  });
+
+  throw new Error(
+    `Failed to fetch advances: ${res.status} ${res.statusText}`
+  );
+}
 
   const data = await res.json();
   const list: AdvanceRecordRaw[] = Array.isArray(data) ? data : data.rows || [];

@@ -122,28 +122,38 @@ function loadEntriesFromStorage(date: string): Record<string, EmployeeTimeEntry>
   } catch { return {}; }
 }
 
+
+
+
 // ─── Component ────────────────────────────────────────────────────────────────
 interface AttendancePageProps {
   currentDate?: string;
 }
+
 export default function AttendancePage({
   currentDate = new Date().toISOString().slice(0, 10),
 }: AttendancePageProps) {
 
-  // ── DB-loaded state ───────────────────────────────────────────────────────
-  const [shifts, setShifts]         = useState<Shift[]>([]);
-  const [employees, setEmployees]   = useState<Employee[]>([]);
-  // Map: empNum -> shiftId[]  (built from planning)
+  const [selectedDate, setSelectedDate] = useState(currentDate);
+
+  // ── DB-loaded state ───────────────────────────────────────
+  const [shifts, setShifts] = useState<Shift[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [assignedShifts, setAssignedShifts] = useState<Record<number, string[]>>({});
   const [planningRecords, setPlanningRecords] = useState<PlanningRecord[]>([]);
 
   const [currentTab, setCurrentTab] = useState<string | null>(null);
-  const [entries, setEntries]       = useState<Record<string, EmployeeTimeEntry>>({});
-  const [manualInput, setManualInput] = useState<ManualInputState>({ employee: null, type: null, value: "" });
-  const [search, setSearch]         = useState("");
-  const [apiError, setApiError]     = useState<string | null>(null);
-  const [loading, setLoading]       = useState(true);
-  const [specialTimes, setSpecialTimes] = useState<Record<string, { clockIn?: string; clockOut?: string }>>({});
+  const [entries, setEntries] = useState<Record<string, EmployeeTimeEntry>>({});
+  const [manualInput, setManualInput] = useState<ManualInputState>({
+    employee: null,
+    type: null,
+    value: "",
+  });
+  const [search, setSearch] = useState("");
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [specialTimes, setSpecialTimes] =
+    useState<Record<string, { clockIn?: string; clockOut?: string }>>({});
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   // ── Load employees, shifts, planning for the selected date ───────────────
@@ -154,7 +164,7 @@ export default function AttendancePage({
     Promise.all([
   getEmployees(),
   getShifts(),
-  getPlanningByDate(currentDate).catch((e) => {
+  getPlanningByDate(selectedDate).catch((e) => {
     console.warn("Planning fetch failed:", e);
     return [] as PlanningRecord[];
   }),
@@ -212,16 +222,15 @@ export default function AttendancePage({
       })
       .catch((e) => setApiError(String(e)))
       .finally(() => setLoading(false));
-  }, [currentDate]);
-
+}, [selectedDate]);
   // ── Load existing worktime records for the date ───────────────────────────
   useEffect(() => {
   if (!currentDate) return;
-  getWorktimesByDate(currentDate)
+  getWorktimesByDate(selectedDate)
     .then((records) => {
       setEntries((prev) => {
         // Start with whatever is in localStorage
-        const fromStorage = loadEntriesFromStorage(currentDate);
+        const fromStorage = loadEntriesFromStorage(selectedDate);
         const next = { ...fromStorage };
 
         // Overlay DB records (but don't overwrite dirty local changes)
@@ -235,8 +244,7 @@ export default function AttendancePage({
       });
     })
     .catch((e) => setApiError(String(e)));
-}, [currentDate]);
-
+}, [selectedDate]);
   // ── Derived ───────────────────────────────────────────────────────────────
   const currentShift = useMemo(
     () => shifts.find((s) => s.shift_id === currentTab) ?? null,
@@ -283,9 +291,13 @@ export default function AttendancePage({
       setEntries((prev) => ({ ...prev, [k]: { ...prev[k], _saving: true, _dirty: false } }));
       try {
         const payload = entryToPayload(
-          updatedEntry, empNum, shiftId, currentDate,
-          shift?.start_time ?? "", shift?.end_time ?? ""
-        );
+  updatedEntry,
+  empNum,
+  shiftId,
+  selectedDate,
+  shift?.start_time ?? "",
+  shift?.end_time ?? ""
+);
         const saved = await upsertWorktime(payload, updatedEntry.workTimeId ?? null);
         setEntries((prev) => ({ ...prev, [k]: { ...prev[k], workTimeId: saved._id, _saving: false } }));
       } catch (e) {
@@ -293,7 +305,7 @@ export default function AttendancePage({
         setEntries((prev) => ({ ...prev, [k]: { ...prev[k], _saving: false, _dirty: true } }));
       }
     }, 800);
-  }, [currentDate, shifts]);
+  }, [selectedDate, shifts]);
   const updateEntry = useCallback((empNum: number, patch: Partial<EmployeeTimeEntry>) => {
   if (!currentTab) return;
   const k = entryKey(empNum);
@@ -304,7 +316,8 @@ export default function AttendancePage({
     saveEntriesToStorage(currentDate, next); // ← save to localStorage
     return next;
   });
-}, [currentTab, currentDate, scheduleSave]);
+}, [currentTab, selectedDate, scheduleSave]);
+
 
   // ── Actions ───────────────────────────────────────────────────────────────
   const handleClockIn  = (empNum: number) => updateEntry(empNum, { clockIn:  nowTime() });
@@ -463,9 +476,25 @@ export default function AttendancePage({
       {/* Header */}
       <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-medium text-gray-800 dark:text-white">Attendance</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{currentDate}</p>
-        </div>
+  <h1 className="text-xl font-medium text-gray-800 dark:text-white">
+    Attendance
+  </h1>
+
+  <div className="mt-1 flex items-center gap-2">
+    <input
+      type="date"
+      value={selectedDate}
+      onChange={(e) => {
+        setSelectedDate(e.target.value);
+        setEntries({});
+        setCurrentTab(null);
+      }}
+      className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700
+                 dark:border-white/[0.1] dark:bg-white/[0.05] dark:text-gray-300
+                 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+    />
+  </div>
+</div>
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mr-1">Shift:</span>
           {shifts.map((s) => (
