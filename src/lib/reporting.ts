@@ -244,7 +244,7 @@ export async function fetchAdvances(
     empId !== undefined && empId !== null
       ? `${API_BASE_URL}/advances/employee/${empId}${qs}`
       : `${API_BASE_URL}/advances${qs}`;
-
+ console.log("Fetching advances from URL:", url);
  const res = await fetch(url);
 
 if (!res.ok) {
