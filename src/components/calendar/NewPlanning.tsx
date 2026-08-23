@@ -16,8 +16,8 @@ const ShiftGrid: React.FC = () => {
   isOpen, activeCell, empSearch, setEmpSearch, selectedEmployee, setSelectedEmployee, backupEmpSearch, setBackupEmpSearch, selectedBackupEmployee, setSelectedBackupEmployee,
   filteredBackupEmployees,
   handleCellClick, handleSave, handleClose,
-  isEditModalOpen, editingEmployee, editTitle, setEditTitle, editBackupEmployee, setEditBackupEmployee, editBackupSearch, setEditBackupSearch,
-  filteredEditBackupEmployees,
+  isEditModalOpen, editSelectedEmployee, editingEmployee, setEditSelectedEmployee, editTitle, setEditTitle, editBackupEmployee, setEditBackupEmployee, editBackupSearch, setEditBackupSearch,
+  filteredEditBackupEmployees, filteredEditEmployees,
   editTasks, addEditTask, updateEditTask, removeEditTask,
   openEditModal, handleEdit, handleCloseEditModal,
   isListModalOpen, setIsListModalOpen,
@@ -76,13 +76,13 @@ const ShiftGrid: React.FC = () => {
                 {calendarMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
               </span>
               <div className="flex gap-1">
-                <Tooltip text="previous month">
+                <Tooltip text="Go to previous month">
                   <button onClick={() => setCalendarMonth((d) => new Date(d.getFullYear(), d.getMonth() - 1))}
                     className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500">
                     <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
                   </button>
                 </Tooltip>
-                <Tooltip text="next month">
+                <Tooltip text="Go to next month">
                   <button onClick={() => setCalendarMonth((d) => new Date(d.getFullYear(), d.getMonth() + 1))}
                     className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500">
                     <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
@@ -91,7 +91,7 @@ const ShiftGrid: React.FC = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-7 mb-1">
+            <div className="grid grid-cols-7 w-[224px] mx-auto mb-1">
               <Tooltip text="Sunday">
                 <div className="text-center text-[11px] font-medium text-gray-400 py-1">S</div>
               </Tooltip>
@@ -115,7 +115,7 @@ const ShiftGrid: React.FC = () => {
               </Tooltip>
             </div>
 
-            <div className="grid grid-cols-7">
+            <div className="grid grid-cols-7 w-[224px] mx-auto">
               {getCalendarDays(calendarMonth).map(({ date, currentMonth }, i) => {
                 const isToday    = date.toDateString() === new Date().toDateString();
                 const isSelected = date.toDateString() === currentDate.toDateString();
@@ -230,12 +230,12 @@ const ShiftGrid: React.FC = () => {
                 </button>
               </Tooltip>
               <div className="flex items-center gap-1">
-                <Tooltip text="Previous day">
+                <Tooltip text="Go to Previous day">
                   <button onClick={goPrev} type="button" className="p-1.5 rounded-md text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
                     <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
                   </button>
                 </Tooltip>
-                <Tooltip text="Next day">
+                <Tooltip text="Go to Next day">
                   <button onClick={goNext} type="button" className="p-1.5 rounded-md text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
                     <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
                   </button>
@@ -247,27 +247,27 @@ const ShiftGrid: React.FC = () => {
               )} */}
 
               <div className="flex items-center gap-1">
-                <Tooltip text="Save planning of only the current day.">
+                <Tooltip text="Save this planning to only the selected day in the calender.">
                   <Button
                     size="sm"
                     variant="primary"
                     onClick={() => handleSavePlanning()}
                     className="w-40 h-9 justify-center"
                   >
-                    Save Planning
+                    Save 
                   </Button>
                 </Tooltip>
 
-                <Tooltip text="Selected: Sunday, will save to all Sundays">
+                <Tooltip text="Save this planning to all coresponding weekdays (ex: to all sundays)">
                   <Button
                     size="sm"
                     variant="primary"
                     onClick={handleDuplicateToWeekday}
                     className="w-40 h-9 justify-center truncate"
                   >
-                    Copy to all {currentDate.toLocaleDateString("en-US", { weekday: "long" })}s
+                    Save to all {currentDate.toLocaleDateString("en-US", { weekday: "long" })}s
                   </Button>
-                </Tooltip>
+                </Tooltip>  
               </div>
             </div>
 
@@ -404,16 +404,18 @@ const ShiftGrid: React.FC = () => {
                 <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                   Main Employee
                 </label>
-                <input
-                  autoFocus
-                  type="text"
-                  value={selectedEmployee
-                    ? `${selectedEmployee.firstName} ${selectedEmployee.lastName}`
-                    : empSearch}
-                  onChange={(e) => { setEmpSearch(e.target.value); setSelectedEmployee(null); }}
-                  placeholder="Type a name or employee number…"
-                  className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
-                />
+                <Tooltip text="Write the name of the main employee (If you don't want to add a backup, hit the button add directly else Write first the name of the backup bellow.)">
+                  <input
+                    autoFocus
+                    type="text"
+                    value={selectedEmployee
+                      ? `${selectedEmployee.firstName} ${selectedEmployee.lastName}`
+                      : empSearch}
+                    onChange={(e) => { setEmpSearch(e.target.value); setSelectedEmployee(null); }}
+                    placeholder="Type a name or employee number…"
+                    className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+                  />
+                </Tooltip>
                 {/* Dropdown list */}
                 {!selectedEmployee && empSearch.length > 0 && (
                   <ul className="absolute z-50 mt-1 w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg max-h-48 overflow-y-auto">
@@ -455,21 +457,23 @@ const ShiftGrid: React.FC = () => {
                     (optional)
                   </span>
                 </label>
-                <input
-                  autoFocus
-                  type="text"
-                  value={
-                    selectedBackupEmployee
-                      ? `${selectedBackupEmployee.firstName} ${selectedBackupEmployee.lastName}`
-                      : backupEmpSearch
-                  }
-                  onChange={(e) => {
-                    setBackupEmpSearch(e.target.value);
-                    setSelectedBackupEmployee(null);
-                  }}
-                  placeholder="Search backup employee..."
-                  className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
-                />
+                <Tooltip text="Write the name of the employee that could replace the main one (After that hit the button add).">
+                  <input
+                    autoFocus
+                    type="text"
+                    value={
+                      selectedBackupEmployee
+                        ? `${selectedBackupEmployee.firstName} ${selectedBackupEmployee.lastName}`
+                        : backupEmpSearch
+                    }
+                    onChange={(e) => {
+                      setBackupEmpSearch(e.target.value);
+                      setSelectedBackupEmployee(null);
+                    }}
+                    placeholder="Search backup employee..."
+                    className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
+                  />
+                </Tooltip>
                 {!selectedBackupEmployee && backupEmpSearch.length > 0 && (
                   <ul className="absolute z-50 mt-1 w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg max-h-48 overflow-y-auto">
                     {filteredBackupEmployees.length === 0 ? (
@@ -555,8 +559,12 @@ const ShiftGrid: React.FC = () => {
                         </span>
                       </div>
                       <div className="flex items-center gap-2 ml-2 shrink-0">
+                        <Tooltip text="Click this button, If you want to modify this assignment (main, backup, one of them or to add special tasks within the shift.).">
                         <button onClick={() => openEditModal(emp, listCell!)} type="button" className="text-blue-400 hover:text-blue-600 text-xs font-medium">Edit</button>
+                        </Tooltip>
+                        <Tooltip text="Click this button, If you want to remove this employee from the planning.">
                         <button onClick={() => { if (!listCell) return; handleDelete(emp.id, listCell); if (listEmployees.length <= 1) setIsListModalOpen(false); }} type="button" className="text-red-400 hover:text-red-600 text-xs font-medium">Remove</button>
+                        </Tooltip>
                       </div>
                     </div>
                     {emp.tasks && emp.tasks.length > 0 && (
@@ -572,7 +580,9 @@ const ShiftGrid: React.FC = () => {
                 ))}
                 {listEmployees.length === 0 && <div className="text-sm text-gray-400 text-center py-6">No employees assigned</div>}
               </div>
+              <Tooltip text="Click this button, if you want to close employees' List for these post and shift or you can simply hit the cross icon at the top of the window.">
               <button onClick={() => setIsListModalOpen(false)} type="button" className="flex w-full justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600">Hide details</button>
+              </Tooltip>
             </div>
           </Modal>
 
@@ -583,12 +593,82 @@ const ShiftGrid: React.FC = () => {
                 <h5 className="mb-1 font-semibold text-gray-800 text-theme-xl dark:text-white/90 lg:text-2xl">Edit Assignment</h5>
               </div>
 
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Title</label>
-                <input autoFocus type="text" value={editTitle} onChange={(e) => setEditTitle(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleEdit()} placeholder="ex: John Doe"
+              <div className="relative">
+                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                  Main Employee
+                </label>
+                <Tooltip text="Click Remove button bellow to remove the old one, then write a new one Here.">
+                <input
+                  autoFocus
+                  type="text"
+                  value={
+                    editSelectedEmployee
+                      ? `${editSelectedEmployee.firstName} ${editSelectedEmployee.lastName}`
+                      : editTitle
+                  }
+                  onChange={(e) => {
+                    setEditTitle(e.target.value);
+                    setEditSelectedEmployee(null);
+                  }}
+                  placeholder="Search employee..."
                   className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
                 />
+                </Tooltip>
+                {!editSelectedEmployee && editTitle.length > 0 && (
+                  <ul className="absolute z-50 mt-1 w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg max-h-48 overflow-y-auto">
+
+                    {filteredEditEmployees.length === 0 ? (
+                      <li className="px-4 py-3 text-sm text-gray-400">
+                        No employees found
+                      </li>
+                    ) : (
+                      filteredEditEmployees.map((employee) => (
+                        <li
+                          key={employee._id}
+                          onClick={() => {
+                            setEditSelectedEmployee(employee);
+                            setEditTitle(
+                              `${employee.firstName} ${employee.lastName}`
+                            );
+                          }}
+                          className="flex items-center justify-between px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-brand-50 dark:hover:bg-brand-900/20 cursor-pointer"
+                        >
+                          <span>
+                            {employee.firstName} {employee.lastName}
+                          </span>
+
+                          <span className="text-xs text-gray-400 font-mono">
+                            #{employee.empNumber}
+                          </span>
+                        </li>
+                      ))
+                    )}
+                  </ul>
+                )}
+                {editSelectedEmployee && (
+                  <div className="mt-2 flex items-center justify-between rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-3 py-2">
+
+                    <span className="text-sm text-gray-700 dark:text-gray-200">
+                      {editSelectedEmployee.firstName}{" "}
+                      {editSelectedEmployee.lastName}
+
+                      <span className="ml-2 text-xs text-gray-400">
+                        #{editSelectedEmployee.empNumber}
+                      </span>
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditSelectedEmployee(null);
+                        setEditTitle("");
+                      }}
+                      className="text-red-400 hover:text-red-600 text-xs"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                )}
               </div>
               {/* It allows to edit both main and backup employees, if the backup doesn't exist yet it displays it displays "to add a backup" or its name with remove button to add another one */}
               <div className="relative">
@@ -598,6 +678,7 @@ const ShiftGrid: React.FC = () => {
                     (optional)
                   </span>
                 </label>
+                <Tooltip text="Add a Backup if it doesn't exist yet, Modify it if it already exists or Remove it If you don't need a backup.">
                 <input
                   type="text"
                   value={
@@ -612,6 +693,7 @@ const ShiftGrid: React.FC = () => {
                   placeholder="Search backup employee..."
                   className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
                 />
+                </Tooltip>
                 {!editBackupEmployee && editBackupSearch.length > 0 && (
                   <ul className="absolute z-50 mt-1 w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg max-h-48 overflow-y-auto">
                     {filteredEditBackupEmployees.map((emp) => (
@@ -657,12 +739,11 @@ const ShiftGrid: React.FC = () => {
               {/* ── task breakdown ─────────────────────────────────────── */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-400">
-                    Tasks within this shift
-                  </label>
+                  <Tooltip text="Click here to add a subtask: first field for starting time of subtask second for end time, next field ti name the subtask ,cross icon to remove subtask">
                   <button type="button" onClick={addEditTask} className="text-xs font-medium text-brand-500 hover:text-brand-600">
                     + Add task
                   </button>
+                  </Tooltip>
                 </div>
 
                 {editTasks.length === 0 && (

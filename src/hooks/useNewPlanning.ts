@@ -54,6 +54,7 @@ export const useShiftGrid = () => {
   //For Main Employee:
   const [editingEmployee, setEditingEmployee] = useState<Cell | null>(null);
   const [editTitle,       setEditTitle]       = useState("");
+  const [editSelectedEmployee, setEditSelectedEmployee] = useState<EmployeeRecord | null>(null);
   //For Backup Employee:
   const [editBackupEmployee, setEditBackupEmployee] = useState<EmployeeRecord | null>(null);
   const [editBackupSearch, setEditBackupSearch] = useState("");
@@ -90,6 +91,20 @@ export const useShiftGrid = () => {
       e.firstName.toLowerCase().includes(q) ||
       e.lastName.toLowerCase().includes(q) ||
       String(e.empNumber).includes(q)
+    );
+  });
+  const filteredEditEmployees = employees.filter((emp) => {
+    const search = editTitle.toLowerCase().trim();
+
+    if (!search) return false;
+
+    return (
+      `${emp.firstName} ${emp.lastName}`
+        .toLowerCase()
+        .includes(search) ||
+      emp.firstName.toLowerCase().includes(search) ||
+      emp.lastName.toLowerCase().includes(search) ||
+      String(emp.empNumber ?? "").includes(search)
     );
   });
   //Editing Modal Employees filtering:
@@ -192,29 +207,43 @@ export const useShiftGrid = () => {
     setBackupEmpSearch("");    
     setSelectedBackupEmployee(null);
   }, [activeCell, selectedEmployee, selectedBackupEmployee,grid, closeModal]);
+  
+  const openEditModal = (emp: any, cell: any) => {
+    setActiveCell(cell);
 
-  const openEditModal = useCallback(
-    (emp: Cell, cell: { postId: number; shiftId: string }) => {
-      setActiveCell(cell);
-      setEditingEmployee(emp);
-      // Main employee
-      setEditTitle(emp.title);
-      // Backup employee
-      if (emp.backupEmployeeId) {
-        const backup = employees.find(
-          (e) => e._id === emp.backupEmployeeId
-        );
-        setEditBackupEmployee(backup ?? null);
-      } else {
-        setEditBackupEmployee(null);
-      }
-      setEditBackupSearch("");
-      setEditTasks(emp.tasks ?? []);
-      setIsListModalOpen(false);
-      setIsEditModalOpen(true);
-    },
-    [employees]
-  );
+    // This is the existing cell entry
+    setEditingEmployee(emp);
+
+    // Find the actual employee record using the saved employee ID
+    const mainEmployee = employees.find(
+      (employee) => employee._id === emp.id
+    );
+
+    setEditSelectedEmployee(mainEmployee ?? null);
+
+    setEditTitle(
+      mainEmployee
+        ? `${mainEmployee.firstName} ${mainEmployee.lastName}`
+        : emp.title
+    );
+
+    // Existing backup logic
+    if (emp.backupEmployeeId) {
+      const backup = employees.find(
+        (employee) => employee._id === emp.backupEmployeeId
+      );
+
+      setEditBackupEmployee(backup ?? null);
+    } else {
+      setEditBackupEmployee(null);
+    }
+
+    setEditBackupSearch("");
+
+    setEditTasks(emp.tasks ?? []);
+
+    setIsEditModalOpen(true);
+  };
   
   // task CRUD for the edit modal
   const addEditTask = useCallback(() => {
@@ -233,51 +262,44 @@ export const useShiftGrid = () => {
   }, []);
   
   const handleEdit = useCallback(() => {
-    console.log(
-      "👔👔 Editbackup Employee:",
-      editBackupEmployee
-    );
-
-    if (!activeCell || !editingEmployee || !editTitle.trim()) {
-      return;
-    }
-
-    const invalid = editTasks.find(
-      (t) =>
-        !t.label.trim() ||
-        !t.startTime ||
-        !t.endTime ||
-        t.endTime <= t.startTime
-    );
-
-    if (invalid) {
-      alert(
-        "Each task needs a label, a start time, and an end time after the start time."
-      );
-      return;
-    }
+    if (!editingEmployee || !activeCell) return;
 
     const { postId, shiftId } = activeCell;
 
+    // Check duplicate main employee
+    const already = grid[postId]?.[shiftId]?.some(
+      (c) =>
+        c.id === editSelectedEmployee?._id &&
+        c.id !== editingEmployee.id
+    );
+
+    if (already) {
+      alert("This employee is already assigned to this cell.");
+      return;
+    }
+
+    // Then continue with your update
     setGrid((prev) => ({
       ...prev,
-
       [postId]: {
         ...prev[postId],
-
         [shiftId]: prev[postId][shiftId].map((emp) =>
           emp.id === editingEmployee.id
             ? {
                 ...emp,
 
-                // Main employee
-                title: editTitle.trim(),
+                // Main employee ID
+                id: editSelectedEmployee?._id ?? emp.id,
 
-                // Backup employee ID
+                // Main employee name
+                title: editSelectedEmployee
+                  ? `${editSelectedEmployee.firstName} ${editSelectedEmployee.lastName}`
+                  : editTitle.trim(),
+
+                // Backup employee
                 backupEmployeeId:
                   editBackupEmployee?._id ?? null,
 
-                // Backup employee name
                 backupTitle: editBackupEmployee
                   ? `${editBackupEmployee.firstName} ${editBackupEmployee.lastName}`
                   : null,
@@ -290,6 +312,7 @@ export const useShiftGrid = () => {
       },
     }));
 
+    // close modal / cleanup...
     setIsEditModalOpen(false);
     setEditingEmployee(null);
     setEditTitle("");
@@ -297,15 +320,16 @@ export const useShiftGrid = () => {
     setEditBackupSearch("");
     setEditTasks([]);
     setActiveCell(null);
-
   }, [
-    activeCell,
     editingEmployee,
+    activeCell,
+    grid,
+    editSelectedEmployee,
     editTitle,
     editBackupEmployee,
     editTasks,
   ]);
-  
+
   // handleCloseEditModal: also clear editTasks
   const handleCloseEditModal = useCallback(() => {
     setIsEditModalOpen(false);
@@ -1194,8 +1218,8 @@ export const useShiftGrid = () => {
     isOpen, activeCell, empSearch, setEmpSearch, selectedEmployee, setSelectedEmployee, backupEmpSearch, setBackupEmpSearch, selectedBackupEmployee, setSelectedBackupEmployee,
     filteredBackupEmployees,
     handleCellClick, handleSave, handleClose,
-    isEditModalOpen, editingEmployee, editTitle, setEditTitle, editBackupEmployee, setEditBackupEmployee, editBackupSearch, setEditBackupSearch,
-    filteredEditBackupEmployees,
+    editSelectedEmployee, setEditSelectedEmployee, isEditModalOpen, editingEmployee, editTitle, setEditTitle, editBackupEmployee, setEditBackupEmployee, editBackupSearch, setEditBackupSearch,
+    filteredEditBackupEmployees, filteredEditEmployees,
     openEditModal, handleEdit, handleCloseEditModal,
     isListModalOpen, setIsListModalOpen,
     listCell, setListCell, listEmployees,
