@@ -72,6 +72,12 @@ export const useShiftGrid = () => {
   const [importDate, setImportDate] = useState("");
   const [showImportMenu, setShowImportMenu] = useState(false);
 
+  // ── Copy Month modal ─────────────────────────────────────────────
+  const [isCopyMonthModalOpen, setIsCopyMonthModalOpen] = useState(false);
+  const [copySourceMonth, setCopySourceMonth] = useState("");
+  const [copyDestinationMonth, setCopyDestinationMonth] = useState("");
+  const [isCopyingMonth, setIsCopyingMonth] = useState(false);
+
   // ── Filtered employee list for dropdown ───────────────────────────────────
   const filteredEmployees = employees.filter((e) => {
     const q = empSearch.toLowerCase();
@@ -445,6 +451,12 @@ export const useShiftGrid = () => {
     setActiveCell(null);
   }, [activeCell, closeModal]);
 
+  const handleCopyMonthClick = useCallback(() => {
+    setCopySourceMonth("");
+    setCopyDestinationMonth("");
+    setIsCopyMonthModalOpen(true);
+  }, []);
+
   // ── Save planning to DB ───────────────────────────────────────────────────
   const handleSavePlanning = useCallback(async () => {
     const planDate = currentDate.toLocaleDateString('en-CA', { timeZone: 'Africa/Algiers' }); // → "YYYY-MM-DD"
@@ -487,6 +499,63 @@ export const useShiftGrid = () => {
       alert("Error saving planning.");
     }
   }, [grid, currentDate, posts, shifts]);
+
+  const handleCopyMonth = useCallback(async () => {
+    if (!copySourceMonth || !copyDestinationMonth) {
+      alert("Please select both source and destination months.");
+      return;
+    }
+
+    if (copySourceMonth === copyDestinationMonth) {
+      alert("Source and destination months must be different.");
+      return;
+    }
+
+    try {
+      setIsCopyingMonth(true);
+
+      const res = await fetch(`${BASE}/planning/copy-month`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          sourceMonth: copySourceMonth,
+          destinationMonth: copyDestinationMonth,
+        }),
+      });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText || "Failed to copy month.");
+      }
+
+      const result = await res.json();
+
+      alert(
+        result.message ||
+        "Planning copied successfully."
+      );
+
+      setIsCopyMonthModalOpen(false);
+      setCopySourceMonth("");
+      setCopyDestinationMonth("");
+
+    } catch (error) {
+      console.error("Error copying month:", error);
+
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Error copying planning."
+      );
+    } finally {
+      setIsCopyingMonth(false);
+    }
+  }, [
+    copySourceMonth,
+    copyDestinationMonth,
+  ]);
 
   // ── Save planning to weekday ───────────────────────────────────────────────────
   const getSameWeekdayDatesInMonth = (date: Date): Date[] => {
@@ -1322,5 +1391,15 @@ export const useShiftGrid = () => {
     importDate,
     setImportDate,
     handleImportFromDate, 
+
+    isCopyMonthModalOpen,
+    setIsCopyMonthModalOpen,
+    copySourceMonth,
+    setCopySourceMonth,
+    copyDestinationMonth,
+    setCopyDestinationMonth,
+    isCopyingMonth,
+    handleCopyMonthClick,
+    handleCopyMonth,
   };
 };

@@ -31,6 +31,15 @@ const ShiftGrid: React.FC = () => {
   excelInputRef, pdfInputRef, handleImportClick, handleExcelImportClick, handlePdfImportClick ,handleImportFile, handleImportFromDate,
   showImportMenu,
   handleDuplicateToWeekday,
+  isCopyMonthModalOpen,
+  setIsCopyMonthModalOpen,
+  copySourceMonth,
+  setCopySourceMonth,
+  copyDestinationMonth,
+  setCopyDestinationMonth,
+  isCopyingMonth,
+  handleCopyMonthClick,
+  handleCopyMonth,
   } = useShiftGrid();
 
   const activePost  = activeCell ? posts.find((p) => p.id === activeCell.postId)  : null;
@@ -242,33 +251,57 @@ const ShiftGrid: React.FC = () => {
                   </button>
                 </Tooltip>
               </div>
-              <span className="text-sm font-medium text-gray-800 dark:text-white mr-20">{formattedDate}</span>
-              {/* {loadingGrid && (
-                <span className="ml-2 text-xs text-gray-400 animate-pulse">Loading…</span>
-              )} */}
+              <div className="flex w-full items-center gap-3">
+                {/* Date - LEFT */}
+                <div className="min-w-0 flex-shrink-0">
+                  <span className="text-sm font-medium text-gray-800 dark:text-white whitespace-nowrap">
+                    {formattedDate}
+                  </span>
+                </div>
 
-              <div className="flex items-center gap-1">
-                <Tooltip text="Save this planning to only the selected day in the calender.">
-                  <Button
-                    size="sm"
-                    variant="primary"
-                    onClick={() => handleSavePlanning()}
-                    className="w-40 h-9 justify-center"
-                  >
-                    Save 
-                  </Button>
-                </Tooltip>
+                {/* Buttons - RIGHT */}
+                <div className="ml-auto flex min-w-0 flex-1 justify-end gap-2">
 
-                <Tooltip text="Save this planning to all coresponding weekdays (ex: to all sundays)">
-                  <Button
-                    size="sm"
-                    variant="primary"
-                    onClick={handleDuplicateToWeekday}
-                    className="w-40 h-9 justify-center truncate"
-                  >
-                    Save to all {currentDate.toLocaleDateString("en-US", { weekday: "long" })}s
-                  </Button>
-                </Tooltip>  
+                  {/* Save */}
+                  <Tooltip text="Save this planning to only the selected day in the calendar.">
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      onClick={() => handleSavePlanning()}
+                      className="h-10 min-w-0 flex-1 max-w-[140px] px-3 justify-center text-center whitespace-nowrap"
+                    >
+                      Save
+                    </Button>
+                  </Tooltip>
+
+                  {/* Save to all */}
+                  <Tooltip text="Save this planning to all corresponding weekdays.">
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      onClick={handleDuplicateToWeekday}
+                      className="h-10 min-w-0 flex-[1.5] max-w-[200px] px-3 justify-center text-center whitespace-nowrap"
+                    >
+                      Save to all{" "}
+                      {currentDate.toLocaleDateString("en-US", {
+                        weekday: "long",
+                      })}
+                      s
+                    </Button>
+                  </Tooltip>
+
+                  {/* Copy Month */}
+                  <Tooltip text="Copy and save the planning from one month to another month.">
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      onClick={handleCopyMonthClick}
+                      className="h-10 min-w-0 flex-1 max-w-[140px] px-3 justify-center text-center whitespace-nowrap"
+                    >
+                      Copy Month
+                    </Button>
+                  </Tooltip>
+                </div>
               </div>
             </div>
 
@@ -916,6 +949,78 @@ const ShiftGrid: React.FC = () => {
 
             </div>
           </Modal>
+
+          {/* ── Copy Month Modal ────────────────────────────────────── */}
+          {isCopyMonthModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl dark:bg-gray-900">
+
+              <h2 className="mb-2 text-lg font-semibold text-gray-800 dark:text-white">
+                Copy Monthly Planning
+              </h2>
+
+              <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
+                Select the month you want to copy from and the month you want to copy to.
+              </p>
+
+              {/* Source */}
+              <div className="mb-4">
+                <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Source month
+                </label>
+
+                <input
+                  type="month"
+                  value={copySourceMonth}
+                  onChange={(e) => setCopySourceMonth(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                />
+              </div>
+
+              {/* Destination */}
+              <div className="mb-6">
+                <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Destination month
+                </label>
+
+                <input
+                  type="month"
+                  value={copyDestinationMonth}
+                  onChange={(e) => setCopyDestinationMonth(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                />
+              </div>
+
+              {/* Buttons */}
+              <div className="flex justify-end gap-3">
+
+                <button
+                  type="button"
+                  onClick={() => setIsCopyMonthModalOpen(false)}
+                  disabled={isCopyingMonth}
+                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleCopyMonth}
+                  disabled={
+                    isCopyingMonth ||
+                    !copySourceMonth ||
+                    !copyDestinationMonth
+                  }
+                  className="rounded-lg bg-brand-500 px-4 py-2 text-sm text-white hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isCopyingMonth ? "Copying..." : "Copy Month"}
+                </button>
+
+              </div>
+
+            </div>
+          </div>
+        )}
         </div>
       </div>
     </>
