@@ -60,7 +60,7 @@ export default function Tooltip({
   return (
     <div
       ref={containerRef}
-      className="relative group w-full"
+      className="relative group inline-block"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={() => setShow(false)}
     >

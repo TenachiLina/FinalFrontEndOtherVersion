@@ -18,6 +18,7 @@ const ShiftGrid: React.FC = () => {
   handleCellClick, handleSave, handleClose,
   isEditModalOpen, editSelectedEmployee, editingEmployee, setEditSelectedEmployee, editTitle, setEditTitle, editBackupEmployee, setEditBackupEmployee, editBackupSearch, setEditBackupSearch,
   filteredEditBackupEmployees, filteredEditEmployees,
+  addTasks, setAddTasks, addTask, updateTask, removeTask,
   editTasks, addEditTask, updateEditTask, removeEditTask,
   openEditModal, handleEdit, handleCloseEditModal,
   isListModalOpen, setIsListModalOpen,
@@ -524,6 +525,89 @@ const ShiftGrid: React.FC = () => {
                   </button>
                 </div>
               )}
+              {/* ── task breakdown ─────────────────────────────────────── */}
+              <div className="mt-4">
+                <div className="flex items-center justify-between mb-2">
+                  <Tooltip
+                    text="Click here to add a subtask: first field for starting time of subtask, second for end time, next field to name the subtask, cross icon to remove subtask"
+                  >
+                    <button
+                      type="button"
+                      onClick={addTask}
+                      className="text-xs font-medium text-brand-500 hover:text-brand-600"
+                    >
+                      + Add task
+                    </button>
+                  </Tooltip>
+                </div>
+
+                {addTasks.length === 0 && (
+                  <p className="text-xs text-gray-400 mb-2">
+                    No tasks yet — the employee is shown for the full shift.
+                    Add a task to split the time.
+                  </p>
+                )}
+
+                <div className="flex flex-col gap-2">
+                  {addTasks.map((task) => (
+                    <div
+                      key={task.id}
+                      className="flex items-center gap-2 rounded-lg border border-gray-200 dark:border-gray-700 p-2"
+                    >
+                      {/* Start time */}
+                      <input
+                        type="time"
+                        value={task.startTime}
+                        onChange={(e) =>
+                          updateTask(task.id, {
+                            startTime: e.target.value,
+                          })
+                        }
+                        className="h-9 w-24 rounded-md border border-gray-300 bg-transparent px-2 text-xs text-gray-800 dark:border-gray-700 dark:text-white/90"
+                      />
+
+                      <span className="text-xs text-gray-400">
+                        –
+                      </span>
+
+                      {/* End time */}
+                      <input
+                        type="time"
+                        value={task.endTime}
+                        onChange={(e) =>
+                          updateTask(task.id, {
+                            endTime: e.target.value,
+                          })
+                        }
+                        className="h-9 w-24 rounded-md border border-gray-300 bg-transparent px-2 text-xs text-gray-800 dark:border-gray-700 dark:text-white/90"
+                      />
+
+                      {/* Task name */}
+                      <input
+                        type="text"
+                        value={task.label}
+                        placeholder="Task, e.g. Reception"
+                        onChange={(e) =>
+                          updateTask(task.id, {
+                            label: e.target.value,
+                          })
+                        }
+                        className="h-9 flex-1 rounded-md border border-gray-300 bg-transparent px-2 text-xs text-gray-800 placeholder:text-gray-400 dark:border-gray-700 dark:text-white/90"
+                      />
+
+                      {/* Remove */}
+                      <button
+                        type="button"
+                        onClick={() => removeTask(task.id)}
+                        className="text-red-400 hover:text-red-600 text-xs shrink-0"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {/* ── end task breakdown block ───────────────────────────── */}
               <div className="flex items-center gap-3 sm:justify-end">
                 <button onClick={handleClose} type="button"
                   className="flex w-full justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] sm:w-auto">

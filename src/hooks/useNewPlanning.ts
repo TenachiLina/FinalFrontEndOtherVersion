@@ -48,6 +48,8 @@ export const useShiftGrid = () => {
   //Optional Backup Employee:
   const [backupEmpSearch, setBackupEmpSearch] = useState("");
   const [selectedBackupEmployee, setSelectedBackupEmployee] = useState<EmployeeRecord | null>(null);
+  // ── Add modal tasks ─────────────────────────────────────────
+  const [addTasks, setAddTasks] = useState<ShiftTask[]>([]);
   
   // ── Edit modal ────────────────────────────────────────────────────────────
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -144,6 +146,13 @@ export const useShiftGrid = () => {
       .catch((e) => setMetaError(String(e)))
       .finally(() => setLoadingMeta(false));
   }, []);
+  useEffect(() => {
+    if (posts.length === 0 || shifts.length === 0) {
+      return;
+    }
+
+    setGrid(buildEmptyGrid(posts, shifts));
+  }, [currentDate, posts, shifts]);
 
   // ── Date navigation ───────────────────────────────────────────────────────
   const goToToday = () => { const d = new Date(); setCurrentDate(d); setCalendarMonth(d); };
@@ -155,12 +164,18 @@ export const useShiftGrid = () => {
   const handleCellClick = useCallback(
     (postId: number, shiftId: string) => {
       setActiveCell({ postId, shiftId });
-      // Main
+
+      // Main employee
       setEmpSearch("");
       setSelectedEmployee(null);
-      // Backup
+
+      // Backup employee
       setBackupEmpSearch("");
       setSelectedBackupEmployee(null);
+
+      // Tasks
+      setAddTasks([]);
+
       openModal();
     },
     [openModal]
@@ -169,44 +184,88 @@ export const useShiftGrid = () => {
   const handleClose = useCallback(() => {
     closeModal();
     setActiveCell(null);
-    // Main
+
+    // Main employee
     setEmpSearch("");
     setSelectedEmployee(null);
-    // Backup
+
+    // Backup employee
     setBackupEmpSearch("");
     setSelectedBackupEmployee(null);
+
+    // Tasks
+    setAddTasks([]);
   }, [closeModal]);
 
   const handleSave = useCallback(() => {
-    console.log("We are in handle savenow");
+    console.log("We are in handle save now");
+
     if (!activeCell || !selectedEmployee) return;
+
     const { postId, shiftId } = activeCell;
+
     // Prevent duplicates in the same cell
-    const already = grid[postId]?.[shiftId]?.some((c) => c.id === selectedEmployee._id);
-    if (already) { alert("This employee is already assigned to this cell."); return; }
+    const already = grid[postId]?.[shiftId]?.some(
+      (c) => c.id === selectedEmployee._id
+    );
+
+    if (already) {
+      alert("This employee is already assigned to this cell.");
+      return;
+    }
+
     setGrid((prev) => ({
       ...prev,
       [postId]: {
         ...prev[postId],
         [shiftId]: [
           ...prev[postId][shiftId],
-          { id: selectedEmployee._id, 
-            title: `${selectedEmployee.firstName} ${selectedEmployee.lastName}`,
-            backupEmployeeId: selectedBackupEmployee?._id ?? null,
-            backupTitle: selectedBackupEmployee
-              ? `${selectedBackupEmployee.firstName} ${selectedBackupEmployee.lastName}`
-              : null,
+
+          {
+            // Main employee
+            id: selectedEmployee._id,
+
+            title:
+              `${selectedEmployee.firstName} ${selectedEmployee.lastName}`,
+
+            // Backup employee
+            backupEmployeeId:
+              selectedBackupEmployee?._id ?? null,
+
+            backupTitle:
+              selectedBackupEmployee
+                ? `${selectedBackupEmployee.firstName} ${selectedBackupEmployee.lastName}`
+                : null,
+
+            // Tasks
+            tasks: addTasks,
           },
         ],
       },
     }));
+
+    // Close modal
     closeModal();
+
+    // Reset everything
     setActiveCell(null);
+
     setEmpSearch("");
     setSelectedEmployee(null);
-    setBackupEmpSearch("");    
+
+    setBackupEmpSearch("");
     setSelectedBackupEmployee(null);
-  }, [activeCell, selectedEmployee, selectedBackupEmployee,grid, closeModal]);
+
+    setAddTasks([]);
+
+  }, [
+    activeCell,
+    selectedEmployee,
+    selectedBackupEmployee,
+    addTasks,
+    grid,
+    closeModal,
+  ]);
   
   const openEditModal = (emp: any, cell: any) => {
     setActiveCell(cell);
@@ -259,6 +318,35 @@ export const useShiftGrid = () => {
   
   const removeEditTask = useCallback((taskId: string) => {
     setEditTasks((prev) => prev.filter((t) => t.id !== taskId));
+  }, []);
+
+  const addTask = useCallback(() => {
+    setAddTasks((prev) => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        label: "",
+        startTime: "",
+        endTime: "",
+      },
+    ]);
+  }, []);
+
+  const updateTask = useCallback(
+    (taskId: string, patch: Partial<ShiftTask>) => {
+      setAddTasks((prev) =>
+        prev.map((t) =>
+          t.id === taskId ? { ...t, ...patch } : t
+        )
+      );
+    },
+    []
+  );
+
+  const removeTask = useCallback((taskId: string) => {
+    setAddTasks((prev) =>
+      prev.filter((t) => t.id !== taskId)
+    );
   }, []);
   
   const handleEdit = useCallback(() => {
@@ -1227,6 +1315,7 @@ export const useShiftGrid = () => {
     excelInputRef, pdfInputRef, handleImportClick, handleExcelImportClick, handlePdfImportClick ,handleImportFile,
     showImportMenu, setShowImportMenu,
     handleDuplicateToWeekday,
+    addTasks, setAddTasks, addTask, updateTask, removeTask,
     editTasks, addEditTask, updateEditTask, removeEditTask,
     isImportModalOpen,
     setIsImportModalOpen,

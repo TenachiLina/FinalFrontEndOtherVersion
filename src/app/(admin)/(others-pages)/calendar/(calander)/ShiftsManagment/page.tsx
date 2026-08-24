@@ -1,7 +1,6 @@
 "use client";
-
-import React from "react";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
+import Tooltip from "@/components/common/Tooltip";
 import { useShiftsManagement } from "@/hooks/ShiftsmanagmentHook";
 
 export default function ShiftsManagementPage() {
@@ -45,6 +44,7 @@ export default function ShiftsManagementPage() {
         {/* Header */}
         <div className="mb-6 flex items-center justify-between">
           <div className="flex gap-2">
+            <Tooltip text="Display Shifts used during the current season.">
             <button
               onClick={() => switchView("active")}
               className={`rounded-lg px-4 py-2 ${
@@ -55,7 +55,8 @@ export default function ShiftsManagementPage() {
             >
               Active
             </button>
-
+            </Tooltip>
+            <Tooltip text="Display Other seasons' shifts (Not Active).">
             <button
               onClick={() => switchView("archived")}
               className={`rounded-lg px-4 py-2 ${
@@ -66,15 +67,18 @@ export default function ShiftsManagementPage() {
             >
               Archived
             </button>
+            </Tooltip>
           </div>
 
           {view === "active" && (
+            <Tooltip text="Add a new shift (doesn't exist in either the Active or Archived tab).">
             <button
               onClick={openAddModal}
               className="rounded-lg bg-brand-500 px-4 py-2 text-white"
             >
               Add Shift
             </button>
+            </Tooltip>
           )}
         </div>
 
@@ -120,33 +124,41 @@ export default function ShiftsManagementPage() {
                       <div className="flex justify-end gap-2">
                         {view === "active" ? (
                           <>
+                            <Tooltip text="Modify a shift (Start time, End time or both of them).">
                             <button
                               onClick={() => openEditModal(shift)}
                               className="rounded border border-yellow-500 px-3 py-1 text-yellow-500 hover:bg-orange-50"
                             >
                               Edit
                             </button>
+                            </Tooltip>
+                            <Tooltip text="Move the shift from Active shifts to archieved shifts (No more will be used for now)">
                             <button
                               onClick={() => archiveShift(shift)}
                               className="rounded border border-orange-500 px-3 py-1 text-orange-500 hover:bg-orange-50"
                             >
                               Archive
                             </button>
+                            </Tooltip>
                           </>
                         ) : (
                           <>
+                           <Tooltip text="Move this shift back to Active shift (It will be re-used as a shift).">
                            <button
                             onClick={() => restoreShift(shift)}
                             className="rounded border border-green-500 px-3 py-1 text-green-500 hover:bg-green-50"
                            >
                             Restore
                            </button>
+                           </Tooltip>
+                           <Tooltip text="Remove this shift permanently (it will no longer exist).">
                            <button
                             onClick={() => requestDelete(shift)}
                             className="rounded border border-red-300 px-3 py-1 text-red-600"
                            >
                               Delete
                            </button>
+                           </Tooltip>
                           </>                          
                         )}
                       </div>
