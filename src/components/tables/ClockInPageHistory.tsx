@@ -15,6 +15,17 @@ interface AttendanceLog {
   lastName?: string;
 }
 
+interface GroupedAttendance {
+  id: string;
+  employeeNumber: string | number;
+  firstName?: string;
+  lastName?: string;
+  date: string;
+  clockIn: string;
+  clockOut: string | null;
+  logs: AttendanceLog[];
+}
+
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
 
@@ -27,9 +38,8 @@ function formatDateTime(timestamp: string) {
     return timestamp;
   }
 
-  // IMPORTANT:
-  // We don't want the +1 hour problem you had earlier.
-  // Read the timestamp as it was stored by the attendance system.
+  // Keep the timestamp exactly as stored by the attendance system.
+  // This avoids the +1 hour problem.
   const match = timestamp.match(
     /T(\d{2}):(\d{2})(?::(\d{2}))?/
   );
@@ -45,6 +55,20 @@ function formatDateTime(timestamp: string) {
   return timestamp;
 }
 
+function formatDate(timestamp: string) {
+  const formatted = formatDateTime(timestamp);
+  return formatted.split(" ")[0] ?? formatted;
+}
+
+function formatTime(timestamp: string | null) {
+  if (!timestamp) {
+    return "—";
+  }
+
+  const formatted = formatDateTime(timestamp);
+  return formatted.split(" ")[1] ?? formatted;
+}
+
 function normalizeDeviceId(value: string) {
   return String(value)
     .replace(/[\u0000-\u001F\u007F]/g, "")
@@ -58,7 +82,7 @@ function formatDateForInput(date: Date) {
   )}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
-export default function ClockInLogsPage() {
+export default function ClockInPageHistory() {
   const today = new Date();
 
   const [fromDate, setFromDate] = useState(
@@ -91,10 +115,10 @@ export default function ClockInLogsPage() {
   });
 
   const [deviceStatus, setDeviceStatus] = useState<{
-  connected: boolean;
-  name: string;
-  ip?: string;
-} | null>(null);
+    connected: boolean;
+    name: string;
+    ip?: string;
+  } | null>(null);
 
   // ---------------------------------------------------------
   // LOAD ATTENDANCE LOGS
@@ -152,6 +176,79 @@ export default function ClockInLogsPage() {
   }, []);
 
   // ---------------------------------------------------------
+  // GROUP LOGS BY EMPLOYEE + DATE
+  // ---------------------------------------------------------
+
+  const groupedLogs = useMemo(() => {
+    const groups: Record<string, AttendanceLog[]> = {};
+
+    logs.forEach((log) => {
+      const deviceId = normalizeDeviceId(log.deviceUserId);
+
+      // Use the date from the timestamp itself.
+      // Example: 2026-08-28T08:15:00
+      const date = log.timestamp.substring(0, 10);
+
+      const key = `${deviceId}-${date}`;
+
+      if (!groups[key]) {
+        groups[key] = [];
+      }
+
+      groups[key].push(log);
+    });
+
+    const result: GroupedAttendance[] = Object.values(groups).map(
+      (dayLogs) => {
+        // Sort from earliest to latest
+        const sorted = [...dayLogs].sort(
+          (a, b) =>
+            new Date(a.timestamp).getTime() -
+            new Date(b.timestamp).getTime()
+        );
+
+        const first = sorted[0];
+
+        const last =
+          sorted.length > 1
+            ? sorted[sorted.length - 1]
+            : null;
+
+        return {
+          id:
+            first._id ??
+            `${first.deviceUserId}-${first.timestamp}`,
+
+          employeeNumber:
+            first.employeeNumber ??
+            normalizeDeviceId(first.deviceUserId),
+
+          firstName: first.firstName,
+          lastName: first.lastName,
+
+          date: first.timestamp.substring(0, 10),
+
+          // FIRST punch of the day = Clock In
+          clockIn: first.timestamp,
+
+          // LAST punch of the day = Clock Out
+          // If there is only one punch, there is no clock out yet.
+          clockOut: last ? last.timestamp : null,
+
+          logs: sorted,
+        };
+      }
+    );
+
+    // Sort newest dates first
+    return result.sort(
+      (a, b) =>
+        new Date(b.clockIn).getTime() -
+        new Date(a.clockIn).getTime()
+    );
+  }, [logs]);
+
+  // ---------------------------------------------------------
   // SEARCH
   // ---------------------------------------------------------
 
@@ -159,14 +256,11 @@ export default function ClockInLogsPage() {
     const query = search.toLowerCase().trim();
 
     if (!query) {
-      return logs;
+      return groupedLogs;
     }
 
-    return logs.filter((log) => {
-      const deviceId = normalizeDeviceId(log.deviceUserId);
-
+    return groupedLogs.filter((log) => {
       return (
-        deviceId.toLowerCase().includes(query) ||
         String(log.employeeNumber ?? "")
           .toLowerCase()
           .includes(query) ||
@@ -176,24 +270,15 @@ export default function ClockInLogsPage() {
         String(log.lastName ?? "")
           .toLowerCase()
           .includes(query) ||
-        String(log.deviceLogId ?? "")
+        String(log.date ?? "")
+          .toLowerCase()
+          .includes(query) ||
+        formatDate(log.clockIn)
           .toLowerCase()
           .includes(query)
       );
     });
-  }, [logs, search]);
-
-  // ---------------------------------------------------------
-  // SORT
-  // ---------------------------------------------------------
-
-  const sortedLogs = useMemo(() => {
-    return [...filteredLogs].sort(
-      (a, b) =>
-        new Date(b.timestamp).getTime() -
-        new Date(a.timestamp).getTime()
-    );
-  }, [filteredLogs]);
+  }, [groupedLogs, search]);
 
   // ---------------------------------------------------------
   // PAGINATION
@@ -201,48 +286,55 @@ export default function ClockInLogsPage() {
 
   const totalPages = Math.max(
     1,
-    Math.ceil(sortedLogs.length / PAGE_SIZE)
+    Math.ceil(filteredLogs.length / PAGE_SIZE)
   );
 
-  const currentLogs = sortedLogs.slice(
+  const currentLogs = filteredLogs.slice(
     (page - 1) * PAGE_SIZE,
     page * PAGE_SIZE
   );
 
+  // ---------------------------------------------------------
+  // DEVICE STATUS
+  // ---------------------------------------------------------
+
   useEffect(() => {
-  let cancelled = false;
+    let cancelled = false;
 
-  const checkDeviceStatus = async () => {
-    try {
-      const response = await fetch(
-        "http://localhost:3001/device/status",
-        { cache: "no-store" }
-      );
+    const checkDeviceStatus = async () => {
+      try {
+        const response = await fetch(
+          "http://localhost:3001/device/status",
+          {
+            cache: "no-store",
+          }
+        );
 
-      const data = await response.json();
+        const data = await response.json();
 
-      if (!cancelled) {
-        setDeviceStatus(data);
+        if (!cancelled) {
+          setDeviceStatus(data);
+        }
+      } catch {
+        if (!cancelled) {
+          setDeviceStatus({
+            connected: false,
+            name: "Face Recognition Machine",
+          });
+        }
       }
-    } catch {
-      if (!cancelled) {
-        setDeviceStatus({
-          connected: false,
-          name: "Face Recognition Machine",
-        });
-      }
-    }
-  };
+    };
 
-  checkDeviceStatus();
+    checkDeviceStatus();
 
-  const interval = setInterval(checkDeviceStatus, 30000);
+    const interval = setInterval(checkDeviceStatus, 30000);
 
-  return () => {
-    cancelled = true;
-    clearInterval(interval);
-  };
-}, []);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, []);
+
   // ---------------------------------------------------------
   // SELECT LOG
   // ---------------------------------------------------------
@@ -265,26 +357,24 @@ export default function ClockInLogsPage() {
     if (currentLogs.length === 0) return;
 
     const allSelected = currentLogs.every((log) =>
-      selectedLogs.has(log._id ?? log.deviceLogId ?? "")
+      selectedLogs.has(log.id)
     );
 
     setSelectedLogs((previous) => {
       const next = new Set(previous);
 
       currentLogs.forEach((log) => {
-        const id = log._id ?? log.deviceLogId ?? "";
-
         if (allSelected) {
-          next.delete(id);
+          next.delete(log.id);
         } else {
-          next.add(id);
+          next.add(log.id);
         }
       });
 
       return next;
     });
   };
- 
+
   // ---------------------------------------------------------
   // DELETE
   // ---------------------------------------------------------
@@ -305,12 +395,24 @@ export default function ClockInLogsPage() {
 
     try {
       for (const id of selectedLogs) {
-        await fetch(
-          `${API_BASE_URL}/attendance/device-logs/${id}`,
-          {
-            method: "DELETE",
-          }
-        );
+        // The grouped ID may be a generated ID.
+        // Only delete actual database IDs.
+        const group = groupedLogs.find((log) => log.id === id);
+
+        if (!group) continue;
+
+        for (const rawLog of group.logs) {
+          const rawId = rawLog._id ?? rawLog.deviceLogId;
+
+          if (!rawId) continue;
+
+          await fetch(
+            `${API_BASE_URL}/attendance/device-logs/${rawId}`,
+            {
+              method: "DELETE",
+            }
+          );
+        }
       }
 
       await loadLogs();
@@ -341,7 +443,9 @@ export default function ClockInLogsPage() {
           },
           body: JSON.stringify({
             deviceUserId: newPunch.deviceUserId,
-            timestamp: new Date(newPunch.timestamp).toISOString(),
+            timestamp: new Date(
+              newPunch.timestamp
+            ).toISOString(),
             processed: false,
           }),
         }
@@ -366,8 +470,6 @@ export default function ClockInLogsPage() {
     }
   };
 
-  
-
   // ---------------------------------------------------------
   // RENDER
   // ---------------------------------------------------------
@@ -377,11 +479,9 @@ export default function ClockInLogsPage() {
 
       {/* HEADER */}
       <div className="mb-4">
-
         <h1 className="text-xl font-semibold text-gray-700">
           Pointage
         </h1>
-
       </div>
 
       {/* FILTER BAR */}
@@ -389,7 +489,6 @@ export default function ClockInLogsPage() {
 
         {/* FROM */}
         <div className="relative">
-
           <input
             type="date"
             value={fromDate}
@@ -407,7 +506,6 @@ export default function ClockInLogsPage() {
               focus:border-blue-400
             "
           />
-
         </div>
 
         <span className="text-gray-500">
@@ -416,7 +514,6 @@ export default function ClockInLogsPage() {
 
         {/* TO */}
         <div>
-
           <input
             type="date"
             value={toDate}
@@ -434,12 +531,10 @@ export default function ClockInLogsPage() {
               focus:border-blue-400
             "
           />
-
         </div>
 
         {/* SEARCH */}
         <div className="ml-2 flex h-9">
-
           <input
             type="text"
             placeholder="Recherche"
@@ -473,10 +568,27 @@ export default function ClockInLogsPage() {
           >
             🔍
           </button>
-
         </div>
 
       </div>
+
+      {/* DEVICE STATUS */}
+      {deviceStatus && (
+        <div className="mb-3 text-xs text-gray-500">
+          Machine :{" "}
+          <span
+            className={
+              deviceStatus.connected
+                ? "font-medium text-green-600"
+                : "font-medium text-red-500"
+            }
+          >
+            {deviceStatus.connected
+              ? "Connectée"
+              : "Déconnectée"}
+          </span>
+        </div>
+      )}
 
       {/* ACTION BAR */}
       <div className="mb-4 flex gap-2">
@@ -529,53 +641,61 @@ export default function ClockInLogsPage() {
 
         <div className="overflow-x-auto">
 
-          <table className="w-full min-w-[900px] border-collapse">
+          <table className="w-full min-w-[1000px] border-collapse">
 
             <thead>
-
               <tr className="bg-[#e5edf7] text-gray-600">
 
+                {/* SELECT */}
                 <th className="w-10 border-b border-gray-200 px-3 py-2 text-center">
                   <input
                     type="checkbox"
                     checked={
                       currentLogs.length > 0 &&
                       currentLogs.every((log) =>
-                        selectedLogs.has(
-                          log._id ?? log.deviceLogId ?? ""
-                        )
+                        selectedLogs.has(log.id)
                       )
                     }
                     onChange={toggleAll}
                   />
                 </th>
 
+                {/* EMPLOYEE NUMBER */}
                 <th className="border-b border-gray-200 px-4 py-2 text-left text-xs font-semibold">
                   Numéro
                 </th>
 
+                {/* LAST NAME */}
                 <th className="border-b border-gray-200 px-4 py-2 text-left text-xs font-semibold">
                   Nom
                 </th>
 
+                {/* FIRST NAME */}
                 <th className="border-b border-gray-200 px-4 py-2 text-left text-xs font-semibold">
                   Prénom
                 </th>
 
+                {/* DATE */}
                 <th className="border-b border-gray-200 px-4 py-2 text-left text-xs font-semibold">
-                  Date et heure pointage
+                  Date
                 </th>
 
+                {/* CLOCK IN */}
                 <th className="border-b border-gray-200 px-4 py-2 text-left text-xs font-semibold">
-                  Pointage
+                  Clock In
                 </th>
 
+                {/* CLOCK OUT */}
                 <th className="border-b border-gray-200 px-4 py-2 text-left text-xs font-semibold">
-                  ID
+                  Clock Out
+                </th>
+
+                {/* STATUS */}
+                <th className="border-b border-gray-200 px-4 py-2 text-left text-xs font-semibold">
+                  Status
                 </th>
 
               </tr>
-
             </thead>
 
             <tbody>
@@ -583,42 +703,32 @@ export default function ClockInLogsPage() {
               {loading ? (
 
                 <tr>
-
                   <td
-                    colSpan={7}
+                    colSpan={8}
                     className="py-10 text-center text-sm text-gray-400"
                   >
                     Chargement des pointages...
                   </td>
-
                 </tr>
 
               ) : currentLogs.length === 0 ? (
 
                 <tr>
-
                   <td
-                    colSpan={7}
+                    colSpan={8}
                     className="py-10 text-center text-sm text-gray-400"
                   >
                     Aucun pointage trouvé.
                   </td>
-
                 </tr>
 
               ) : (
 
                 currentLogs.map((log, index) => {
 
-                  const id =
-                    log._id ??
-                    log.deviceLogId ??
-                    `${log.deviceUserId}-${log.timestamp}-${index}`;
-
                   return (
-
                     <tr
-                      key={id}
+                      key={log.id}
                       className={`
                         ${
                           index % 2 === 0
@@ -629,76 +739,76 @@ export default function ClockInLogsPage() {
                       `}
                     >
 
+                      {/* SELECT */}
                       <td className="border-b border-gray-100 px-3 py-2 text-center">
-
                         <input
                           type="checkbox"
-                          checked={selectedLogs.has(id)}
+                          checked={selectedLogs.has(log.id)}
                           onChange={() =>
-                            toggleSelected(id)
+                            toggleSelected(log.id)
                           }
                         />
-
                       </td>
 
                       {/* EMPLOYEE NUMBER */}
                       <td className="border-b border-gray-100 px-4 py-2 text-sm text-gray-700">
-
-                        {log.employeeNumber ??
-                          normalizeDeviceId(
-                            log.deviceUserId
-                          )}
-
+                        {log.employeeNumber}
                       </td>
 
                       {/* LAST NAME */}
                       <td className="border-b border-gray-100 px-4 py-2 text-sm text-gray-700">
-
                         {log.lastName ?? "—"}
-
                       </td>
 
                       {/* FIRST NAME */}
                       <td className="border-b border-gray-100 px-4 py-2 text-sm text-gray-700">
-
                         {log.firstName ?? "—"}
-
                       </td>
 
                       {/* DATE */}
                       <td className="border-b border-gray-100 px-4 py-2 text-sm text-gray-700">
-
-                        {formatDateTime(log.timestamp)}
-
+                        {formatDate(log.clockIn)}
                       </td>
 
-                      {/* PUNCH */}
-                      <td className="border-b border-gray-100 px-4 py-2">
-
-                        <span className="
-                          inline-flex
-                          rounded-md
-                          bg-green-100
-                          px-2
-                          py-1
-                          text-xs
-                          font-medium
-                          text-green-700
-                        ">
-                          Pointage
+                      {/* CLOCK IN */}
+                      <td className="border-b border-gray-100 px-4 py-2 text-sm font-medium text-gray-700">
+                        <span className="inline-flex rounded-md bg-green-100 px-2 py-1 text-xs font-medium text-green-700">
+                          {formatTime(log.clockIn)}
                         </span>
-
                       </td>
 
-                      {/* MACHINE LOG ID */}
-                      <td className="border-b border-gray-100 px-4 py-2 text-xs font-mono text-gray-400">
+                      {/* CLOCK OUT */}
+                      <td className="border-b border-gray-100 px-4 py-2 text-sm font-medium text-gray-700">
+                        {log.clockOut ? (
+                          <span className="inline-flex rounded-md bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700">
+                            {formatTime(log.clockOut)}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">
+                            —
+                          </span>
+                        )}
+                      </td>
 
-                        {log.deviceLogId ?? "—"}
-
+                      {/* STATUS */}
+                      <td className="border-b border-gray-100 px-4 py-2">
+                        <span
+                          className="
+                            inline-flex
+                            rounded-md
+                            bg-green-100
+                            px-2
+                            py-1
+                            text-xs
+                            font-medium
+                            text-green-700
+                          "
+                        >
+                          Validated
+                        </span>
                       </td>
 
                     </tr>
-
                   );
                 })
 
@@ -790,23 +900,27 @@ export default function ClockInLogsPage() {
       {/* ADD MODAL */}
       {showAddModal && (
 
-        <div className="
-          fixed
-          inset-0
-          z-50
-          flex
-          items-center
-          justify-center
-          bg-black/40
-        ">
+        <div
+          className="
+            fixed
+            inset-0
+            z-50
+            flex
+            items-center
+            justify-center
+            bg-black/40
+          "
+        >
 
-          <div className="
-            w-[420px]
-            rounded-xl
-            bg-white
-            p-6
-            shadow-2xl
-          ">
+          <div
+            className="
+              w-[420px]
+              rounded-xl
+              bg-white
+              p-6
+              shadow-2xl
+            "
+          >
 
             <div className="mb-5 flex items-center justify-between">
 
@@ -815,7 +929,9 @@ export default function ClockInLogsPage() {
               </h2>
 
               <button
-                onClick={() => setShowAddModal(false)}
+                onClick={() =>
+                  setShowAddModal(false)
+                }
                 className="text-xl text-gray-400 hover:text-gray-700"
               >
                 ×
@@ -825,6 +941,7 @@ export default function ClockInLogsPage() {
 
             <div className="space-y-4">
 
+              {/* EMPLOYEE NUMBER */}
               <div>
 
                 <label className="mb-1 block text-sm font-medium text-gray-600">
@@ -856,6 +973,7 @@ export default function ClockInLogsPage() {
 
               </div>
 
+              {/* DATE/TIME */}
               <div>
 
                 <label className="mb-1 block text-sm font-medium text-gray-600">
