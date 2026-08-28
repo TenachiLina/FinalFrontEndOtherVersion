@@ -4,6 +4,7 @@ import { Modal } from "@/components/ui/modal";
 import { useViewPlanning } from "@/hooks/useViewPlanning";
 import Button from "../ui/button/Button";
 import { ArrowDownTrayIcon, ArrowTopRightOnSquareIcon } from "@heroicons/react/24/outline";
+import Tooltip from "@/components/common/Tooltip";
 
 const ViewCalender: React.FC = () => {
   const {
@@ -52,45 +53,69 @@ const ViewCalender: React.FC = () => {
     <>
       <div className="flex gap-4 items-start" style={{ marginBottom: "20px" }}>
         {/* ── Mini Calendar ──────────────────────────────────────────────── */}
-        <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] p-4 min-w-[260px]">
+        <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] p-4">
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm font-semibold text-gray-800 dark:text-white">
-              {calendarMonth.toLocaleDateString("en-CA", { month: "long", year: "numeric" })}
+              {calendarMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
             </span>
             <div className="flex gap-1">
-              <button onClick={() => setCalendarMonth((d) => new Date(d.getFullYear(), d.getMonth() - 1))} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500">
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
-              </button>
-              <button onClick={() => setCalendarMonth((d) => new Date(d.getFullYear(), d.getMonth() + 1))} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500">
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-              </button>
+              <Tooltip text="Go to previous month">
+                <button onClick={() => setCalendarMonth((d) => new Date(d.getFullYear(), d.getMonth() - 1))}
+                  className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                </button>
+              </Tooltip>
+              <Tooltip text="Go to next month">
+                <button onClick={() => setCalendarMonth((d) => new Date(d.getFullYear(), d.getMonth() + 1))}
+                  className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                </button>
+              </Tooltip>
             </div>
           </div>
 
-          <div className="grid grid-cols-7 mb-1">
-            {["S","M","T","W","T","F","S"].map((d, i) => (
-              <div key={i} className="text-center text-[11px] font-medium text-gray-400 py-1">{d}</div>
-            ))}
+          <div className="grid grid-cols-7 w-[224px] mx-auto mb-1">
+            <Tooltip text="Sunday">
+              <div className="text-center text-[11px] font-medium text-gray-400 py-1">S</div>
+            </Tooltip>
+            <Tooltip text="Monday">
+              <div className="text-center text-[11px] font-medium text-gray-400 py-1">M</div>
+            </Tooltip>
+            <Tooltip text="Tuesday">
+              <div className="text-center text-[11px] font-medium text-gray-400 py-1">T</div>
+            </Tooltip>
+            <Tooltip text="Wednesday">
+              <div className="text-center text-[11px] font-medium text-gray-400 py-1">W</div>
+            </Tooltip>
+            <Tooltip text="Thursday">
+              <div className="text-center text-[11px] font-medium text-gray-400 py-1">T</div>
+            </Tooltip>
+            <Tooltip text="Friday">
+              <div className="text-center text-[11px] font-medium text-gray-400 py-1">F</div>
+            </Tooltip>
+            <Tooltip text="Saturday">
+              <div className="text-center text-[11px] font-medium text-gray-400 py-1">S</div>
+            </Tooltip>
           </div>
 
-          <div className="grid grid-cols-7">
+          <div className="grid grid-cols-7 w-[224px] mx-auto">
             {getCalendarDays(calendarMonth).map(({ date, currentMonth }, i) => {
-              const isToday = date.toDateString() === new Date().toDateString();
+              const isToday    = date.toDateString() === new Date().toDateString();
               const isSelected = date.toDateString() === currentDate.toDateString();
               return (
-                <button
-                  key={i}
-                  onClick={() => { setCurrentDate(date); setCalendarMonth(date); }}
-                  className={[
-                    "text-[12px] w-8 h-8 mx-auto flex items-center justify-center rounded-full transition-colors",
-                    !currentMonth ? "text-gray-300 dark:text-gray-600" : "text-gray-700 dark:text-gray-300",
-                    isSelected ? "bg-brand-500 text-white font-semibold" : "",
-                    isToday && !isSelected ? "text-brand-500 font-semibold" : "",
-                    !isSelected ? "hover:bg-gray-100 dark:hover:bg-gray-800" : "",
-                  ].join(" ")}
-                >
-                  {date.getDate()}
-                </button>
+                <Tooltip text="Select a day to see its planning in the right-side grid." key={i}>
+                  <button key={i} onClick={() => { setCurrentDate(date); setCalendarMonth(date); }}
+                    className={[
+                      "text-[12px] w-8 h-8 mx-auto flex items-center justify-center rounded-full transition-colors",
+                      !currentMonth ? "text-gray-300 dark:text-gray-600" : "text-gray-700 dark:text-gray-300",
+                      isSelected ? "bg-brand-500 text-white font-semibold" : "",
+                      isToday && !isSelected ? "text-brand-500 font-semibold" : "",
+                      !isSelected ? "hover:bg-gray-100 dark:hover:bg-gray-800" : "",
+                    ].join(" ")}
+                  >
+                    {date.getDate()}
+                  </button>
+                </Tooltip>
               );
             })}
           </div>
@@ -111,85 +136,103 @@ const ViewCalender: React.FC = () => {
                   <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
                 </button>
               </div>
-              <span className="text-sm font-medium text-gray-800 dark:text-white mr-10">{formattedDate}</span>
-            
-              <div className="flex items-center gap-2">
+              <div className="flex w-full items-center gap-3">
+                {/* Date - LEFT */}
+                <div className="min-w-0 flex-shrink-0">
+                  <span className="text-sm font-medium text-gray-800 dark:text-white whitespace-nowrap">
+                    {formattedDate}
+                  </span>
+                </div>
 
-              {/* Export current day Planning */}
-              <div className="relative">
-                <Button
-                  size="sm"
-                  variant="primary"
-                  onClick={toggleExportMenu}
-                >
-                  <ArrowTopRightOnSquareIcon
-                    className="w-4 h-4 text-gray-100"
-                    strokeWidth={3}
-                  />
-                  Export Day
-                </Button>
-                {showExportDayMenu && (
-                  <div className="absolute right-0 mt-2 w-48 rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800 z-50">
-                    <button
-                      className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                      onClick={() => {
-                        handleExport("excel");
-                        closeMenus();
-                      }}
-                    >
-                      📊 Excel (.xlsx)
-                    </button>
+                {/* Export Buttons - RIGHT */}
+                <div className="ml-auto flex min-w-0 flex-1 justify-end gap-2">
 
-                    <button
-                      className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                      onClick={() => {
-                        handleExport("pdf");
-                        closeMenus();
-                      }}
-                    >
-                      📄 PDF (.pdf)
-                    </button>
+                  {/* Export current day Planning */}
+                  <div className="relative">
+                    <Tooltip text="Download only the planning of the selected day from the left-side calendar. Click this button and choose which format you want (PDF or Excel).">
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        onClick={toggleExportMenu}
+                        className="h-10 min-w-0 flex-1 max-w-[140px] px-3 justify-center text-center whitespace-nowrap"
+                      >
+                        <ArrowTopRightOnSquareIcon
+                          className="w-4 h-4 text-gray-100"
+                          strokeWidth={3}
+                        />
+                        Export Day
+                      </Button>
+                    </Tooltip>
+
+                    {showExportDayMenu && (
+                      <div className="absolute right-0 mt-2 w-48 rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800 z-50">
+                        <button
+                          className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                          onClick={() => {
+                            handleExport("excel");
+                            closeMenus();
+                          }}
+                        >
+                          📊 Excel (.xlsx)
+                        </button>
+
+                        <button
+                          className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                          onClick={() => {
+                            handleExport("pdf");
+                            closeMenus();
+                          }}
+                        >
+                          📄 PDF (.pdf)
+                        </button>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-              {/* Weekly Planning */}
-              <div className="relative">
-                <Button
-                  size="sm"
-                  variant="primary"
-                  onClick={toggleWeeklyExportMenu}
-                >
-                  <ArrowTopRightOnSquareIcon
-                    className="w-4 h-4 text-gray-100"
-                    strokeWidth={3}
-                  />
-                  Export Week
-                </Button>
-                {showWeeklyExportMenu && (
-                  <div className="absolute right-0 mt-2 w-48 rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800 z-50">
-                    <button
-                      className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                      onClick={() => {
-                        handleWeeklyExport("excel");
-                        closeMenus();
-                      }}
-                    >
-                      📊 Excel (.xlsx)
-                    </button>
 
-                    <button
-                      className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                      onClick={() => {
-                        handleWeeklyExport("pdf");
-                        closeMenus();
-                      }}
-                    >
-                      📄 PDF (.pdf)
-                    </button>
+                  {/* Export Weekly Planning */}
+                  <div className="relative">
+                    <Tooltip text="Download the planning of one week in each month. Click the button to choose the format (PDF or Excel).">
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        onClick={toggleWeeklyExportMenu}
+                        className="h-10 min-w-0 flex-1 max-w-[140px] px-3 justify-center text-center whitespace-nowrap"
+                      >
+                        <ArrowTopRightOnSquareIcon
+                          className="w-4 h-4 text-gray-100"
+                          strokeWidth={3}
+                        />
+                        Export Week
+                      </Button>
+                    </Tooltip>
+
+                    {showWeeklyExportMenu && (
+                      <div className="absolute right-0 mt-2 w-48 rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800 z-50">
+                        <button
+                          className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                          onClick={() => {
+                            handleWeeklyExport("excel");
+                            closeMenus();
+                          }}
+                        >
+                          📊 Excel (.xlsx)
+                        </button>
+
+                        <button
+                          className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                          onClick={() => {
+                            handleWeeklyExport("pdf");
+                            closeMenus();
+                          }}
+                        >
+                          📄 PDF (.pdf)
+                        </button>
+                      </div>
+                    )}
                   </div>
-                )}
+
+                </div>
               </div>
-            </div>
             </div>
             <table className="w-full border-collapse">
               <thead>
@@ -228,31 +271,6 @@ const ViewCalender: React.FC = () => {
                           ].join(" ")}
                           style={{ minWidth: "160px", height: "64px" }}
                         >
-                          {/* {employees.length > 0 ? (
-                            <div className="flex flex-col gap-[2px] overflow-hidden">
-                              {employees.slice(0, 2).map((emp) => (
-                                <div
-                                  key={emp.id}
-                                  className="text-[11px] px-2 py-[2px] text-gray-800 dark:text-white truncate cursor-pointer hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
-                                  title={emp.title}
-                                >
-                                  {emp.title}
-                                </div>
-                              ))}
-                              {employees.length > 2 && (
-                                <div
-                                  className="text-[10px] text-gray-400 px-2 cursor-pointer hover:text-gray-600"
-                                  onClick={(e) => { e.stopPropagation(); handleListCellClick(task.taskId, shift._id); }}
-                                >
-                                  +{employees.length - 2}
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <div className="flex items-center justify-center h-full">
-                              <span className="text-xs text-gray-400 dark:text-gray-600">-</span>
-                            </div>
-                          )} */}
                           {employees.slice(0, 2).map((emp) => (
                             <div
                               key={emp.id}
