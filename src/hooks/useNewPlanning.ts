@@ -572,7 +572,7 @@ export const useShiftGrid = () => {
   return result;
   };
   
-  const handleDuplicateToWeekday = useCallback(async () => {
+  const handleSaveToAllWeekdays = useCallback(async () => {
     const entries: {
       shiftId: string;
       empId: string;
@@ -587,7 +587,6 @@ export const useShiftGrid = () => {
           entries.push({
             shiftId: shift.id,
             empId: cell.id,
-            // ✅ Include backup employee
             backupEmpId: cell.backupEmployeeId ?? null,
             taskId: post.id,
             tasks: cell.tasks ?? [],
@@ -666,6 +665,118 @@ export const useShiftGrid = () => {
     } catch (err) {
       console.error(err);
       alert("Error duplicating planning.");
+    }
+  }, [grid, currentDate, posts, shifts]);
+
+  const handleSaveToNextWeekdays = useCallback(async () => {
+    const entries: {
+      shiftId: string;
+      empId: string;
+      backupEmpId?: string | null;
+      taskId: number;
+      tasks: ShiftTask[];
+    }[] = [];
+
+    // Get the planning of the selected day
+    posts.forEach((post) => {
+      shifts.forEach((shift) => {
+        (grid[post.id]?.[shift.id] ?? []).forEach((cell) => {
+          entries.push({
+            shiftId: shift.id,
+            empId: cell.id,
+            backupEmpId: cell.backupEmployeeId ?? null,
+            taskId: post.id,
+            tasks: cell.tasks ?? [],
+          });
+        });
+      });
+    });
+
+    if (entries.length === 0) {
+      alert("No employees planned for this day.");
+      return;
+    }
+
+    // Generate selected date + next occurrences of the same weekday
+    const targetDates: Date[] = [];
+
+    const selectedDate = new Date(currentDate);
+    const selectedMonth = selectedDate.getMonth();
+    const selectedYear = selectedDate.getFullYear();
+
+    let date = new Date(selectedDate);
+
+    while (
+      date.getMonth() === selectedMonth &&
+      date.getFullYear() === selectedYear
+    ) {
+      targetDates.push(new Date(date));
+
+      // Move to the next occurrence of the same weekday
+      date.setDate(date.getDate() + 7);
+    }
+
+    const weekdayName = currentDate.toLocaleDateString("en-US", {
+      weekday: "long",
+    });
+
+    try {
+      const results = await Promise.allSettled(
+        targetDates.map(async (targetDate) => {
+          const planDate = targetDate.toLocaleDateString("en-CA", {
+            timeZone: "Africa/Algiers",
+          });
+
+          const entriesWithDate = entries.map((entry) => ({
+            ...entry,
+            planDate,
+          }));
+
+          const res = await fetch(`${BASE}/planning/bulk`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              entries: entriesWithDate,
+              planDate,
+            }),
+          });
+
+          if (!res.ok) {
+            const errText = await res.text();
+            throw new Error(`${planDate}: ${res.status} ${errText}`);
+          }
+
+          return planDate;
+        })
+      );
+
+      const failures = results.filter(
+        (r) => r.status === "rejected"
+      ) as PromiseRejectedResult[];
+
+      if (failures.length > 0) {
+        console.error(
+          "Save to weekdays failures:",
+          failures.map((f) => f.reason?.message ?? f.reason)
+        );
+
+        alert(
+          `Some dates failed: ${failures
+            .map((f) => f.reason?.message ?? f.reason)
+            .join("; ")}`
+        );
+
+        return;
+      }
+
+      alert(
+        `Planning saved to ${targetDates.length} ${weekdayName}(s), starting from the selected day.`
+      );
+    } catch (err) {
+      console.error("Error saving to next weekdays:", err);
+      alert("Error saving planning to the next weekdays.");
     }
   }, [grid, currentDate, posts, shifts]);
 
@@ -1383,7 +1494,7 @@ export const useShiftGrid = () => {
     handleDelete, handleSavePlanning,
     excelInputRef, pdfInputRef, handleImportClick, handleExcelImportClick, handlePdfImportClick ,handleImportFile,
     showImportMenu, setShowImportMenu,
-    handleDuplicateToWeekday,
+    handleSaveToAllWeekdays, handleSaveToNextWeekdays,
     addTasks, setAddTasks, addTask, updateTask, removeTask,
     editTasks, addEditTask, updateEditTask, removeEditTask,
     isImportModalOpen,

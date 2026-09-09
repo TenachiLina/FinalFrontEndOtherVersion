@@ -2,11 +2,18 @@
 import React from "react";
 import { Modal } from "@/components/ui/modal";
 import Button from "@/components/ui/button/Button";
-import { ArrowDownTrayIcon, ArrowTopRightOnSquareIcon } from "@heroicons/react/24/outline";
+// import { ArrowDownTrayIcon, ArrowTopRightOnSquareIcon } from "@heroicons/react/24/outline";
+import {
+  ArrowDownTrayIcon,
+  TableCellsIcon,
+  ArrowUturnLeftIcon,
+} from "@heroicons/react/24/outline";
 import { useShiftGrid } from "@/hooks/useNewPlanning";
 import Tooltip from "@/components/common/Tooltip";
 
 const ShiftGrid: React.FC = () => {
+  //table mode view
+  const [showTableOnly, setShowTableOnly] = React.useState(false);
   const {
   posts, shifts, filteredEmployees, loadingMeta, metaError, loadingGrid,
   grid,
@@ -30,7 +37,7 @@ const ShiftGrid: React.FC = () => {
   setImportDate,
   excelInputRef, pdfInputRef, handleImportClick, handleExcelImportClick, handlePdfImportClick ,handleImportFile, handleImportFromDate,
   showImportMenu,
-  handleDuplicateToWeekday,
+  handleSaveToAllWeekdays, handleSaveToNextWeekdays,
   isCopyMonthModalOpen,
   setIsCopyMonthModalOpen,
   copySourceMonth,
@@ -75,192 +82,294 @@ const ShiftGrid: React.FC = () => {
 
 
   return (
-    <>
-      <div className="flex gap-4 items-start" style={{ marginBottom: "20px" }}>
-
-        {/* ── Mini Calendar + Import actions ───────────────────────────────── */}
-        <div className="flex flex-col gap-3 min-w-[260px]">
-          <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] p-4">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-semibold text-gray-800 dark:text-white">
-                {calendarMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
-              </span>
-              <div className="flex gap-1">
-                <Tooltip text="Go to previous month">
-                  <button onClick={() => setCalendarMonth((d) => new Date(d.getFullYear(), d.getMonth() - 1))}
-                    className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
-                  </button>
-                </Tooltip>
-                <Tooltip text="Go to next month">
-                  <button onClick={() => setCalendarMonth((d) => new Date(d.getFullYear(), d.getMonth() + 1))}
-                    className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-                  </button>
-                </Tooltip>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-7 w-[224px] mx-auto mb-1">
-              <Tooltip text="Sunday">
-                <div className="text-center text-[11px] font-medium text-gray-400 py-1">S</div>
-              </Tooltip>
-              <Tooltip text="Monday">
-                <div className="text-center text-[11px] font-medium text-gray-400 py-1">M</div>
-              </Tooltip>
-              <Tooltip text="Tuesday">
-                <div className="text-center text-[11px] font-medium text-gray-400 py-1">T</div>
-              </Tooltip>
-              <Tooltip text="Wednesday">
-                <div className="text-center text-[11px] font-medium text-gray-400 py-1">W</div>
-              </Tooltip>
-              <Tooltip text="Thursday">
-                <div className="text-center text-[11px] font-medium text-gray-400 py-1">T</div>
-              </Tooltip>
-              <Tooltip text="Friday">
-                <div className="text-center text-[11px] font-medium text-gray-400 py-1">F</div>
-              </Tooltip>
-              <Tooltip text="Saturday">
-                <div className="text-center text-[11px] font-medium text-gray-400 py-1">S</div>
-              </Tooltip>
-            </div>
-
-            <div className="grid grid-cols-7 w-[224px] mx-auto">
-              {getCalendarDays(calendarMonth).map(({ date, currentMonth }, i) => {
-                const isToday    = date.toDateString() === new Date().toDateString();
-                const isSelected = date.toDateString() === currentDate.toDateString();
-                return (
-                  <Tooltip text="select this date to do its planning" key={i}>
-                    <button key={i} onClick={() => { setCurrentDate(date); setCalendarMonth(date); }}
-                      className={[
-                        "text-[12px] w-8 h-8 mx-auto flex items-center justify-center rounded-full transition-colors",
-                        !currentMonth ? "text-gray-300 dark:text-gray-600" : "text-gray-700 dark:text-gray-300",
-                        isSelected ? "bg-brand-500 text-white font-semibold" : "",
-                        isToday && !isSelected ? "text-brand-500 font-semibold" : "",
-                        !isSelected ? "hover:bg-gray-100 dark:hover:bg-gray-800" : "",
-                      ].join(" ")}
-                    >
-                      {date.getDate()}
-                    </button>
-                  </Tooltip>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <input
-              ref={excelInputRef}
-              type="file"
-              accept=".xlsx,.xls"
-              hidden
-              onChange={handleImportFile}
-            />
-
-            <input
-              ref={pdfInputRef}
-              type="file"
-              accept=".pdf"
-              hidden
-              onChange={handleImportFile}
-            />
-
-            {/* Import File Dropdown */}
-            <div className="relative">
-              <Button
-                  size="sm"
-                  variant="primary"
-                  onClick={handleImportClick}
-                  className="w-full justify-center"
+  <>
+        {/* Page header / view controls */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            {/* Show table only */}
+            <Tooltip text="Show table only">
+              <button
+                type="button"
+                onClick={() => setShowTableOnly(true)}
+                disabled={showTableOnly}
+                className={`flex h-10 w-10 items-center justify-center rounded-lg border transition-colors ${
+                  !showTableOnly
+                    ? "border-gray-700 text-brand-500 hover:bg-brand-500 hover:text-white"
+                    : "border-gray-800 text-gray-600 opacity-40 cursor-not-allowed"
+                }`}
+                aria-label="Show table only"
               >
-                  <ArrowDownTrayIcon
-                    className="w-4 h-4 text-gray-100"
-                    strokeWidth={3}
-                  />
-                  Import from File
-              </Button>
-              {showImportMenu && (
-                <div className="absolute left-0 right-0 mt-2 z-50 rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                <TableCellsIcon className="h-5 w-5" />
+              </button>
+            </Tooltip>
 
-                  {/* Excel */}
-                  <Tooltip text="Import a daily planning from an Excel file (Local machine storage).">
-                    <button
-                      type="button"
-                      onClick={handleExcelImportClick}
-                      className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
-                    >
-                      📊
-                      <span>Import from Excel</span>
-                    </button>
-                  </Tooltip>
-
-                  {/* PDF */}
-                  <Tooltip text="Import a daily planning from a PDF file (Local machine storage).">
-                    <button
-                      type="button"
-                      onClick={handlePdfImportClick}
-                      className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
-                    >
-                      📄
-                      <span>Import from PDF</span>
-                    </button>
-                  </Tooltip>
-
-                </div>
-              )}
-            </div>
-
-            <Tooltip text="Import planning from a specific date (No need to file just Enter a day).">
-              <Button
-                size="sm"
-                variant="primary"
-                onClick={() => setIsImportModalOpen(true)}
-                className="w-full justify-center"
+            {/* Back to normal view */}
+            <Tooltip text="Back to normal view">
+              <button
+                type="button"
+                onClick={() => setShowTableOnly(false)}
+                disabled={!showTableOnly}
+                className={`flex h-10 w-10 items-center justify-center rounded-lg border transition-colors ${
+                  showTableOnly
+                    ? "border-gray-700 text-brand-500 hover:bg-brand-500 hover:text-white"
+                    : "border-gray-800 text-gray-600 opacity-40 cursor-not-allowed"
+                }`}
+                aria-label="Back to normal view"
               >
-                <ArrowDownTrayIcon
-                  className="w-4 h-4 text-gray-100"
-                  strokeWidth={3}
-                />
-                Import from Date
-              </Button>
+                <ArrowUturnLeftIcon className="h-5 w-5" />
+              </button>
             </Tooltip>
           </div>
         </div>
 
-        {/* ── Grid ───────────────────────────────────────────────────────── */}
-        <div className="flex-1 rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] overflow-hidden">
-          <div className="overflow-x-auto">
+        {/* <div
+          className={`flex gap-4 items-start ${
+            showTableOnly ? "w-full" : ""
+          }`}
+          style={{ marginBottom: "20px" }}
+        > */}
+        <div
+          className={`flex gap-4 items-start w-full`}
+          style={{ marginBottom: "20px" }}
+        >
+        {/* ── Mini Calendar + Import actions ───────────────────────────────── */}
+        {!showTableOnly && (
+          <div className="flex flex-col gap-3 min-w-[260px]">
+            <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] p-4">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-semibold text-gray-800 dark:text-white">
+                  {calendarMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                </span>
+                <div className="flex gap-1">
+                  <Tooltip text="Go to previous month">
+                    <button onClick={() => setCalendarMonth((d) => new Date(d.getFullYear(), d.getMonth() - 1))}
+                      className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                    </button>
+                  </Tooltip>
+                  <Tooltip text="Go to next month">
+                    <button onClick={() => setCalendarMonth((d) => new Date(d.getFullYear(), d.getMonth() + 1))}
+                      className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                    </button>
+                  </Tooltip>
+                </div>
+              </div>
 
-            {/* Date navigation */}
-            <div className="flex items-center gap-3 p-4 border-b border-gray-200 dark:border-gray-700">
-              <Tooltip text="Go to today">
-                <button onClick={goToToday} type="button"
-                  className="rounded-full border border-gray-300 dark:border-gray-600 px-4 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-                  Today
-                </button>
-              </Tooltip>
-              <div className="flex items-center gap-1">
-                <Tooltip text="Go to Previous day">
-                  <button onClick={goPrev} type="button" className="p-1.5 rounded-md text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
-                  </button>
+              <div className="grid grid-cols-7 w-[224px] mx-auto mb-1">
+                <Tooltip text="Sunday">
+                  <div className="text-center text-[11px] font-medium text-gray-400 py-1">S</div>
                 </Tooltip>
-                <Tooltip text="Go to Next day">
-                  <button onClick={goNext} type="button" className="p-1.5 rounded-md text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-                  </button>
+                <Tooltip text="Monday">
+                  <div className="text-center text-[11px] font-medium text-gray-400 py-1">M</div>
+                </Tooltip>
+                <Tooltip text="Tuesday">
+                  <div className="text-center text-[11px] font-medium text-gray-400 py-1">T</div>
+                </Tooltip>
+                <Tooltip text="Wednesday">
+                  <div className="text-center text-[11px] font-medium text-gray-400 py-1">W</div>
+                </Tooltip>
+                <Tooltip text="Thursday">
+                  <div className="text-center text-[11px] font-medium text-gray-400 py-1">T</div>
+                </Tooltip>
+                <Tooltip text="Friday">
+                  <div className="text-center text-[11px] font-medium text-gray-400 py-1">F</div>
+                </Tooltip>
+                <Tooltip text="Saturday">
+                  <div className="text-center text-[11px] font-medium text-gray-400 py-1">S</div>
                 </Tooltip>
               </div>
-              <div className="flex w-full items-center gap-3">
-                {/* Date - LEFT */}
-                <div className="min-w-0 flex-shrink-0">
-                  <span className="text-sm font-medium text-gray-800 dark:text-white whitespace-nowrap">
-                    {formattedDate}
-                  </span>
+
+              <div className="grid grid-cols-7 w-[224px] mx-auto">
+                {getCalendarDays(calendarMonth).map(({ date, currentMonth }, i) => {
+                  const isToday    = date.toDateString() === new Date().toDateString();
+                  const isSelected = date.toDateString() === currentDate.toDateString();
+                  return (
+                    <Tooltip text="select this date to do its planning" key={i}>
+                      <button key={i} onClick={() => { setCurrentDate(date); setCalendarMonth(date); }}
+                        className={[
+                          "text-[12px] w-8 h-8 mx-auto flex items-center justify-center rounded-full transition-colors",
+                          !currentMonth ? "text-gray-300 dark:text-gray-600" : "text-gray-700 dark:text-gray-300",
+                          isSelected ? "bg-brand-500 text-white font-semibold" : "",
+                          isToday && !isSelected ? "text-brand-500 font-semibold" : "",
+                          !isSelected ? "hover:bg-gray-100 dark:hover:bg-gray-800" : "",
+                        ].join(" ")}
+                      >
+                        {date.getDate()}
+                      </button>
+                    </Tooltip>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <input
+                ref={excelInputRef}
+                type="file"
+                accept=".xlsx,.xls"
+                hidden
+                onChange={handleImportFile}
+              />
+
+              <input
+                ref={pdfInputRef}
+                type="file"
+                accept=".pdf"
+                hidden
+                onChange={handleImportFile}
+              />
+
+              {/* Import File Dropdown */}
+              <div className="relative">
+                <Button
+                    size="sm"
+                    variant="primary"
+                    onClick={handleImportClick}
+                    className="w-full justify-center"
+                >
+                    <ArrowDownTrayIcon
+                      className="w-4 h-4 text-gray-100"
+                      strokeWidth={3}
+                    />
+                    Import from File
+                </Button>
+                {showImportMenu && (
+                  <div className="absolute left-0 right-0 mt-2 z-50 rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
+
+                    {/* Excel */}
+                    <Tooltip text="Import a daily planning from an Excel file (Local machine storage).">
+                      <button
+                        type="button"
+                        onClick={handleExcelImportClick}
+                        className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+                      >
+                        📊
+                        <span>Import from Excel</span>
+                      </button>
+                    </Tooltip>
+
+                    {/* PDF */}
+                    <Tooltip text="Import a daily planning from a PDF file (Local machine storage).">
+                      <button
+                        type="button"
+                        onClick={handlePdfImportClick}
+                        className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+                      >
+                        📄
+                        <span>Import from PDF</span>
+                      </button>
+                    </Tooltip>
+
+                  </div>
+                )}
+              </div>
+
+              <Tooltip text="Import planning from a specific date (No need to file just Enter a day).">
+                <Button
+                  size="sm"
+                  variant="primary"
+                  onClick={() => setIsImportModalOpen(true)}
+                  className="w-full justify-center"
+                >
+                  <ArrowDownTrayIcon
+                    className="w-4 h-4 text-gray-100"
+                    strokeWidth={3}
+                  />
+                  Import from Date
+                </Button>
+              </Tooltip>
+              <Tooltip text="Copy and save the planning from one month to another month.">
+                <Button
+                  size="sm"
+                  variant="primary"
+                  onClick={handleCopyMonthClick}
+                  className="w-full justify-center"
+                >
+                  Copy Month
+                </Button>
+              </Tooltip>
+            </div>
+          </div>
+        )}
+
+        {/* ── Grid ───────────────────────────────────────────────────────── */}
+        <div
+          className={`min-w-0 rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] overflow-hidden ${
+            showTableOnly ? "w-full flex-1" : "flex-1"
+          }`}
+        >
+          <div className="overflow-x-auto">
+            {/* Date navigation */}
+            {!showTableOnly && (
+              <div className="grid grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-3 p-4 border-b border-gray-200 dark:border-gray-700">
+                {/* Today */}
+                <Tooltip text="Go to today">
+                  <button
+                    onClick={goToToday}
+                    type="button"
+                    className="shrink-0 rounded-full border border-gray-300 dark:border-gray-600 px-4 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  >
+                    Today
+                  </button>
+                </Tooltip>
+                {/* Previous / Next */}
+                <div className="flex shrink-0 items-center gap-1">
+                  <Tooltip text="Go to Previous day">
+                    <button
+                      onClick={goPrev}
+                      type="button"
+                      className="p-1.5 rounded-md text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="w-4 h-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={2}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M15 19l-7-7 7-7"
+                        />
+                      </svg>
+                    </button>
+                  </Tooltip>
+                  <Tooltip text="Go to Next day">
+                    <button
+                      onClick={goNext}
+                      type="button"
+                      className="p-1.5 rounded-md text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="w-4 h-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={2}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M9 5l7 7-7 7"
+                        />
+                      </svg>
+                    </button>
+                  </Tooltip>
                 </div>
 
-                {/* Buttons - RIGHT */}
-                <div className="ml-auto flex min-w-0 flex-1 justify-end gap-2">
+                {/* Date */}
+                {/* <div className="min-w-0 overflow-hidden">
+                  <span className="block truncate text-sm font-medium text-gray-800 dark:text-white">
+                    {formattedDate}
+                  </span>
+                </div> */}
+
+                {/* Buttons */}
+                <div className="flex shrink-0 flex-nowrap justify-end gap-2">
 
                   {/* Save */}
                   <Tooltip text="Save this planning to only the selected day in the calendar.">
@@ -268,7 +377,7 @@ const ShiftGrid: React.FC = () => {
                       size="sm"
                       variant="primary"
                       onClick={() => handleSavePlanning()}
-                      className="h-10 min-w-0 flex-1 max-w-[140px] px-3 justify-center text-center whitespace-nowrap"
+                      className="h-10 shrink-0 px-3 justify-center text-center whitespace-nowrap"
                     >
                       Save
                     </Button>
@@ -279,8 +388,8 @@ const ShiftGrid: React.FC = () => {
                     <Button
                       size="sm"
                       variant="primary"
-                      onClick={handleDuplicateToWeekday}
-                      className="h-10 min-w-0 flex-[1.5] max-w-[200px] px-3 justify-center text-center whitespace-nowrap"
+                      onClick={handleSaveToAllWeekdays}
+                      className="h-10 shrink-0 px-3 justify-center text-center whitespace-nowrap"
                     >
                       Save to all{" "}
                       {currentDate.toLocaleDateString("en-US", {
@@ -290,134 +399,380 @@ const ShiftGrid: React.FC = () => {
                     </Button>
                   </Tooltip>
 
-                  {/* Copy Month */}
-                  <Tooltip text="Copy and save the planning from one month to another month.">
+                  {/* Save to next weekdays */}
+                  <Tooltip text="Save this planning to all occurrences of the selected weekday in this month.">
                     <Button
                       size="sm"
                       variant="primary"
-                      onClick={handleCopyMonthClick}
-                      className="h-10 min-w-0 flex-1 max-w-[140px] px-3 justify-center text-center whitespace-nowrap"
+                      onClick={handleSaveToNextWeekdays}
+                      className="h-10 shrink-0 px-3 justify-center text-center whitespace-nowrap"
                     >
-                      Copy Month
+                      Save to Next{" "}
+                      {currentDate.toLocaleDateString("en-US", {
+                        weekday: "long",
+                      })}
+                      s
                     </Button>
                   </Tooltip>
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* Table */}
-            <table className="w-full border-collapse">
-              <thead>
-                <tr>
-                  <th className="w-32 min-w-[8rem] border-b border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 p-3" />
-                  {shifts.map((shift) => (
-                    <th key={shift.id} className="border-b border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 p-3 text-center last:border-r-0">
-                      <span className="block text-sm font-bold text-gray-800 dark:text-white/90">{shift.label}</span>
-                      {shift.sub && <span className="block text-xs text-gray-400 dark:text-gray-500 mt-0.5">{shift.sub}</span>}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-
-              <tbody>
-                {posts.map((post, rowIdx) => (
-                  <tr key={post.id} className={rowIdx % 2 === 0 ? "" : "bg-gray-50/50 dark:bg-white/[0.01]"}>
-                    <td className="border-b border-r border-gray-200 dark:border-gray-700 p-3 last:border-b-0">
-                      <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{post.label}</span>
-                    </td>
-
-                    {shifts.map((shift) => {
-                      const events = grid[post.id]?.[shift.id] ?? [];
-                      return (
-                        <td key={shift.id}
-                          onClick={() => handleCellClick(post.id, shift.id)}
-                          className={[
-                            "border-b border-r border-gray-200 dark:border-gray-700 p-2 cursor-pointer transition-colors duration-150 last:border-r-0",
-                            rowIdx === posts.length - 1 ? "border-b-0" : "",
-                            "hover:bg-brand-50 dark:hover:bg-brand-900/10",
-                          ].join(" ")}
-                          style={{ minWidth: "160px", height: "64px" }}
-                        >
-                          {events.length > 0 ? (
-                            <div className="flex flex-col gap-[2px] overflow-hidden">
-                              {events.slice(0, 2).map((emp) => (
-                                <div
-                                  key={emp.id}
-                                  className="flex flex-col"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setListCell({
-                                      postId: post.id,
-                                      shiftId: shift.id
-                                    });
-                                    setIsListModalOpen(true);
-                                  }}
-                                >
-                                  {/* Main employee */}
-                                  <span
-                                    className="text-[11px] px-2 py-[2px] text-gray-800 dark:text-white truncate"
-                                    title={emp.title}
-                                  >
-                                    {emp.title}
-                                  </span>
-
-                                  {/* Backup employee */}
-                                  <span
-                                    className="text-[10px] px-2 text-gray-400 dark:text-gray-500 truncate"
-                                    title={
-                                      emp.backupTitle
-                                        ? `Backup: ${emp.backupTitle}`
-                                        : "No backup"
-                                    }
-                                  >
-                                    Backup: {emp.backupTitle ?? "No backup"}
-                                  </span>
-
-                                  {/* Tasks */}
-                                  {emp.tasks && emp.tasks.length > 0 && (
-                                    <span className="text-[10px] text-gray-400 px-2 truncate">
-                                      {emp.tasks
-                                        .map(
-                                          (t) =>
-                                            `${t.startTime}-${t.endTime} ${t.label}`
-                                        )
-                                        .join(" · ")}
-                                    </span>
-                                  )}
-                                </div>
-                              ))}
-
-                              {events.length > 2 && (
-                                <div
-                                  className="text-[10px] text-gray-400 px-2 cursor-pointer hover:text-gray-600"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setListCell({
-                                      postId: post.id,
-                                      shiftId: shift.id
-                                    });
-                                    setIsListModalOpen(true);
-                                  }}
-                                >
-                                  +{events.length - 2}
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <div className="flex items-center justify-center h-full opacity-0 hover:opacity-100 transition-opacity">
-                              <span className="text-xs text-gray-400 dark:text-gray-600">
-                                + Add
-                              </span>
-                            </div>
-                          )}
-                        </td>
-                      );
-                    })}
+            {/* Tables */}
+            {!showTableOnly && (
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr>
+                    <th className="w-32 min-w-[8rem] border-b border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 p-3" />
+                    {shifts.map((shift) => (
+                      <th key={shift.id} className="border-b border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 p-3 text-center last:border-r-0">
+                        <span className="block text-sm font-bold text-gray-800 dark:text-white/90">{shift.label}</span>
+                        {shift.sub && <span className="block text-xs text-gray-400 dark:text-gray-500 mt-0.5">{shift.sub}</span>}
+                      </th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+
+                <tbody>
+                  {posts.map((post, rowIdx) => (
+                    <tr key={post.id} className={rowIdx % 2 === 0 ? "" : "bg-gray-50/50 dark:bg-white/[0.01]"}>
+                      <td className="border-b border-r border-gray-200 dark:border-gray-700 p-3 last:border-b-0">
+                        <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{post.label}</span>
+                      </td>
+
+                      {shifts.map((shift) => {
+                        const events = grid[post.id]?.[shift.id] ?? [];
+                        return (
+                          <td key={shift.id}
+                            onClick={() => handleCellClick(post.id, shift.id)}
+                            className={[
+                              "border-b border-r border-gray-200 dark:border-gray-700 p-2 cursor-pointer transition-colors duration-150 last:border-r-0",
+                              rowIdx === posts.length - 1 ? "border-b-0" : "",
+                              "hover:bg-brand-50 dark:hover:bg-brand-900/10",
+                            ].join(" ")}
+                            style={{ minWidth: "160px", height: "64px" }}
+                          >
+                            {events.length > 0 ? (
+                              <div className="flex flex-col gap-[2px] overflow-hidden">
+                                {events.slice(0, 2).map((emp) => (
+                                  <div
+                                    key={emp.id}
+                                    className="flex flex-col"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setListCell({
+                                        postId: post.id,
+                                        shiftId: shift.id
+                                      });
+                                      setIsListModalOpen(true);
+                                    }}
+                                  >
+                                    {/* Main employee */}
+                                    <span
+                                      className="text-[11px] px-2 py-[2px] text-gray-800 dark:text-white truncate"
+                                      title={emp.title}
+                                    >
+                                      {emp.title}
+                                    </span>
+
+                                    {/* Backup employee */}
+                                    <span
+                                      className="text-[10px] px-2 text-gray-400 dark:text-gray-500 truncate"
+                                      title={
+                                        emp.backupTitle
+                                          ? `Backup: ${emp.backupTitle}`
+                                          : "No backup"
+                                      }
+                                    >
+                                      Backup: {emp.backupTitle ?? "No backup"}
+                                    </span>
+
+                                    {/* Tasks */}
+                                    {emp.tasks && emp.tasks.length > 0 && (
+                                      <span className="text-[10px] text-gray-400 px-2 truncate">
+                                        {emp.tasks
+                                          .map(
+                                            (t) =>
+                                              `${t.startTime}-${t.endTime} ${t.label}`
+                                          )
+                                          .join(" · ")}
+                                      </span>
+                                    )}
+                                  </div>
+                                ))}
+
+                                {events.length > 2 && (
+                                  <div
+                                    className="text-[10px] text-gray-400 px-2 cursor-pointer hover:text-gray-600"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setListCell({
+                                        postId: post.id,
+                                        shiftId: shift.id
+                                      });
+                                      setIsListModalOpen(true);
+                                    }}
+                                  >
+                                    +{events.length - 2}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-center h-full opacity-0 hover:opacity-100 transition-opacity">
+                                <span className="text-xs text-gray-400 dark:text-gray-600">
+                                  + Add
+                                </span>
+                              </div>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+
+            {/* 2nd Table */}
+            {showTableOnly && (
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr>
+                    <th className="w-32 min-w-[8rem] border-b border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 p-3" />
+
+                    {shifts.map((shift) => (
+                      <th
+                        key={shift.id}
+                        className="border-b border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 p-3 text-center last:border-r-0"
+                      >
+                        <span className="block text-sm font-bold text-gray-800 dark:text-white/90">
+                          {shift.label}
+                        </span>
+
+                        {shift.sub && (
+                          <span className="block text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                            {shift.sub}
+                          </span>
+                        )}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {posts.map((post, rowIdx) => (
+                    <tr
+                      key={post.id}
+                      className={
+                        rowIdx % 2 === 0
+                          ? ""
+                          : "bg-gray-50/50 dark:bg-white/[0.01]"
+                      }
+                    >
+                      {/* Post name */}
+                      <td className="border-b border-r border-gray-200 dark:border-gray-700 p-3 last:border-b-0">
+                        <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                          {post.label}
+                        </span>
+                      </td>
+
+                      {shifts.map((shift) => {
+                        const events = grid[post.id]?.[shift.id] ?? [];
+
+                        return (
+                          <td
+                            key={shift.id}
+                            onClick={() => handleCellClick(post.id, shift.id)}
+                            className={[
+                              "border-b border-r border-gray-200 dark:border-gray-700 p-2 cursor-pointer transition-colors duration-150 last:border-r-0",
+                              rowIdx === posts.length - 1 ? "border-b-0" : "",
+                              "hover:bg-brand-50 dark:hover:bg-brand-900/10",
+                            ].join(" ")}
+                            style={{
+                              minWidth: "160px",
+                              minHeight: "64px",
+                            }}
+                          >
+                            {events.length > 0 ? (
+                              <div className="flex flex-col gap-1">
+                                {events.map((emp) => (
+                                  <div
+                                    key={emp.id}
+                                    className="flex flex-col rounded-md px-2 py-1 hover:bg-gray-100 dark:hover:bg-white/[0.05]"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+
+                                      setListCell({
+                                        postId: post.id,
+                                        shiftId: shift.id,
+                                      });
+
+                                      setIsListModalOpen(true);
+                                    }}
+                                  >
+                                    {/* Main employee */}
+                                    <span
+                                      className="text-[11px] font-medium text-gray-800 dark:text-white truncate"
+                                      title={emp.title}
+                                    >
+                                      {emp.title}
+                                    </span>
+
+                                    {/* Backup employee */}
+                                    <span
+                                      className="text-[10px] text-gray-400 dark:text-gray-500 truncate"
+                                      title={
+                                        emp.backupTitle
+                                          ? `Backup: ${emp.backupTitle}`
+                                          : "No backup"
+                                      }
+                                    >
+                                      Backup: {emp.backupTitle ?? "No backup"}
+                                    </span>
+
+                                    {/* Tasks */}
+                                    {emp.tasks && emp.tasks.length > 0 && (
+                                      <span
+                                        className="text-[10px] text-gray-400 dark:text-gray-500 truncate"
+                                        title={emp.tasks
+                                          .map(
+                                            (t) =>
+                                              `${t.startTime}-${t.endTime} ${t.label}`
+                                          )
+                                          .join(" · ")}
+                                      >
+                                        {emp.tasks
+                                          .map(
+                                            (t) =>
+                                              `${t.startTime}-${t.endTime} ${t.label}`
+                                          )
+                                          .join(" · ")}
+                                      </span>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-center min-h-[64px] opacity-0 hover:opacity-100 transition-opacity">
+                                <span className="text-xs text-gray-400 dark:text-gray-600">
+                                  + Add
+                                </span>
+                              </div>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
           {/* ── Add Modal ─────────────────────────────────────────────────── */}
           <Modal isOpen={isOpen} onClose={handleClose} className="max-w-[500px] p-6 lg:p-10">

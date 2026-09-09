@@ -169,34 +169,12 @@ export const useViewPlanning = () => {
   const handleWeeklyExport = (format: "excel" | "pdf") => {
     const date = new Date(currentDate);
     const year = date.getFullYear();
-    const month = date.getMonth() + 1; // JavaScript months are 0-based
+    const month = date.getMonth(); // JavaScript months are 0-based
+    console.log("📅 Month sent is: ", month);
       window.location.href =
         `http://localhost:3001/planning/export-first-week?year=${year}&month=${month}&format=${format}`;
   };
-  //   const handleWeeklyExport = () => {
-  //   // Copy the currently selected date
-  //   const date = new Date(currentDate);
-
-
-  //   // JavaScript:
-  //   // Sunday = 0
-  //   // Monday = 1
-  //   // ...
-  //   // Saturday = 6
-  //   const day = date.getDay();
-
-  //   // Calculate how many days to go back to Saturday
-  //   const daysSinceSaturday = (day + 1) % 7;
-
-  //   date.setDate(date.getDate() - daysSinceSaturday);
-
-  //   // Format as YYYY-MM-DD
-  //   const weekStart = date.toISOString().split("T")[0];
-
-  //   // Download the file
-  //   window.location.href =
-  //     `http://localhost:3001/planning/export-week?weekStart=${'2026-07-01'}`;
-  // };
+  
 
   return {
     tasks, shifts, employees,
