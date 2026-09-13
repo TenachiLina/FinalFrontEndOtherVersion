@@ -427,48 +427,67 @@ export default function ClockInPageHistory() {
   // ADD PUNCH
   // ---------------------------------------------------------
 
-  const addPunch = async () => {
-    if (!newPunch.deviceUserId || !newPunch.timestamp) {
-      alert("Veuillez remplir tous les champs.");
+const addPunch = async () => {
+  if (!newPunch.deviceUserId || !newPunch.timestamp) {
+    alert("Veuillez remplir tous les champs.");
+    return;
+  }
+
+  try {
+    const timestamp = new Date(newPunch.timestamp);
+
+    if (Number.isNaN(timestamp.getTime())) {
+      alert("La date et l'heure sont invalides.");
       return;
     }
 
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/attendance/device-logs`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            deviceUserId: newPunch.deviceUserId,
-            timestamp: new Date(
-              newPunch.timestamp
-            ).toISOString(),
-            processed: false,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to create punch");
+    const response = await fetch(
+      `${API_BASE_URL}/attendance/device-logs`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          deviceUserId: newPunch.deviceUserId.trim(),
+          timestamp: timestamp.toISOString(),
+          processed: false,
+        }),
       }
+    );
 
-      setShowAddModal(false);
+    const result = await response.json();
 
-      setNewPunch({
-        deviceUserId: "",
-        timestamp: "",
-      });
-
-      await loadLogs();
-    } catch (err) {
-      console.error(err);
-
-      setError("Impossible d'ajouter le pointage.");
+    if (!response.ok || result?.status === "error") {
+      throw new Error(
+        result?.message || "Failed to create punch"
+      );
     }
-  };
+
+    console.log("Punch created:", result);
+
+    // Close modal
+    setShowAddModal(false);
+
+    // Clear form
+    setNewPunch({
+      deviceUserId: "",
+      timestamp: "",
+    });
+
+    // Reload logs from MongoDB
+    await loadLogs();
+
+  } catch (err) {
+    console.error("Error adding punch:", err);
+
+    setError(
+      err instanceof Error
+        ? err.message
+        : "Impossible d'ajouter le pointage."
+    );
+  }
+};
 
   // ---------------------------------------------------------
   // RENDER
@@ -790,23 +809,40 @@ export default function ClockInPageHistory() {
                         )}
                       </td>
 
-                      {/* STATUS */}
-                      <td className="border-b border-gray-100 px-4 py-2">
-                        <span
-                          className="
-                            inline-flex
-                            rounded-md
-                            bg-green-100
-                            px-2
-                            py-1
-                            text-xs
-                            font-medium
-                            text-green-700
-                          "
-                        >
-                          Validated
-                        </span>
-                      </td>
+ {/* STATUS */}
+<td className="border-b border-gray-100 px-4 py-2">
+  {log.clockOut ? (
+    <span
+      className="
+        inline-flex
+        rounded-md
+        bg-green-100
+        px-2
+        py-1
+        text-xs
+        font-medium
+        text-green-700
+      "
+    >
+      Validated
+    </span>
+  ) : (
+    <span
+      className="
+        inline-flex
+        rounded-md
+        bg-orange-100
+        px-2
+        py-1
+        text-xs
+        font-medium
+        text-orange-700
+      "
+    >
+      Not validated
+    </span>
+  )}
+</td>
 
                     </tr>
                   );

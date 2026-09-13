@@ -35,6 +35,10 @@ const DEVICE_ATTENDANCE_API =
   process.env.NEXT_PUBLIC_DEVICE_ATTENDANCE_API ??
   "http://localhost:3001/attendance/device-logs";
 
+const DEVICE_STATUS_API =
+  process.env.NEXT_PUBLIC_DEVICE_STATUS_API ??
+  "http://localhost:3001/device/status";
+
 interface DeviceAttendanceLog {
   _id?: string;
   deviceUserId: string;
@@ -47,22 +51,12 @@ interface DeviceAttendanceLog {
    DATE / TIME HELPERS
 ============================================================================ */
 
-/**
- * IMPORTANT:
- *
- * We intentionally DO NOT use:
- *
- *   new Date().toISOString().slice(0, 10)
- *
- * because toISOString() converts to UTC.
- *
- * The attendance machine operates in local time.
- */
 function getLocalDateString(date = new Date()): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
-    2,
-    "0"
-  )}-${String(date.getDate()).padStart(2, "0")}`;
+  return `${date.getFullYear()}-${String(
+    date.getMonth() + 1
+  ).padStart(2, "0")}-${String(
+    date.getDate()
+  ).padStart(2, "0")}`;
 }
 
 function dateStringToLocalDate(date: string): Date {
@@ -71,16 +65,28 @@ function dateStringToLocalDate(date: string): Date {
   return new Date(year, month - 1, day);
 }
 
-function addDays(date: string, amount: number): string {
+function addDays(
+  date: string,
+  amount: number
+): string {
   const d = dateStringToLocalDate(date);
+
   d.setDate(d.getDate() + amount);
+
   return getLocalDateString(d);
 }
 
 function timeToMinutes(time: string): number {
-  const parts = time.slice(0, 5).split(":").map(Number);
+  const parts = time
+    .slice(0, 5)
+    .split(":")
+    .map(Number);
 
-  if (parts.length !== 2 || Number.isNaN(parts[0]) || Number.isNaN(parts[1])) {
+  if (
+    parts.length !== 2 ||
+    Number.isNaN(parts[0]) ||
+    Number.isNaN(parts[1])
+  ) {
     return 0;
   }
 
@@ -88,21 +94,12 @@ function timeToMinutes(time: string): number {
 }
 
 /**
- * Convert a timestamp coming from the machine into a local date/time
- * without applying another timezone conversion.
- *
- * Example:
- *
- * 2026-08-28T23:30:00.000Z
- *
- * becomes:
- *
- * 28/08/2026 23:30
- *
- * because the machine timestamp is already treated as attendance-machine
- * local time in this application.
+ * Treat the timestamp coming from the attendance machine
+ * as machine/local attendance time.
  */
-function deviceDateTime(timestamp: string): {
+function deviceDateTime(
+  timestamp: string
+): {
   date: string;
   minutes: number;
   time: string;
@@ -117,36 +114,63 @@ function deviceDateTime(timestamp: string): {
     return null;
   }
 
-  const [, year, month, day, hour, minute] = match;
+  const [
+    ,
+    year,
+    month,
+    day,
+    hour,
+    minute,
+  ] = match;
 
   return {
     date: `${year}-${month}-${day}`,
-    minutes: Number(hour) * 60 + Number(minute),
+    minutes:
+      Number(hour) * 60 +
+      Number(minute),
     time: `${hour}:${minute}`,
   };
 }
 
-const deviceTime = (timestamp: string) => {
-  const parsed = deviceDateTime(timestamp);
+const deviceTime = (
+  timestamp: string
+) => {
+  const parsed =
+    deviceDateTime(timestamp);
 
-  return parsed?.time ?? "00:00";
+  return (
+    parsed?.time ??
+    "00:00"
+  );
 };
 
-function formatDateTime(timestamp: string) {
-  const parsed = deviceDateTime(timestamp);
+function formatDateTime(
+  timestamp: string
+) {
+  const parsed =
+    deviceDateTime(timestamp);
 
   if (!parsed) {
     return timestamp;
   }
 
-  const [year, month, day] = parsed.date.split("-");
+  const [
+    year,
+    month,
+    day,
+  ] = parsed.date.split("-");
 
   return `${day}/${month}/${year} ${parsed.time}`;
 }
 
-function normalizeDeviceId(value: string) {
+function normalizeDeviceId(
+  value: string
+) {
   return String(value)
-    .replace(/[\u0000-\u001F\u007F]/g, "")
+    .replace(
+      /[\u0000-\u001F\u007F]/g,
+      ""
+    )
     .trim();
 }
 
@@ -160,196 +184,196 @@ interface Shift {
   end_time: string;
 }
 
-/**
- * Returns the number of minutes an end time represents.
- *
- * 00:00 is treated as 24:00 when it is a shift ending at midnight.
- */
-function shiftEndMinutes(time: string): number {
-  const value = timeToMinutes(time);
-
-  if (value === 0) {
-    return 1440;
-  }
-
-  return value;
-}
+/* ============================================================================
+   OPERATIONAL DATE
+============================================================================ */
 
 /**
- * Find the latest shift end.
- *
- * This is the IMPORTANT part of the new attendance-day logic.
+ * Determine whether a shift crosses midnight.
  *
  * Example:
  *
- * Shift 1: 06:00 - 14:00
- * Shift 2: 08:00 - 16:00
- * Shift 3: 16:00 - 00:00
+ * 16:00 -> 02:00
  *
- * The attendance operation does NOT end at 00:00 from the perspective
- * of the previous operation.
+ * 02:00 < 16:00
  *
- * Shift 3 ends at 24:00.
- *
- * If a future shift ends at 02:00, then the previous operational day
- * remains active until 02:00.
+ * therefore overnight.
  */
-function getLatestShiftEndMinutes(shifts: Shift[]): number {
-  if (!shifts.length) {
-    return 1440;
-  }
-
-  return Math.max(
-    ...shifts.map((shift) => shiftEndMinutes(shift.end_time))
+function isOvernightShift(
+  shift: Shift
+): boolean {
+  return (
+    timeToMinutes(
+      shift.end_time
+    ) <
+    timeToMinutes(
+      shift.start_time
+    )
   );
 }
 
 /**
- * Determine which operational attendance date is currently active.
- *
- * If it is after midnight but BEFORE the final shift has finished,
- * we are still inside yesterday's attendance operation.
+ * Get the latest overnight end time.
  *
  * Example:
  *
- * Last shift: 16:00 -> 02:00
+ * 16:00 -> 02:00
  *
- * At 01:00 on Aug 29:
- *   operational date = Aug 28
- *
- * At 02:01 on Aug 29:
- *   operational date = Aug 29
+ * returns 120 minutes.
  */
-function getOperationalDate(shifts: Shift[]): string {
+function getLatestOvernightEnd(
+  shifts: Shift[]
+): number | null {
+  const overnightShifts =
+    shifts.filter(
+      isOvernightShift
+    );
+
+  if (
+    overnightShifts.length === 0
+  ) {
+    return null;
+  }
+
+  return Math.max(
+    ...overnightShifts.map(
+      (shift) =>
+        timeToMinutes(
+          shift.end_time
+        )
+    )
+  );
+}
+
+/**
+ * Determine the current operational attendance date.
+ *
+ * Example:
+ *
+ * Shift = 16:00 -> 02:00
+ *
+ * At Aug 28 23:00:
+ *   operation = Aug 28
+ *
+ * At Aug 29 01:00:
+ *   operation = Aug 28
+ *
+ * At Aug 29 02:01:
+ *   operation = Aug 29
+ */
+function getOperationalDate(
+  shifts: Shift[]
+): string {
   const now = new Date();
 
-  const calendarDate = getLocalDateString(now);
+  const calendarDate =
+    getLocalDateString(now);
 
   if (!shifts.length) {
     return calendarDate;
   }
 
   const currentMinutes =
-    now.getHours() * 60 + now.getMinutes();
+    now.getHours() * 60 +
+    now.getMinutes();
 
-  const latestEnd = getLatestShiftEndMinutes(shifts);
-
-  /*
-   * If the latest shift ends after midnight, its end time is represented
-   * as > 1440.
-   *
-   * Example:
-   * 02:00 => 1560
-   *
-   * This means:
-   * from 00:00 until 02:00 we are still in yesterday's operation.
-   */
-  const overnightEnd = shifts.some(
-    (shift) => timeToMinutes(shift.end_time) < timeToMinutes(shift.start_time)
-  );
-
-  if (overnightEnd) {
-    const overnightShiftEnd = Math.max(
-      ...shifts
-        .filter(
-          (shift) =>
-            timeToMinutes(shift.end_time) <
-            timeToMinutes(shift.start_time)
-        )
-        .map((shift) => 1440 + timeToMinutes(shift.end_time))
+  const overnightEnd =
+    getLatestOvernightEnd(
+      shifts
     );
 
-    if (currentMinutes < overnightShiftEnd - 1440) {
-      return addDays(calendarDate, -1);
-    }
-  }
-
-  /*
-   * Special case for a shift ending exactly at 00:00.
-   *
-   * At 00:00 the previous operation is considered finished.
-   */
   if (
-    currentMinutes === 0 &&
-    shifts.some(
-      (shift) =>
-        timeToMinutes(shift.end_time) === 0
-    )
+    overnightEnd !== null &&
+    currentMinutes < overnightEnd
   ) {
-    return calendarDate;
+    return addDays(
+      calendarDate,
+      -1
+    );
   }
 
   return calendarDate;
 }
 
 /**
- * Determine whether a device punch belongs to an operational attendance date.
+ * Determine whether a machine punch belongs to
+ * the specified operational date.
  *
- * The operation starts on `operationDate` and may continue after midnight.
+ * For a normal shift:
  *
- * Example:
+ * Aug 28 -> only Aug 28.
  *
- * operationDate = 2026-08-28
- * last shift = 16:00 -> 02:00
+ * For an overnight shift 16:00 -> 02:00:
  *
- * Valid punches:
+ * Aug 28 16:00
+ * Aug 28 23:00
+ * Aug 29 01:30
  *
- * 2026-08-28 16:00
- * 2026-08-28 23:50
- * 2026-08-29 01:30
- *
- * Invalid for that operation:
- *
- * 2026-08-29 03:00
+ * all belong to Aug 28 operation.
  */
 function isPunchInsideOperationalDay(
   timestamp: string,
   operationDate: string,
   shifts: Shift[]
 ): boolean {
-  const parsed = deviceDateTime(timestamp);
+  const parsed =
+    deviceDateTime(timestamp);
 
   if (!parsed) {
     return false;
   }
 
-  const operationStartDate = operationDate;
-
-  const hasOvernightShift = shifts.some(
-    (shift) =>
-      timeToMinutes(shift.end_time) <
-      timeToMinutes(shift.start_time)
-  );
+  const hasOvernightShift =
+    shifts.some(
+      isOvernightShift
+    );
 
   if (!hasOvernightShift) {
-    return parsed.date === operationStartDate;
+    return (
+      parsed.date ===
+      operationDate
+    );
   }
 
-  const previousDate = addDays(operationStartDate, 1);
+  const nextDate =
+    addDays(
+      operationDate,
+      1
+    );
 
-  if (parsed.date === operationStartDate) {
+  if (
+    parsed.date ===
+    operationDate
+  ) {
     return true;
   }
 
-  if (parsed.date === previousDate) {
-    const overnightEnds = Math.max(
-      ...shifts
-        .filter(
-          (shift) =>
-            timeToMinutes(shift.end_time) <
-            timeToMinutes(shift.start_time)
-        )
-        .map((shift) => timeToMinutes(shift.end_time))
-    );
+  if (
+    parsed.date ===
+    nextDate
+  ) {
+    const overnightEnd =
+      getLatestOvernightEnd(
+        shifts
+      );
 
-    return parsed.minutes <= overnightEnds;
+    if (
+      overnightEnd === null
+    ) {
+      return false;
+    }
+
+    return (
+      parsed.minutes <=
+      overnightEnd
+    );
   }
 
   return false;
 }
 
 /* ============================================================================
-   DEVICE LOG → EMPLOYEE ENTRY
+   DEVICE LOG -> EMPLOYEE ENTRY
 ============================================================================ */
 
 function deviceLogsToEntries(
@@ -373,39 +397,61 @@ function deviceLogsToEntries(
   > = {};
 
   for (const employee of employees) {
-    const employeeId = String(employee.empNumber);
-
-    const employeeLogs = logs
-      .filter((log) => {
-        const deviceId = normalizeDeviceId(log.deviceUserId);
-
-        if (deviceId !== employeeId) {
-          return false;
-        }
-
-        return isPunchInsideOperationalDay(
-          log.timestamp,
-          operationDate,
-          shifts
-        );
-      })
-      .sort(
-        (a, b) =>
-          new Date(a.timestamp).getTime() -
-          new Date(b.timestamp).getTime()
+    const employeeId =
+      String(
+        employee.empNumber
       );
 
-    if (employeeLogs.length === 0) {
+    const employeeLogs =
+      logs
+        .filter((log) => {
+          const deviceId =
+            normalizeDeviceId(
+              log.deviceUserId
+            );
+
+          if (
+            deviceId !==
+            employeeId
+          ) {
+            return false;
+          }
+
+          return isPunchInsideOperationalDay(
+            log.timestamp,
+            operationDate,
+            shifts
+          );
+        })
+        .sort(
+          (a, b) =>
+            new Date(
+              a.timestamp
+            ).getTime() -
+            new Date(
+              b.timestamp
+            ).getTime()
+        );
+
+    if (
+      employeeLogs.length === 0
+    ) {
       continue;
     }
 
     result[employeeId] = {
-      clockIn: deviceTime(employeeLogs[0].timestamp),
+      clockIn:
+        deviceTime(
+          employeeLogs[0]
+            .timestamp
+        ),
 
       clockOut:
         employeeLogs.length > 1
           ? deviceTime(
-              employeeLogs[employeeLogs.length - 1].timestamp
+              employeeLogs[
+                employeeLogs.length - 1
+              ].timestamp
             )
           : "00:00",
     };
@@ -418,91 +464,113 @@ function deviceLogsToEntries(
    FETCH MACHINE ATTENDANCE
 ============================================================================ */
 
-/**
- * Fetch logs for the operation date AND the following calendar date.
- *
- * The second request is necessary for overnight shifts.
- *
- * Example:
- *
- * operation = Aug 28
- *
- * We fetch:
- *   Aug 28
- *   Aug 29
- *
- * Then the client-side operational-day filter decides which punches
- * actually belong to Aug 28.
- */
 async function getDeviceAttendanceForOperationalDate(
   operationDate: string,
   shifts: Shift[]
 ): Promise<DeviceAttendanceLog[]> {
-  const datesToFetch = [operationDate];
+  const datesToFetch = [
+    operationDate,
+  ];
 
-  const hasOvernightShift = shifts.some(
-    (shift) =>
-      timeToMinutes(shift.end_time) <
-      timeToMinutes(shift.start_time)
-  );
+  const hasOvernightShift =
+    shifts.some(
+      isOvernightShift
+    );
 
-  if (hasOvernightShift) {
-    datesToFetch.push(addDays(operationDate, 1));
+  if (
+    hasOvernightShift
+  ) {
+    datesToFetch.push(
+      addDays(
+        operationDate,
+        1
+      )
+    );
   }
 
-  const responses = await Promise.all(
-    datesToFetch.map(async (date) => {
-      const response = await fetch(
-        `${DEVICE_ATTENDANCE_API}?date=${encodeURIComponent(date)}`,
-        {
-          cache: "no-store",
+  const responses =
+    await Promise.all(
+      datesToFetch.map(
+        async (date) => {
+          const response =
+            await fetch(
+              `${DEVICE_ATTENDANCE_API}?date=${encodeURIComponent(
+                date
+              )}`,
+              {
+                cache:
+                  "no-store",
+              }
+            );
+
+          if (
+            !response.ok
+          ) {
+            throw new Error(
+              `Face-recognition API returned ${response.status} for ${date}`
+            );
+          }
+
+          const data =
+            await response.json();
+
+          const logs =
+            Array.isArray(
+              data
+            )
+              ? data
+              : data?.data;
+
+          if (
+            !Array.isArray(
+              logs
+            )
+          ) {
+            throw new Error(
+              "Invalid face-recognition attendance response"
+            );
+          }
+
+          return logs as DeviceAttendanceLog[];
         }
-      );
+      )
+    );
 
-      if (!response.ok) {
-        throw new Error(
-          `Face-recognition API returned ${response.status} for ${date}`
-        );
-      }
-
-      const data = await response.json();
-
-      const logs = Array.isArray(data)
-        ? data
-        : data?.data;
-
-      if (!Array.isArray(logs)) {
-        throw new Error(
-          "Invalid face-recognition attendance response"
-        );
-      }
-
-      return logs as DeviceAttendanceLog[];
-    })
-  );
-
-  const combined = responses.flat();
+  const combined =
+    responses.flat();
 
   /*
-   * Remove duplicates.
+   * Remove duplicate machine logs.
    */
-  const unique = new Map<string, DeviceAttendanceLog>();
+  const unique =
+    new Map<
+      string,
+      DeviceAttendanceLog
+    >();
 
-  for (const log of combined) {
+  for (
+    const log of combined
+  ) {
     const key =
       log._id ??
       log.deviceLogId ??
       `${log.deviceUserId}-${log.timestamp}`;
 
-    unique.set(key, log);
+    unique.set(
+      key,
+      log
+    );
   }
 
-  return Array.from(unique.values()).filter((log) =>
-    isPunchInsideOperationalDay(
-      log.timestamp,
-      operationDate,
-      shifts
-    )
+  return Array.from(
+    unique.values()
+  ).filter(
+    (log) =>
+      isPunchInsideOperationalDay(
+        log.timestamp,
+        operationDate,
+        shifts
+      )
   );
 }
 
@@ -510,7 +578,10 @@ async function getDeviceAttendanceForOperationalDate(
    TYPES
 ============================================================================ */
 
-type ShiftStatus = "present" | "absent" | "pending";
+type ShiftStatus =
+  | "present"
+  | "absent"
+  | "pending";
 
 interface Employee {
   num: number;
@@ -533,7 +604,10 @@ interface EmployeeTimeEntry {
 
 interface ManualInputState {
   employee: number | null;
-  type: "clockIn" | "clockOut" | null;
+  type:
+    | "clockIn"
+    | "clockOut"
+    | null;
   value: string;
 }
 
@@ -551,7 +625,12 @@ const ClockInIcon = () => (
     strokeLinecap="round"
     strokeLinejoin="round"
   >
-    <circle cx="12" cy="12" r="10" />
+    <circle
+      cx="12"
+      cy="12"
+      r="10"
+    />
+
     <polyline points="12 6 12 12 16 14" />
   </svg>
 );
@@ -566,8 +645,19 @@ const CloseIcon = () => (
     strokeLinecap="round"
     strokeLinejoin="round"
   >
-    <line x1="18" y1="6" x2="6" y2="18" />
-    <line x1="6" y1="6" x2="18" y2="18" />
+    <line
+      x1="18"
+      y1="6"
+      x2="6"
+      y2="18"
+    />
+
+    <line
+      x1="6"
+      y1="6"
+      x2="18"
+      y2="18"
+    />
   </svg>
 );
 
@@ -582,8 +672,11 @@ const TrashIcon = () => (
     strokeLinejoin="round"
   >
     <polyline points="3 6 5 6 21 6" />
+
     <path d="M19 6l-1 14H6L5 6" />
+
     <path d="M10 11v6M14 11v6" />
+
     <path d="M9 6V4h6v2" />
   </svg>
 );
@@ -599,36 +692,67 @@ const SaveIcon = () => (
     strokeLinejoin="round"
   >
     <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+
     <polyline points="17 21 17 13 7 13 7 21" />
+
     <polyline points="7 3 7 8 15 8" />
   </svg>
 );
 
 /* ============================================================================
-   HELPERS
+   TIME CALCULATIONS
 ============================================================================ */
 
-const toMinutes = (t: string) => {
-  const [h, m] = t.split(":").map(Number);
+const toMinutes = (
+  t: string
+) => {
+  const [h, m] =
+    t
+      .slice(0, 5)
+      .split(":")
+      .map(Number);
+
+  if (
+    Number.isNaN(h) ||
+    Number.isNaN(m)
+  ) {
+    return 0;
+  }
 
   return h * 60 + m;
 };
 
-const formatMin = (n: number) =>
+const formatMin = (
+  n: number
+) =>
   n <= 0
     ? "00:00"
     : `${Math.floor(n / 60)
         .toString()
-        .padStart(2, "0")}:${(n % 60)
+        .padStart(
+          2,
+          "0"
+        )}:${(n % 60)
         .toString()
-        .padStart(2, "0")}`;
+        .padStart(
+          2,
+          "0"
+        )}`;
 
-const calcHours = (i: string, o: string) => {
-  if (i === "00:00" || o === "00:00") {
+const calcHours = (
+  i: string,
+  o: string
+) => {
+  if (
+    i === "00:00" ||
+    o === "00:00"
+  ) {
     return "00:00";
   }
 
-  let d = toMinutes(o) - toMinutes(i);
+  let d =
+    toMinutes(o) -
+    toMinutes(i);
 
   if (d < 0) {
     d += 1440;
@@ -637,56 +761,142 @@ const calcHours = (i: string, o: string) => {
   return formatMin(d);
 };
 
-const calcLate = (i: string, s: string) => {
-  if (i === "00:00" || !s) {
+const calcLate = (
+  i: string,
+  s: string
+) => {
+  if (
+    i === "00:00" ||
+    !s
+  ) {
     return 0;
   }
 
-  const l =
+  const late =
     toMinutes(i) -
-    toMinutes(s.slice(0, 5));
+    toMinutes(
+      s.slice(0, 5)
+    );
 
-  return l > 0 ? l : 0;
+  return late > 0
+    ? late
+    : 0;
 };
 
-const calcOvertime = (o: string, e: string) => {
-  if (o === "00:00" || !e) {
+/**
+ * Correct overtime calculation for both:
+ *
+ * 16:00 -> 00:00
+ *
+ * and:
+ *
+ * 16:00 -> 02:00
+ */
+const calcOvertime = (
+  o: string,
+  e: string
+) => {
+  if (
+    o === "00:00" ||
+    !e
+  ) {
     return 0;
   }
 
-  let em = toMinutes(e.slice(0, 5));
-  let om = toMinutes(o);
+  let endMinutes =
+    toMinutes(
+      e.slice(0, 5)
+    );
 
-  if (em === 0) {
-    em = 1440;
+  const outMinutes =
+    toMinutes(o);
+
+  /*
+   * 00:00 means midnight / 24:00.
+   */
+  if (
+    endMinutes === 0
+  ) {
+    endMinutes =
+      1440;
   }
 
-  if (em === 1440 && om < 720) {
-    om += 1440;
+  /*
+   * For an overnight shift:
+   *
+   * 16:00 -> 02:00
+   *
+   * the end is actually 1560.
+   */
+  if (
+    endMinutes <
+    toMinutes(
+      "16:00"
+    )
+  ) {
+    /*
+     * Only add 24h when the shift is genuinely
+     * an overnight shift.
+     */
+    endMinutes +=
+      1440;
   }
 
-  const ot = om - em;
+  let actualOut =
+    outMinutes;
 
-  return ot > 0 ? ot : 0;
+  /*
+   * A clock-out after midnight belongs to
+   * the following day.
+   */
+  if (
+    actualOut <
+    toMinutes(
+      "12:00"
+    ) &&
+    endMinutes > 1440
+  ) {
+    actualOut +=
+      1440;
+  }
+
+  const overtime =
+    actualOut -
+    endMinutes;
+
+  return overtime > 0
+    ? overtime
+    : 0;
 };
+
+/* ============================================================================
+   STATUS
+============================================================================ */
 
 const getStatus = (
   e: EmployeeTimeEntry
 ): ShiftStatus =>
   e.absent
     ? "absent"
-    : e.clockIn !== "00:00"
+    : e.clockIn !==
+          "00:00" &&
+      e.clockOut !==
+          "00:00"
     ? "present"
     : "pending";
 
-const badgeColor = (s: ShiftStatus) =>
+const badgeColor = (
+  s: ShiftStatus
+) =>
   s === "present"
     ? "success"
     : s === "absent"
     ? "error"
     : "warning";
 
-const badgeLabel = (s: ShiftStatus) =>
+const badgeLabel = (
+  s: ShiftStatus
+) =>
   s === "present"
     ? "Present"
     : s === "absent"
@@ -701,13 +911,32 @@ function recordToEntry(
   r: WorktimeRecord
 ): EmployeeTimeEntry {
   return {
-    clockIn: r.clock_in ?? "00:00",
-    clockOut: r.clock_out ?? "00:00",
-    absent: r.absent ?? false,
-    absentComment: r.absent_comment ?? "",
-    consomation: r.consomation ?? 0,
-    penalty: r.penalty ?? 0,
-    workTimeId: r._id,
+    clockIn:
+      r.clock_in ??
+      "00:00",
+
+    clockOut:
+      r.clock_out ??
+      "00:00",
+
+    absent:
+      r.absent ??
+      false,
+
+    absentComment:
+      r.absent_comment ??
+      "",
+
+    consomation:
+      r.consomation ??
+      0,
+
+    penalty:
+      r.penalty ??
+      0,
+
+    workTimeId:
+      r._id,
   };
 }
 
@@ -719,50 +948,74 @@ function entryToPayload(
   shiftStart: string,
   shiftEnd: string
 ): WorktimePayload {
-  const hours = calcHours(
-    entry.clockIn,
-    entry.clockOut
-  );
+  const hours =
+    calcHours(
+      entry.clockIn,
+      entry.clockOut
+    );
 
-  const late = calcLate(
-    entry.clockIn,
-    shiftStart
-  );
+  const late =
+    calcLate(
+      entry.clockIn,
+      shiftStart
+    );
 
-  const ot = calcOvertime(
-    entry.clockOut,
-    shiftEnd
-  );
+  const ot =
+    calcOvertime(
+      entry.clockOut,
+      shiftEnd
+    );
 
   return {
-    emp_id: empNum,
-    shift_id: shiftId as any,
-    work_date: date,
+    emp_id:
+      empNum,
+
+    /*
+     * Backend Worktime schema should use number for shift_id.
+     */
+    shift_id:
+      Number(shiftId),
+
+    work_date:
+      date,
 
     clock_in:
-      entry.clockIn !== "00:00"
+      entry.clockIn !==
+      "00:00"
         ? entry.clockIn
         : undefined,
 
     clock_out:
-      entry.clockOut !== "00:00"
+      entry.clockOut !==
+      "00:00"
         ? entry.clockOut
         : undefined,
 
-    late_minutes: String(late),
-    overtime_minutes: String(ot),
-    work_hours: hours,
+    late_minutes:
+      String(late),
+
+    overtime_minutes:
+      String(ot),
+
+    work_hours:
+      hours,
 
     consomation:
-      Number(entry.consomation) || 0,
+      Number(
+        entry.consomation
+      ) || 0,
 
     penalty:
-      Number(entry.penalty) || 0,
+      Number(
+        entry.penalty
+      ) || 0,
 
-    absent: entry.absent,
+    absent:
+      entry.absent,
 
     absent_comment:
-      entry.absentComment || undefined,
+      entry.absentComment ||
+      undefined,
   };
 }
 
@@ -770,7 +1023,9 @@ function entryToPayload(
    LOCAL STORAGE
 ============================================================================ */
 
-const LS_KEY = (date: string) =>
+const LS_KEY = (
+  date: string
+) =>
   `worktime_${date}`;
 
 function saveEntriesToStorage(
@@ -783,18 +1038,24 @@ function saveEntriesToStorage(
   try {
     localStorage.setItem(
       LS_KEY(date),
-      JSON.stringify(entries)
+      JSON.stringify(
+        entries
+      )
     );
   } catch {}
 }
 
 function loadEntriesFromStorage(
   date: string
-): Record<string, EmployeeTimeEntry> {
+): Record<
+  string,
+  EmployeeTimeEntry
+> {
   try {
-    const raw = localStorage.getItem(
-      LS_KEY(date)
-    );
+    const raw =
+      localStorage.getItem(
+        LS_KEY(date)
+      );
 
     return raw
       ? JSON.parse(raw)
@@ -802,35 +1063,6 @@ function loadEntriesFromStorage(
   } catch {
     return {};
   }
-}
-
-/**
- * Remove stale attendance cache.
- *
- * This does NOT delete the database.
- * It only prevents old browser localStorage values from being reused.
- */
-function removeStaleLocalStorage(
-  currentDate: string
-) {
-  try {
-    const prefix = "worktime_";
-
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-
-      if (
-        key &&
-        key.startsWith(prefix) &&
-        key !== LS_KEY(currentDate)
-      ) {
-        /*
-         * We deliberately don't remove old historical records here.
-         * The important thing is that we NEVER read them for today's date.
-         */
-      }
-    }
-  } catch {}
 }
 
 /* ============================================================================
@@ -842,86 +1074,87 @@ interface AttendancePageProps {
 }
 
 export default function AttendancePage({
-  currentDate: providedDate,
+  currentDate:
+    providedDate,
 }: AttendancePageProps) {
   /* --------------------------------------------------------------------------
-     CURRENT OPERATIONAL DATE
+     OPERATIONAL DATE
   -------------------------------------------------------------------------- */
 
-  const [operationalDate, setOperationalDate] =
-    useState<string>(
-      providedDate ??
-        getLocalDateString()
-    );
+  const [
+    operationalDate,
+    setOperationalDate,
+  ] = useState<string>(
+    providedDate ??
+      getLocalDateString()
+  );
 
   /*
    * Recalculate the operational date every minute.
    *
-   * This is important when the page stays open through midnight.
-   *
-   * Example:
-   *
-   * 23:59 -> operation Aug 28
-   * 00:30 -> still operation Aug 28 if last shift ends 02:00
-   * 02:01 -> operation Aug 29
+   * This is important for overnight shifts.
    */
-  const [dateTick, setDateTick] =
+  const [clockTick, setClockTick] =
     useState(0);
-
-  useEffect(() => {
-    if (providedDate) {
-      setOperationalDate(providedDate);
-      return;
-    }
-
-    const updateDate = () => {
-      setDateTick((v) => v + 1);
-    };
-
-    updateDate();
-
-    const interval = setInterval(
-      updateDate,
-      60 * 1000
-    );
-
-    return () =>
-      clearInterval(interval);
-  }, [providedDate]);
 
   /* --------------------------------------------------------------------------
      STATE
   -------------------------------------------------------------------------- */
 
-  const [specialTimes, setSpecialTimes] =
-    useState<
-      Record<
-        string,
-        {
-          clockIn?: string;
-          clockOut?: string;
-        }
-      >
-    >({});
+  const [
+    specialTimes,
+    setSpecialTimes,
+  ] = useState<
+    Record<
+      string,
+      {
+        clockIn?: string;
+        clockOut?: string;
+      }
+    >
+  >({});
 
   const [shifts, setShifts] =
     useState<Shift[]>([]);
 
-  const [employees, setEmployees] =
-    useState<Employee[]>([]);
+  const [
+    employees,
+    setEmployees,
+  ] = useState<Employee[]>(
+    []
+  );
 
-  const [assignedShifts, setAssignedShifts] =
-    useState<Record<number, string[]>>({});
+  const [
+    assignedShifts,
+    setAssignedShifts,
+  ] = useState<
+    Record<
+      number,
+      string[]
+    >
+  >({});
 
-  const [currentTab, setCurrentTab] =
-    useState<string | null>(null);
+  const [
+    currentTab,
+    setCurrentTab,
+  ] = useState<string | null>(
+    null
+  );
 
-  const [entries, setEntries] =
-    useState<
-      Record<string, EmployeeTimeEntry>
-    >({});
+  const [
+    entries,
+    setEntries,
+  ] = useState<
+    Record<
+      string,
+      EmployeeTimeEntry
+    >
+  >({});
 
-  const [manualInput, setManualInput] =
+  const [
+    manualInput,
+    setManualInput,
+  ] =
     useState<ManualInputState>({
       employee: null,
       type: null,
@@ -931,43 +1164,152 @@ export default function AttendancePage({
   const [search, setSearch] =
     useState("");
 
-  const [apiError, setApiError] =
-    useState<string | null>(null);
+  const [
+    apiError,
+    setApiError,
+  ] = useState<string | null>(
+    null
+  );
 
   const [loading, setLoading] =
     useState(true);
 
-  const [deviceLoading, setDeviceLoading] =
-    useState(false);
+  const [
+    deviceLoading,
+    setDeviceLoading,
+  ] = useState(false);
 
-  const [deviceLogs, setDeviceLogs] =
-    useState<DeviceAttendanceLog[]>([]);
+  const [
+    deviceLogs,
+    setDeviceLogs,
+  ] = useState<
+    DeviceAttendanceLog[]
+  >([]);
 
-  const [deviceEntries, setDeviceEntries] =
-    useState<
-      Record<
-        string,
-        {
-          clockIn: string;
-          clockOut: string;
-        }
-      >
-    >({});
+  const [
+    deviceEntries,
+    setDeviceEntries,
+  ] = useState<
+    Record<
+      string,
+      {
+        clockIn: string;
+        clockOut: string;
+      }
+    >
+  >({});
 
   const saveTimers =
     useRef<
       Record<
         string,
-        ReturnType<typeof setTimeout>
+        ReturnType<
+          typeof setTimeout
+        >
       >
     >({});
 
-  const [deviceStatus, setDeviceStatus] =
-    useState<{
-      connected: boolean;
-      name: string;
-      ip?: string;
-    } | null>(null);
+  /*
+   * Prevent the exact same machine punch from
+   * being saved more than once while a request
+   * is already running.
+   */
+  const machineSaveInFlight =
+    useRef<
+      Set<string>
+    >(new Set());
+
+  const [
+    deviceStatus,
+    setDeviceStatus,
+  ] = useState<{
+    connected: boolean;
+    name: string;
+    ip?: string;
+  } | null>(null);
+
+  /* --------------------------------------------------------------------------
+     KEEP OPERATIONAL DATE UPDATED
+  -------------------------------------------------------------------------- */
+
+  useEffect(() => {
+    if (providedDate) {
+      setOperationalDate(
+        providedDate
+      );
+
+      return;
+    }
+
+    const updateOperationalDate =
+      () => {
+        setClockTick(
+          (value) =>
+            value + 1
+        );
+      };
+
+    updateOperationalDate();
+
+    const interval =
+      setInterval(
+        updateOperationalDate,
+        60 * 1000
+      );
+
+    return () =>
+      clearInterval(
+        interval
+      );
+  }, [
+    providedDate,
+  ]);
+
+  /*
+   * Whenever the clock changes, calculate whether
+   * we moved from:
+   *
+   * Aug 28 operation
+   *
+   * to:
+   *
+   * Aug 29 operation.
+   */
+  useEffect(() => {
+    if (providedDate) {
+      return;
+    }
+
+    if (!shifts.length) {
+      const today =
+        getLocalDateString();
+
+      setOperationalDate(
+        (previous) =>
+          previous === today
+            ? previous
+            : today
+      );
+
+      return;
+    }
+
+    const calculated =
+      getOperationalDate(
+        shifts
+      );
+
+    setOperationalDate(
+      (previous) =>
+        previous === calculated
+          ? previous
+          : calculated
+    );
+  }, [
+    clockTick,
+    shifts,
+    providedDate,
+  ]);
 
   /* --------------------------------------------------------------------------
      DEVICE STATUS
@@ -981,23 +1323,37 @@ export default function AttendancePage({
         try {
           const response =
             await fetch(
-              "http://localhost:3001/device/status",
+              DEVICE_STATUS_API,
               {
-                cache: "no-store",
+                cache:
+                  "no-store",
               }
             );
+
+          if (
+            !response.ok
+          ) {
+            throw new Error(
+              `Device status ${response.status}`
+            );
+          }
 
           const data =
             await response.json();
 
           if (!cancelled) {
-            setDeviceStatus(data);
+            setDeviceStatus(
+              data
+            );
           }
         } catch {
           if (!cancelled) {
             setDeviceStatus({
-              connected: false,
-              name: "Face Recognition Machine",
+              connected:
+                false,
+
+              name:
+                "Face Recognition Machine",
             });
           }
         }
@@ -1013,7 +1369,10 @@ export default function AttendancePage({
 
     return () => {
       cancelled = true;
-      clearInterval(interval);
+
+      clearInterval(
+        interval
+      );
     };
   }, []);
 
@@ -1029,6 +1388,7 @@ export default function AttendancePage({
 
     Promise.all([
       getEmployees(),
+
       getShifts(),
 
       getPlanningByDate(
@@ -1048,50 +1408,68 @@ export default function AttendancePage({
           shiftRecords,
           planningRecords,
         ]) => {
-          if (cancelled) return;
+          if (cancelled) {
+            return;
+          }
 
           /* ---------------------------------------------------------------
              EMPLOYEES
           --------------------------------------------------------------- */
 
-          const mappedEmployees: Employee[] =
-            empRecords.map((e) => ({
-              num: e.empNumber,
-              mongoId: e._id,
-              empNumber: String(
-                e.empNumber
-              ),
-              FirstName:
-                `${e.firstName} ${e.lastName}`,
-            }));
+          const mappedEmployees:
+            Employee[] =
+            empRecords.map(
+              (e) => ({
+                num:
+                  e.empNumber,
+
+                mongoId:
+                  e._id,
+
+                empNumber:
+                  String(
+                    e.empNumber
+                  ),
+
+                FirstName:
+                  `${e.firstName} ${e.lastName}`,
+              })
+            );
 
           /* ---------------------------------------------------------------
              SHIFTS
           --------------------------------------------------------------- */
 
-          const mappedShifts: Shift[] =
-            shiftRecords.map((s) => ({
-              shift_id: s._id,
+          const mappedShifts:
+            Shift[] =
+            shiftRecords.map(
+              (s) => ({
+                shift_id:
+                  s._id,
 
-              start_time:
-                s.startTime.length === 5
-                  ? `${s.startTime}:00`
-                  : s.startTime,
+                start_time:
+                  s.startTime.length ===
+                  5
+                    ? `${s.startTime}:00`
+                    : s.startTime,
 
-              end_time:
-                s.endTime.length === 5
-                  ? `${s.endTime}:00`
-                  : s.endTime,
-            }));
+                end_time:
+                  s.endTime.length ===
+                  5
+                    ? `${s.endTime}:00`
+                    : s.endTime,
+              })
+            );
 
           /* ---------------------------------------------------------------
              PLANNING
           --------------------------------------------------------------- */
 
-          const assigned: Record<
-            number,
-            string[]
-          > = {};
+          const assigned:
+            Record<
+              number,
+              string[]
+            > = {};
 
           planningRecords.forEach(
             (p) => {
@@ -1102,21 +1480,33 @@ export default function AttendancePage({
                     p.empId._id
                 );
 
-              if (!emp) return;
+              if (!emp) {
+                return;
+              }
 
               const empNum =
                 emp.empNumber;
 
-              if (!assigned[empNum]) {
-                assigned[empNum] = [];
+              if (
+                !assigned[
+                  empNum
+                ]
+              ) {
+                assigned[
+                  empNum
+                ] = [];
               }
 
               if (
-                !assigned[empNum].includes(
+                !assigned[
+                  empNum
+                ].includes(
                   p.shiftId._id
                 )
               ) {
-                assigned[empNum].push(
+                assigned[
+                  empNum
+                ].push(
                   p.shiftId._id
                 );
               }
@@ -1127,13 +1517,14 @@ export default function AttendancePage({
              SPECIAL TIMES
           --------------------------------------------------------------- */
 
-          const special: Record<
-            string,
-            {
-              clockIn?: string;
-              clockOut?: string;
-            }
-          > = {};
+          const special:
+            Record<
+              string,
+              {
+                clockIn?: string;
+                clockOut?: string;
+              }
+            > = {};
 
           planningRecords.forEach(
             (p: any) => {
@@ -1157,34 +1548,62 @@ export default function AttendancePage({
             }
           );
 
-          setSpecialTimes(special);
-          setEmployees(mappedEmployees);
-          setShifts(mappedShifts);
-          setAssignedShifts(assigned);
+          setSpecialTimes(
+            special
+          );
+
+          setEmployees(
+            mappedEmployees
+          );
+
+          setShifts(
+            mappedShifts
+          );
+
+          setAssignedShifts(
+            assigned
+          );
 
           /*
-           * Only reset the selected shift when necessary.
+           * Recalculate the operational date now that
+           * we actually know the shifts.
            */
-          setCurrentTab((previous) => {
-            if (
-              previous &&
-              mappedShifts.some(
-                (s) =>
-                  s.shift_id === previous
+          if (
+            !providedDate
+          ) {
+            setOperationalDate(
+              getOperationalDate(
+                mappedShifts
               )
-            ) {
-              return previous;
-            }
+            );
+          }
 
-            return mappedShifts.length
-              ? mappedShifts[0].shift_id
-              : null;
-          });
+          setCurrentTab(
+            (previous) => {
+              if (
+                previous &&
+                mappedShifts.some(
+                  (s) =>
+                    s.shift_id ===
+                    previous
+                )
+              ) {
+                return previous;
+              }
+
+              return mappedShifts.length
+                ? mappedShifts[0]
+                    .shift_id
+                : null;
+            }
+          );
         }
       )
       .catch((e) => {
         if (!cancelled) {
-          setApiError(String(e));
+          setApiError(
+            String(e)
+          );
         }
       })
       .finally(() => {
@@ -1196,7 +1615,9 @@ export default function AttendancePage({
     return () => {
       cancelled = true;
     };
-  }, [operationalDate, dateTick]);
+  }, [
+    operationalDate,
+  ]);
 
   /* --------------------------------------------------------------------------
      LOAD WORKTIME + MACHINE ATTENDANCE
@@ -1213,28 +1634,17 @@ export default function AttendancePage({
 
     let cancelled = false;
 
-    setDeviceLoading(true);
+    setDeviceLoading(
+      true
+    );
 
     /*
-     * IMPORTANT:
-     *
-     * Before loading anything, clear the current machine state.
-     *
-     * This prevents the previous operation's machineEntries from remaining
-     * visible while the new operation is being loaded.
+     * Clear only while this particular operational
+     * date is being loaded.
      */
     setDeviceLogs([]);
     setDeviceEntries({});
 
-    /*
-     * Also clear the in-memory entries.
-     *
-     * They will be reconstructed from:
-     *
-     * 1. localStorage for THIS operational date
-     * 2. database worktime for THIS operational date
-     * 3. machine punches for THIS operational date
-     */
     setEntries({});
 
     const loadAttendance =
@@ -1243,18 +1653,21 @@ export default function AttendancePage({
           const [
             records,
             logs,
-          ] = await Promise.all([
-            getWorktimesByDate(
-              operationalDate
-            ),
+          ] =
+            await Promise.all([
+              getWorktimesByDate(
+                operationalDate
+              ),
 
-            getDeviceAttendanceForOperationalDate(
-              operationalDate,
-              shifts
-            ),
-          ]);
+              getDeviceAttendanceForOperationalDate(
+                operationalDate,
+                shifts
+              ),
+            ]);
 
-          if (cancelled) return;
+          if (cancelled) {
+            return;
+          }
 
           console.log(
             "================================="
@@ -1276,7 +1689,7 @@ export default function AttendancePage({
           );
 
           console.log(
-            "DEVICE LOGS FOR OPERATION:",
+            "DEVICE LOGS:",
             logs
           );
 
@@ -1297,138 +1710,137 @@ export default function AttendancePage({
             machineEntries
           );
 
-          setDeviceLogs(logs);
+          setDeviceLogs(
+            logs
+          );
+
           setDeviceEntries(
             machineEntries
           );
 
           /* ---------------------------------------------------------------
-             WORKTIME + LOCAL STORAGE
+             DATABASE + LOCAL STORAGE
           --------------------------------------------------------------- */
 
-          setEntries(() => {
-            /*
-             * VERY IMPORTANT:
-             *
-             * We only read:
-             *
-             * worktime_${operationalDate}
-             *
-             * Therefore yesterday's browser data cannot be reused for
-             * today's operation.
-             */
-            const fromStorage =
-              loadEntriesFromStorage(
-                operationalDate
-              );
+          const fromStorage =
+            loadEntriesFromStorage(
+              operationalDate
+            );
 
-            const next: Record<
+          const next:
+            Record<
               string,
               EmployeeTimeEntry
             > = {
-              ...fromStorage,
-            };
+            ...fromStorage,
+          };
 
-            /*
-             * Database worktimes for THIS operation only.
-             */
-            records.forEach(
-              (r: WorktimeRecord) => {
-                const key =
-                  `${r.emp_id}-${r.shift_id}`;
+          /*
+           * First load records from MongoDB.
+           */
+          records.forEach(
+            (
+              r: WorktimeRecord
+            ) => {
+              const key =
+                `${r.emp_id}-${r.shift_id}`;
 
-                /*
-                 * Do not overwrite a locally edited dirty record.
-                 */
-                if (
-                  !next[key]?._dirty
-                ) {
-                  next[key] =
-                    recordToEntry(r);
-                }
+              /*
+               * Database is the persistent source.
+               *
+               * Machine punches will override only clockIn/clockOut
+               * below.
+               */
+              if (
+                !next[key]?._dirty
+              ) {
+                next[key] =
+                  recordToEntry(
+                    r
+                  );
               }
-            );
+            }
+          );
 
-            /*
-             * Face recognition is authoritative.
-             *
-             * If the machine has a punch for the employee,
-             * replace the stored clock-in/out with the machine values.
-             */
-            employees.forEach(
-              (emp) => {
-                const machine =
-                  machineEntries[
-                    String(emp.empNumber)
-                  ];
+          /*
+           * Machine is authoritative for clockIn/clockOut.
+           */
+          employees.forEach(
+            (emp) => {
+              const machine =
+                machineEntries[
+                  String(
+                    emp.empNumber
+                  )
+                ];
 
-                if (!machine) {
-                  return;
-                }
+              if (!machine) {
+                return;
+              }
 
-                (
-                  assignedShifts[
-                    emp.num
-                  ] ?? []
-                ).forEach(
-                  (shiftId) => {
-                    const key =
-                      `${emp.num}-${shiftId}`;
+              const employeeShifts =
+                assignedShifts[
+                  emp.num
+                ] ?? [];
 
-                    const existing =
-                      next[key] ??
-                      {
-                        clockIn:
-                          "00:00",
+              employeeShifts.forEach(
+                (shiftId) => {
+                  const key =
+                    `${emp.num}-${shiftId}`;
 
-                        clockOut:
-                          "00:00",
-
-                        absent: false,
-
-                        absentComment:
-                          "",
-
-                        consomation: 0,
-
-                        penalty: 0,
-
-                        workTimeId:
-                          null,
-                      };
-
-                    next[key] = {
-                      ...existing,
-
+                  const existing =
+                    next[key] ??
+                    {
                       clockIn:
-                        machine.clockIn,
+                        "00:00",
 
                       clockOut:
-                        machine.clockOut,
+                        "00:00",
 
-                      absent: false,
+                      absent:
+                        false,
 
-                      _dirty: false,
+                      absentComment:
+                        "",
+
+                      consomation:
+                        0,
+
+                      penalty:
+                        0,
+
+                      workTimeId:
+                        null,
                     };
-                  }
-                );
-              }
-            );
 
-            /*
-             * IMPORTANT:
-             *
-             * Save the reconstructed state under THIS operational date.
-             *
-             * We do NOT copy anything from yesterday.
-             */
-            saveEntriesToStorage(
-              operationalDate,
-              next
-            );
+                  next[key] = {
+                    ...existing,
 
-            return next;
-          });
+                    clockIn:
+                      machine.clockIn,
+
+                    clockOut:
+                      machine.clockOut,
+
+                    absent:
+                      false,
+
+                    _dirty:
+                      false,
+                  };
+                }
+              );
+            }
+          );
+
+          saveEntriesToStorage(
+            operationalDate,
+            next
+          );
+
+          setEntries(
+            next
+          );
         } catch (e) {
           if (!cancelled) {
             setApiError(
@@ -1439,7 +1851,9 @@ export default function AttendancePage({
           }
         } finally {
           if (!cancelled) {
-            setDeviceLoading(false);
+            setDeviceLoading(
+              false
+            );
           }
         }
       };
@@ -1454,7 +1868,6 @@ export default function AttendancePage({
     employees,
     shifts,
     assignedShifts,
-    dateTick,
   ]);
 
   /* --------------------------------------------------------------------------
@@ -1466,9 +1879,14 @@ export default function AttendancePage({
       () =>
         shifts.find(
           (s) =>
-            s.shift_id === currentTab
+            s.shift_id ===
+            currentTab
         ) ?? null,
-      [shifts, currentTab]
+
+      [
+        shifts,
+        currentTab,
+      ]
     );
 
   /* --------------------------------------------------------------------------
@@ -1521,7 +1939,8 @@ export default function AttendancePage({
 
   const entryKey = (
     empNum: number,
-    shiftId = currentTab
+    shiftId =
+      currentTab
   ) =>
     `${empNum}-${shiftId}`;
 
@@ -1532,13 +1951,26 @@ export default function AttendancePage({
       entries[
         entryKey(empNum)
       ] ?? {
-        clockIn: "00:00",
-        clockOut: "00:00",
-        absent: false,
-        absentComment: "",
-        consomation: 0,
-        penalty: 0,
-        workTimeId: null,
+        clockIn:
+          "00:00",
+
+        clockOut:
+          "00:00",
+
+        absent:
+          false,
+
+        absentComment:
+          "",
+
+        consomation:
+          0,
+
+        penalty:
+          0,
+
+        workTimeId:
+          null,
       };
 
     const machine =
@@ -1546,6 +1978,9 @@ export default function AttendancePage({
         String(empNum)
       ];
 
+    /*
+     * Machine values are authoritative.
+     */
     if (!machine) {
       return stored;
     }
@@ -1559,14 +1994,16 @@ export default function AttendancePage({
       clockOut:
         machine.clockOut,
 
-      absent: false,
+      absent:
+        false,
 
-      _dirty: false,
+      _dirty:
+        false,
     };
   };
 
   /* --------------------------------------------------------------------------
-     AUTO SAVE
+     MANUAL SAVE
   -------------------------------------------------------------------------- */
 
   const scheduleSave =
@@ -1587,19 +2024,28 @@ export default function AttendancePage({
           );
 
         clearTimeout(
-          saveTimers.current[key]
+          saveTimers.current[
+            key
+          ]
         );
 
-        saveTimers.current[key] =
+        saveTimers.current[
+          key
+        ] =
           setTimeout(
             async () => {
               setEntries(
                 (prev) => ({
                   ...prev,
+
                   [key]: {
                     ...prev[key],
-                    _saving: true,
-                    _dirty: false,
+
+                    _saving:
+                      true,
+
+                    _dirty:
+                      false,
                   },
                 })
               );
@@ -1625,36 +2071,37 @@ export default function AttendancePage({
                   );
 
                 setEntries(
-                  (prev) => ({
-                    ...prev,
+                  (prev) => {
+                    const next = {
+                      ...prev,
 
-                    [key]: {
-                      ...prev[key],
+                      [key]: {
+                        ...prev[key],
 
-                      workTimeId:
-                        saved._id,
+                        workTimeId:
+                          saved._id,
 
-                      _saving:
-                        false,
-                    },
-                  })
-                );
+                        _saving:
+                          false,
 
-                saveEntriesToStorage(
-                  operationalDate,
-                  {
-                    ...entries,
-                    [key]: {
-                      ...updatedEntry,
-                      workTimeId:
-                        saved._id,
-                      _dirty: false,
-                    },
+                        _dirty:
+                          false,
+                      },
+                    };
+
+                    saveEntriesToStorage(
+                      operationalDate,
+                      next
+                    );
+
+                    return next;
                   }
                 );
               } catch (e) {
                 setApiError(
-                  `Save failed for employee ${empNum}: ${e}`
+                  `Save failed for employee ${empNum}: ${String(
+                    e
+                  )}`
                 );
 
                 setEntries(
@@ -1680,9 +2127,355 @@ export default function AttendancePage({
       [
         operationalDate,
         shifts,
-        entries,
       ]
     );
+
+  /* --------------------------------------------------------------------------
+     AUTOMATIC MACHINE ATTENDANCE SAVE
+  -------------------------------------------------------------------------- */
+
+  /**
+   * THIS IS THE IMPORTANT FIX.
+   *
+   * Machine punches now automatically trigger database persistence.
+   *
+   * First punch:
+   *
+   *   clockIn = 08:03
+   *   clockOut = 00:00
+   *
+   * -> creates/updates worktime.
+   *
+   * Second punch:
+   *
+   *   clockIn = 08:03
+   *   clockOut = 16:12
+   *
+   * -> updates the SAME worktime document.
+   *
+   * Therefore:
+   *
+   * refresh during shift
+   *      ↓
+   * database still contains clockIn
+   *      ↓
+   * page reloads clockIn
+   */
+  useEffect(() => {
+    if (
+      !operationalDate ||
+      !employees.length ||
+      !shifts.length ||
+      !Object.keys(
+        deviceEntries
+      ).length
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const saveMachinePunches =
+      async () => {
+        for (
+          const emp of employees
+        ) {
+          if (cancelled) {
+            return;
+          }
+
+          const machine =
+            deviceEntries[
+              String(
+                emp.empNumber
+              )
+            ];
+
+          if (!machine) {
+            continue;
+          }
+
+          /*
+           * A single employee may technically be assigned
+           * multiple shifts. We preserve your existing behavior
+           * of applying the machine punch to every assigned shift.
+           */
+          const employeeShifts =
+            assignedShifts[
+              emp.num
+            ] ?? [];
+
+          for (
+            const shiftId of employeeShifts
+          ) {
+            if (cancelled) {
+              return;
+            }
+
+            const shift =
+              shifts.find(
+                (s) =>
+                  s.shift_id ===
+                  shiftId
+              );
+
+            if (!shift) {
+              continue;
+            }
+
+            /*
+             * We cannot save a machine record without a clock-in.
+             */
+            if (
+              machine.clockIn ===
+              "00:00"
+            ) {
+              continue;
+            }
+
+            const key =
+              `${emp.num}-${shiftId}`;
+
+            const existing =
+              entries[key] ??
+              {
+                clockIn:
+                  "00:00",
+
+                clockOut:
+                  "00:00",
+
+                absent:
+                  false,
+
+                absentComment:
+                  "",
+
+                consomation:
+                  0,
+
+                penalty:
+                  0,
+
+                workTimeId:
+                  null,
+              };
+
+            /*
+             * If exactly the same punch is already persisted,
+             * there is nothing to do.
+             */
+            if (
+              existing.workTimeId &&
+              existing.clockIn ===
+                machine.clockIn &&
+              existing.clockOut ===
+                machine.clockOut
+            ) {
+              continue;
+            }
+
+            /*
+             * Prevent duplicate requests for the exact same
+             * machine state while one request is still running.
+             */
+            const signature =
+              `${operationalDate}|${key}|${machine.clockIn}|${machine.clockOut}`;
+
+            if (
+              machineSaveInFlight.current.has(
+                signature
+              )
+            ) {
+              continue;
+            }
+
+            machineSaveInFlight.current.add(
+              signature
+            );
+
+            const machineEntry:
+              EmployeeTimeEntry =
+              {
+                ...existing,
+
+                clockIn:
+                  machine.clockIn,
+
+                clockOut:
+                  machine.clockOut,
+
+                absent:
+                  false,
+              };
+
+            const payload =
+              entryToPayload(
+                machineEntry,
+                emp.num,
+                shiftId,
+                operationalDate,
+                shift.start_time,
+                shift.end_time
+              );
+
+            try {
+              console.log(
+                "================================="
+              );
+
+              console.log(
+                "💾 SAVING MACHINE ATTENDANCE"
+              );
+
+              console.log(
+                "Employee:",
+                emp.empNumber
+              );
+
+              console.log(
+                "Shift:",
+                shiftId
+              );
+
+              console.log(
+                "Clock In:",
+                machine.clockIn
+              );
+
+              console.log(
+                "Clock Out:",
+                machine.clockOut
+              );
+
+              console.log(
+                "Delay:",
+                payload.late_minutes
+              );
+
+              console.log(
+                "Overtime:",
+                payload.overtime_minutes
+              );
+
+              console.log(
+                "Work Hours:",
+                payload.work_hours
+              );
+
+              console.log(
+                "================================="
+              );
+
+              /*
+               * IMPORTANT:
+               *
+               * If workTimeId exists, update that document.
+               *
+               * Otherwise upsertWorktime searches by:
+               *
+               * employee + shift + date
+               *
+               * and updates an existing document or creates one.
+               */
+              const saved =
+                await upsertWorktime(
+                  payload,
+                  existing.workTimeId ??
+                    null
+                );
+
+              if (cancelled) {
+                return;
+              }
+
+              setEntries(
+                (prev) => {
+                  const next = {
+                    ...prev,
+
+                    [key]: {
+                      ...prev[key],
+
+                      ...machineEntry,
+
+                      workTimeId:
+                        saved._id,
+
+                      _dirty:
+                        false,
+
+                      _saving:
+                        false,
+                    },
+                  };
+
+                  saveEntriesToStorage(
+                    operationalDate,
+                    next
+                  );
+
+                  return next;
+                }
+              );
+
+              console.log(
+                "✅ MACHINE ATTENDANCE SAVED:",
+                saved
+              );
+            } catch (
+              error
+            ) {
+              console.error(
+                "❌ FAILED TO SAVE MACHINE ATTENDANCE:",
+                error
+              );
+
+              if (!cancelled) {
+                setApiError(
+                  `Machine attendance save failed for employee ${emp.empNumber}: ${String(
+                    error
+                  )}`
+                );
+
+                setEntries(
+                  (prev) => ({
+                    ...prev,
+
+                    [key]: {
+                      ...prev[key],
+
+                      _saving:
+                        false,
+
+                      _dirty:
+                        true,
+                    },
+                  })
+                );
+              }
+            } finally {
+              machineSaveInFlight.current.delete(
+                signature
+              );
+            }
+          }
+        }
+      };
+
+    saveMachinePunches();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    deviceEntries,
+    operationalDate,
+    employees,
+    shifts,
+    assignedShifts,
+    entries,
+  ]);
 
   /* --------------------------------------------------------------------------
      UPDATE ENTRY
@@ -1701,37 +2494,42 @@ export default function AttendancePage({
         const key =
           entryKey(empNum);
 
-        setEntries((prev) => {
-          const updated = {
-            ...(prev[key] ??
-              getEntry(empNum)),
+        setEntries(
+          (prev) => {
+            const current =
+              prev[key] ??
+              getEntry(empNum);
 
-            ...patch,
+            const updated = {
+              ...current,
 
-            _dirty: true,
-          };
+              ...patch,
 
-          scheduleSave(
-            empNum,
-            currentTab,
-            updated
-          );
+              _dirty:
+                true,
+            };
 
-          const next = {
-            ...prev,
-            [key]: updated,
-          };
+            scheduleSave(
+              empNum,
+              currentTab,
+              updated
+            );
 
-          /*
-           * Save ONLY under the current operational date.
-           */
-          saveEntriesToStorage(
-            operationalDate,
-            next
-          );
+            const next = {
+              ...prev,
 
-          return next;
-        });
+              [key]:
+                updated,
+            };
+
+            saveEntriesToStorage(
+              operationalDate,
+              next
+            );
+
+            return next;
+          }
+        );
       },
       [
         currentTab,
@@ -1741,7 +2539,7 @@ export default function AttendancePage({
     );
 
   /* --------------------------------------------------------------------------
-     MANUAL EDIT
+     MANUAL TIME EDIT
   -------------------------------------------------------------------------- */
 
   const openManualInput = (
@@ -1751,46 +2549,65 @@ export default function AttendancePage({
       | "clockOut"
   ) =>
     setManualInput({
-      employee: empNum,
+      employee:
+        empNum,
+
       type,
+
       value:
         getEntry(empNum)[
           type
         ],
     });
 
-  const saveManualTime = () => {
-    const {
-      employee,
-      type,
-      value,
-    } = manualInput;
+  const saveManualTime =
+    () => {
+      const {
+        employee,
+        type,
+        value,
+      } =
+        manualInput;
 
-    if (!employee || !type) {
-      return;
-    }
+      if (
+        employee ===
+          null ||
+        !type
+      ) {
+        return;
+      }
 
-    if (!value.match(/^\d{2}:\d{2}$/)) {
-      alert(
-        "Use HH:MM format"
+      if (
+        !value.match(
+          /^\d{2}:\d{2}$/
+        )
+      ) {
+        alert(
+          "Use HH:MM format"
+        );
+
+        return;
+      }
+
+      updateEntry(
+        employee,
+        {
+          [type]:
+            value,
+        }
       );
 
-      return;
-    }
+      setManualInput({
+        employee:
+          null,
 
-    updateEntry(
-      employee,
-      {
-        [type]: value,
-      }
-    );
+        type:
+          null,
 
-    setManualInput({
-      employee: null,
-      type: null,
-      value: "",
-    });
-  };
+        value:
+          "",
+      });
+    };
 
   /* --------------------------------------------------------------------------
      ABSENCE
@@ -1807,8 +2624,11 @@ export default function AttendancePage({
 
         ...(absent
           ? {
-              clockIn: "00:00",
-              clockOut: "00:00",
+              clockIn:
+                "00:00",
+
+              clockOut:
+                "00:00",
             }
           : {}),
       }
@@ -1818,67 +2638,72 @@ export default function AttendancePage({
      RESET
   -------------------------------------------------------------------------- */
 
-  const clearAllData = () => {
-    if (
-      !window.confirm(
-        `Reset all clock-in/out data for ${operationalDate}?`
-      )
-    ) {
-      return;
-    }
-
-    setEntries(
-      (prev) => {
-        const reset: Record<
-          string,
-          EmployeeTimeEntry
-        > = {};
-
-        Object.keys(prev).forEach(
-          (key) => {
-            reset[key] = {
-              ...prev[key],
-
-              clockIn:
-                "00:00",
-
-              clockOut:
-                "00:00",
-
-              absent:
-                false,
-
-              absentComment:
-                "",
-
-              consomation:
-                0,
-
-              penalty:
-                0,
-
-              _dirty:
-                false,
-            };
-          }
-        );
-
-        saveEntriesToStorage(
-          operationalDate,
-          reset
-        );
-
-        return reset;
+  const clearAllData =
+    () => {
+      if (
+        !window.confirm(
+          `Reset all clock-in/out data for ${operationalDate}?`
+        )
+      ) {
+        return;
       }
-    );
 
-    /*
-     * Also clear the face-recognition state.
-     *
-     * It will be reloaded from the machine.
-     */
-    setDeviceEntries({});
-  };
+      setEntries(
+        (prev) => {
+          const reset:
+            Record<
+              string,
+              EmployeeTimeEntry
+            > = {};
+
+          Object.keys(
+            prev
+          ).forEach(
+            (key) => {
+              reset[key] = {
+                ...prev[key],
+
+                clockIn:
+                  "00:00",
+
+                clockOut:
+                  "00:00",
+
+                absent:
+                  false,
+
+                absentComment:
+                  "",
+
+                consomation:
+                  0,
+
+                penalty:
+                  0,
+
+                _dirty:
+                  false,
+              };
+            }
+          );
+
+          saveEntriesToStorage(
+            operationalDate,
+            reset
+          );
+
+          return reset;
+        }
+      );
+
+      setDeviceEntries(
+        {}
+      );
+
+      setDeviceLogs(
+        []
+      );
+    };
 
   /* --------------------------------------------------------------------------
      STATS
@@ -1894,15 +2719,19 @@ export default function AttendancePage({
         (emp) => {
           const status =
             getStatus(
-              getEntry(emp.num)
+              getEntry(
+                emp.num
+              )
             );
 
           if (
-            status === "present"
+            status ===
+            "present"
           ) {
             present++;
           } else if (
-            status === "absent"
+            status ===
+            "absent"
           ) {
             absent++;
           } else {
@@ -1946,11 +2775,13 @@ export default function AttendancePage({
   ) {
     return (
       <div className="flex items-center justify-center h-32 text-gray-400 text-sm">
-        No shifts found — check that{" "}
+        No shifts found — check
+        that{" "}
         <code className="mx-1 font-mono bg-gray-100 px-1 rounded">
           localhost:3001/shifts
         </code>{" "}
-        returns data and CORS is enabled.
+        returns data and CORS
+        is enabled.
       </div>
     );
   }
@@ -1968,9 +2799,14 @@ export default function AttendancePage({
             className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm"
             onClick={() =>
               setManualInput({
-                employee: null,
-                type: null,
-                value: "",
+                employee:
+                  null,
+
+                type:
+                  null,
+
+                value:
+                  "",
               })
             }
           />
@@ -1997,9 +2833,14 @@ export default function AttendancePage({
               <button
                 onClick={() =>
                   setManualInput({
-                    employee: null,
-                    type: null,
-                    value: "",
+                    employee:
+                      null,
+
+                    type:
+                      null,
+
+                    value:
+                      "",
                   })
                 }
                 className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
@@ -2017,8 +2858,10 @@ export default function AttendancePage({
                 setManualInput(
                   (p) => ({
                     ...p,
+
                     value:
-                      e.target.value,
+                      e.target
+                        .value,
                   })
                 )
               }
@@ -2038,9 +2881,14 @@ export default function AttendancePage({
               <button
                 onClick={() =>
                   setManualInput({
-                    employee: null,
-                    type: null,
-                    value: "",
+                    employee:
+                      null,
+
+                    type:
+                      null,
+
+                    value:
+                      "",
                   })
                 }
                 className="flex-1 rounded-lg border border-gray-200 dark:border-white/[0.1] px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/[0.05] transition-colors"
@@ -2059,12 +2907,15 @@ export default function AttendancePage({
       {apiError && (
         <div className="mb-4 flex items-center justify-between rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-4 py-2 text-sm text-red-700 dark:text-red-300">
           <span>
-            ⚠ {apiError}
+            ⚠{" "}
+            {apiError}
           </span>
 
           <button
             onClick={() =>
-              setApiError(null)
+              setApiError(
+                null
+              )
             }
             className="ml-4 text-red-400 hover:text-red-600"
           >
@@ -2085,7 +2936,9 @@ export default function AttendancePage({
 
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
             Operation date:{" "}
-            {operationalDate}
+            {
+              operationalDate
+            }
           </p>
         </div>
 
@@ -2094,32 +2947,36 @@ export default function AttendancePage({
             Shift:
           </span>
 
-          {shifts.map((s) => (
-            <button
-              key={s.shift_id}
-              onClick={() =>
-                setCurrentTab(
+          {shifts.map(
+            (s) => (
+              <button
+                key={
                   s.shift_id
-                )
-              }
-              className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
-                currentTab ===
-                s.shift_id
-                  ? "border-blue-500 bg-blue-600 text-white"
-                  : "border-gray-200 dark:border-white/[0.1] text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/[0.05]"
-              }`}
-            >
-              {s.start_time.slice(
-                0,
-                5
-              )}{" "}
-              –{" "}
-              {s.end_time.slice(
-                0,
-                5
-              )}
-            </button>
-          ))}
+                }
+                onClick={() =>
+                  setCurrentTab(
+                    s.shift_id
+                  )
+                }
+                className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                  currentTab ===
+                  s.shift_id
+                    ? "border-blue-500 bg-blue-600 text-white"
+                    : "border-gray-200 dark:border-white/[0.1] text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/[0.05]"
+                }`}
+              >
+                {s.start_time.slice(
+                  0,
+                  5
+                )}{" "}
+                –{" "}
+                {s.end_time.slice(
+                  0,
+                  5
+                )}
+              </button>
+            )
+          )}
 
           {/* MACHINE STATUS */}
 
@@ -2148,7 +3005,9 @@ export default function AttendancePage({
               {deviceStatus ===
               null
                 ? "Checking machine…"
-                : `${deviceStatus.name} — ${
+                : `${
+                    deviceStatus.name
+                  } — ${
                     deviceStatus.connected
                       ? "Connected"
                       : "Disconnected"
@@ -2191,48 +3050,72 @@ export default function AttendancePage({
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
         {[
           {
-            label: "Total",
-            value: stats.total,
+            label:
+              "Total",
+
+            value:
+              stats.total,
+
             color:
               "text-gray-800 dark:text-white",
           },
 
           {
-            label: "Present",
-            value: stats.present,
+            label:
+              "Present",
+
+            value:
+              stats.present,
+
             color:
               "text-green-700 dark:text-green-400",
           },
 
           {
-            label: "Absent",
-            value: stats.absent,
+            label:
+              "Absent",
+
+            value:
+              stats.absent,
+
             color:
               "text-red-600 dark:text-red-400",
           },
 
           {
-            label: "Pending",
-            value: stats.pending,
+            label:
+              "Pending",
+
+            value:
+              stats.pending,
+
             color:
               "text-amber-600 dark:text-amber-400",
           },
-        ].map((stat) => (
-          <div
-            key={stat.label}
-            className="rounded-xl bg-gray-50 dark:bg-white/[0.03] border border-gray-100 dark:border-white/[0.05] px-4 py-3"
-          >
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-              {stat.label}
-            </p>
-
-            <p
-              className={`text-2xl font-medium ${stat.color}`}
+        ].map(
+          (stat) => (
+            <div
+              key={
+                stat.label
+              }
+              className="rounded-xl bg-gray-50 dark:bg-white/[0.03] border border-gray-100 dark:border-white/[0.05] px-4 py-3"
             >
-              {stat.value}
-            </p>
-          </div>
-        ))}
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                {
+                  stat.label
+                }
+              </p>
+
+              <p
+                className={`text-2xl font-medium ${stat.color}`}
+              >
+                {
+                  stat.value
+                }
+              </p>
+            </div>
+          )
+        )}
       </div>
 
       {/* =====================================================================
@@ -2266,16 +3149,20 @@ export default function AttendancePage({
                 cy="11"
                 r="8"
               />
+
               <path d="m21 21-4.35-4.35" />
             </svg>
 
             <input
               type="text"
               placeholder="Search employee…"
-              value={search}
+              value={
+                search
+              }
               onChange={(e) =>
                 setSearch(
-                  e.target.value
+                  e.target
+                    .value
                 )
               }
               className="pl-9 pr-4 py-2 rounded-lg border border-gray-200 bg-white text-sm text-gray-700 placeholder-gray-400 dark:border-white/[0.1] dark:bg-white/[0.05] dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 w-48"
@@ -2300,14 +3187,20 @@ export default function AttendancePage({
                   "Absent",
                   "Reason",
                   "Saved",
-                ].map((h) => (
-                  <th
-                    key={h}
-                    className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap"
-                  >
-                    {h}
-                  </th>
-                ))}
+                ].map(
+                  (h) => (
+                    <th
+                      key={
+                        h
+                      }
+                      className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap"
+                    >
+                      {
+                        h
+                      }
+                    </th>
+                  )
+                )}
               </tr>
             </thead>
 
@@ -2316,7 +3209,9 @@ export default function AttendancePage({
               0 ? (
                 <tr>
                   <td
-                    colSpan={12}
+                    colSpan={
+                      12
+                    }
                     className="px-5 py-12 text-center text-sm text-gray-400"
                   >
                     {employees.length ===
@@ -2327,7 +3222,9 @@ export default function AttendancePage({
                 </tr>
               ) : (
                 filteredEmployees.map(
-                  (emp) => {
+                  (
+                    emp
+                  ) => {
                     const entry =
                       getEntry(
                         emp.num
@@ -2405,9 +3302,11 @@ export default function AttendancePage({
                               status
                             )}
                           >
-                            {badgeLabel(
-                              status
-                            )}
+                            {
+                              badgeLabel(
+                                status
+                              )
+                            }
                           </Badge>
                         </td>
 
@@ -2490,7 +3389,8 @@ export default function AttendancePage({
                         <td className="px-4 py-3">
                           <span
                             className={`text-sm font-mono ${
-                              lateMin > 0
+                              lateMin >
+                              0
                                 ? "text-amber-600 dark:text-amber-400"
                                 : "text-gray-400"
                             }`}
@@ -2506,7 +3406,8 @@ export default function AttendancePage({
                         <td className="px-4 py-3">
                           <span
                             className={`text-sm font-mono ${
-                              otMin > 0
+                              otMin >
+                              0
                                 ? "text-blue-600 dark:text-blue-400"
                                 : "text-gray-400"
                             }`}
@@ -2527,12 +3428,16 @@ export default function AttendancePage({
                               ""
                             }
                             placeholder="0"
-                            onChange={(e) =>
+                            onChange={(
+                              e
+                            ) =>
                               updateEntry(
                                 emp.num,
                                 {
                                   consomation:
-                                    e.target.value,
+                                    e
+                                      .target
+                                      .value,
                                 }
                               )
                             }
@@ -2550,12 +3455,16 @@ export default function AttendancePage({
                               ""
                             }
                             placeholder="0"
-                            onChange={(e) =>
+                            onChange={(
+                              e
+                            ) =>
                               updateEntry(
                                 emp.num,
                                 {
                                   penalty:
-                                    e.target.value,
+                                    e
+                                      .target
+                                      .value,
                                 }
                               )
                             }
@@ -2578,7 +3487,8 @@ export default function AttendancePage({
                               ) =>
                                 toggleAbsent(
                                   emp.num,
-                                  e.target
+                                  e
+                                    .target
                                     .checked
                                 )
                               }
@@ -2605,12 +3515,15 @@ export default function AttendancePage({
                               entry.absentComment ||
                               ""
                             }
-                            onChange={(e) =>
+                            onChange={(
+                              e
+                            ) =>
                               updateEntry(
                                 emp.num,
                                 {
                                   absentComment:
-                                    e.target
+                                    e
+                                      .target
                                       .value,
                                 }
                               )
@@ -2651,7 +3564,9 @@ export default function AttendancePage({
         </div>
 
         <div className="px-5 py-3 border-t border-gray-100 dark:border-white/[0.05] text-xs text-gray-400 dark:text-gray-500">
-          {filteredEmployees.length}{" "}
+          {
+            filteredEmployees.length
+          }{" "}
           employee
           {filteredEmployees.length !==
           1
