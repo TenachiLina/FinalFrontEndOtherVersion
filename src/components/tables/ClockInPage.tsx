@@ -343,7 +343,7 @@ export default function AttendancePage({
       return reset;
     });
   };
-  const getAttendanceRows = (
+  const getAttendanceRows = ( 
     employees: Employee[],
     shiftId: string | null
   ): AttendanceRow[] => {
