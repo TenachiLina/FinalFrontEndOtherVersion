@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-
+import { upsertWorktime } from "./worktime.api";
 interface AttendanceLog {
   _id?: string;
   deviceUserId: string;
@@ -53,6 +53,32 @@ function formatDateTime(timestamp: string) {
   }
 
   return timestamp;
+}
+
+
+function getMinutesBetween(
+  clockIn: string,
+  clockOut: string
+) {
+  const inDate = new Date(clockIn);
+  const outDate = new Date(clockOut);
+
+  if (
+    Number.isNaN(inDate.getTime()) ||
+    Number.isNaN(outDate.getTime())
+  ) {
+    return null;
+  }
+
+  let difference =
+    (outDate.getTime() - inDate.getTime()) / 60000;
+
+  // Overnight
+  if (difference < 0) {
+    difference += 24 * 60;
+  }
+
+  return difference;
 }
 
 function formatDate(timestamp: string) {
@@ -179,74 +205,98 @@ export default function ClockInPageHistory() {
   // GROUP LOGS BY EMPLOYEE + DATE
   // ---------------------------------------------------------
 
-  const groupedLogs = useMemo(() => {
-    const groups: Record<string, AttendanceLog[]> = {};
+  // ---------------------------------------------------------
+// GROUP LOGS BY EMPLOYEE + DATE, THEN CREATE PUNCH INTERVALS
+// ---------------------------------------------------------
 
-    logs.forEach((log) => {
-      const deviceId = normalizeDeviceId(log.deviceUserId);
+const groupedLogs = useMemo(() => {
+  const groups: Record<string, AttendanceLog[]> = {};
 
-      // Use the date from the timestamp itself.
-      // Example: 2026-08-28T08:15:00
-      const date = log.timestamp.substring(0, 10);
+  // First group all punches by employee + date
+  logs.forEach((log) => {
+    const deviceId = normalizeDeviceId(log.deviceUserId);
 
-      const key = `${deviceId}-${date}`;
+    // Use the date contained in the machine timestamp
+    const date = log.timestamp.substring(0, 10);
 
-      if (!groups[key]) {
-        groups[key] = [];
-      }
+    const key = `${deviceId}-${date}`;
 
-      groups[key].push(log);
-    });
+    if (!groups[key]) {
+      groups[key] = [];
+    }
 
-    const result: GroupedAttendance[] = Object.values(groups).map(
-      (dayLogs) => {
-        // Sort from earliest to latest
-        const sorted = [...dayLogs].sort(
-          (a, b) =>
-            new Date(a.timestamp).getTime() -
-            new Date(b.timestamp).getTime()
-        );
+    groups[key].push(log);
+  });
 
-        const first = sorted[0];
+  const result: GroupedAttendance[] = [];
 
-        const last =
-          sorted.length > 1
-            ? sorted[sorted.length - 1]
-            : null;
+  // ---------------------------------------------------------
+  // CREATE INTERVALS
+  //
+  // Punches are paired chronologically:
+  //
+  // 08:00 → 08:07
+  // 08:07 → 12:00
+  // 12:00 → 12:10
+  // 12:10 → 16:00
+  //
+  // Each pair becomes its own table row.
+  // ---------------------------------------------------------
 
-        return {
-          id:
-            first._id ??
-            `${first.deviceUserId}-${first.timestamp}`,
-
-          employeeNumber:
-            first.employeeNumber ??
-            normalizeDeviceId(first.deviceUserId),
-
-          firstName: first.firstName,
-          lastName: first.lastName,
-
-          date: first.timestamp.substring(0, 10),
-
-          // FIRST punch of the day = Clock In
-          clockIn: first.timestamp,
-
-          // LAST punch of the day = Clock Out
-          // If there is only one punch, there is no clock out yet.
-          clockOut: last ? last.timestamp : null,
-
-          logs: sorted,
-        };
-      }
-    );
-
-    // Sort newest dates first
-    return result.sort(
+  Object.values(groups).forEach((dayLogs) => {
+    const sorted = [...dayLogs].sort(
       (a, b) =>
-        new Date(b.clockIn).getTime() -
-        new Date(a.clockIn).getTime()
+        new Date(a.timestamp).getTime() -
+        new Date(b.timestamp).getTime()
     );
-  }, [logs]);
+
+    for (let i = 0; i < sorted.length; i += 2) {
+      const clockInLog = sorted[i];
+
+      if (!clockInLog) {
+        continue;
+      }
+
+      const clockOutLog = sorted[i + 1] ?? null;
+
+      result.push({
+        id:
+          clockInLog._id ??
+          `${clockInLog.deviceUserId}-${clockInLog.timestamp}-${i}`,
+
+        employeeNumber:
+          clockInLog.employeeNumber ??
+          normalizeDeviceId(clockInLog.deviceUserId),
+
+        firstName: clockInLog.firstName,
+        lastName: clockInLog.lastName,
+
+        date: clockInLog.timestamp.substring(0, 10),
+
+        // First punch of this interval
+        clockIn: clockInLog.timestamp,
+
+        // Second punch of this interval
+        // If there is no second punch, the interval is not validated.
+        clockOut: clockOutLog
+          ? clockOutLog.timestamp
+          : null,
+
+        // Only these two machine logs belong to this interval
+        logs: clockOutLog
+          ? [clockInLog, clockOutLog]
+          : [clockInLog],
+      });
+    }
+  });
+
+  // Newest intervals first
+  return result.sort(
+    (a, b) =>
+      new Date(b.clockIn).getTime() -
+      new Date(a.clockIn).getTime()
+  );
+}, [logs]);
 
   // ---------------------------------------------------------
   // SEARCH
@@ -426,7 +476,6 @@ export default function ClockInPageHistory() {
   // ---------------------------------------------------------
   // ADD PUNCH
   // ---------------------------------------------------------
-
 const addPunch = async () => {
   if (!newPunch.deviceUserId || !newPunch.timestamp) {
     alert("Veuillez remplir tous les champs.");
@@ -434,12 +483,20 @@ const addPunch = async () => {
   }
 
   try {
+    const employeeNumber = normalizeDeviceId(newPunch.deviceUserId);
+
     const timestamp = new Date(newPunch.timestamp);
 
     if (Number.isNaN(timestamp.getTime())) {
       alert("La date et l'heure sont invalides.");
       return;
     }
+
+    const workDate = newPunch.timestamp.substring(0, 10);
+
+    // ---------------------------------------------------------
+    // 1. CREATE THE ATTENDANCE / MACHINE PUNCH
+    // ---------------------------------------------------------
 
     const response = await fetch(
       `${API_BASE_URL}/attendance/device-logs`,
@@ -449,7 +506,7 @@ const addPunch = async () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          deviceUserId: newPunch.deviceUserId.trim(),
+          deviceUserId: employeeNumber,
           timestamp: timestamp.toISOString(),
           processed: false,
         }),
@@ -466,20 +523,383 @@ const addPunch = async () => {
 
     console.log("Punch created:", result);
 
-    // Close modal
+    // ---------------------------------------------------------
+    // 2. RELOAD ALL PUNCHES FOR THIS DATE
+    // ---------------------------------------------------------
+
+    const logsResponse = await fetch(
+      `${API_BASE_URL}/attendance/device-logs` +
+        `?from=${encodeURIComponent(workDate)}` +
+        `&to=${encodeURIComponent(workDate)}`,
+      {
+        cache: "no-store",
+      }
+    );
+
+    if (!logsResponse.ok) {
+      throw new Error(
+        `Impossible de récupérer les pointages (${logsResponse.status})`
+      );
+    }
+
+    const logsData = await logsResponse.json();
+
+    const dateLogs: AttendanceLog[] = Array.isArray(logsData)
+      ? logsData
+      : Array.isArray(logsData?.data)
+      ? logsData.data
+      : [];
+
+    // ---------------------------------------------------------
+    // 3. GET ALL PUNCHES FOR THIS EMPLOYEE + DATE
+    // ---------------------------------------------------------
+
+    const employeeLogs = dateLogs
+      .filter(
+        (log) =>
+          normalizeDeviceId(log.deviceUserId) ===
+            employeeNumber &&
+          log.timestamp.substring(0, 10) === workDate
+      )
+      .sort(
+        (a, b) =>
+          new Date(a.timestamp).getTime() -
+          new Date(b.timestamp).getTime()
+      );
+
+    if (employeeLogs.length === 0) {
+      throw new Error(
+        "Le pointage a été créé mais aucun pointage employé n'a été trouvé."
+      );
+    }
+
+    // First punch = clock in
+    // Last punch = clock out
+    const clockInLog = employeeLogs[0];
+
+    const clockOutLog =
+      employeeLogs.length > 1
+        ? employeeLogs[employeeLogs.length - 1]
+        : null;
+
+    const clockIn = formatTime(clockInLog.timestamp);
+    const clockOut = clockOutLog
+      ? formatTime(clockOutLog.timestamp)
+      : "00:00";
+
+    console.log("Manual punch worktime:", {
+      employeeNumber,
+      workDate,
+      clockIn,
+      clockOut,
+    });
+
+    // ---------------------------------------------------------
+    // 4. FIND THE EMPLOYEE
+    // ---------------------------------------------------------
+
+    const employeesResponse = await fetch(
+      `${API_BASE_URL}/employees`,
+      {
+        cache: "no-store",
+      }
+    );
+
+    if (!employeesResponse.ok) {
+      throw new Error(
+        `Impossible de récupérer les employés (${employeesResponse.status})`
+      );
+    }
+
+    const employeesData = await employeesResponse.json();
+
+    const employees = Array.isArray(employeesData)
+      ? employeesData
+      : Array.isArray(employeesData?.data)
+      ? employeesData.data
+      : [];
+
+    const employee = employees.find(
+      (emp: any) =>
+        normalizeDeviceId(String(emp.empNumber)) ===
+        employeeNumber
+    );
+
+    if (!employee) {
+      throw new Error(
+        `Aucun employé trouvé avec le numéro ${employeeNumber}.`
+      );
+    }
+
+    // ---------------------------------------------------------
+    // 5. GET SHIFTS
+    // ---------------------------------------------------------
+
+    const shiftsResponse = await fetch(
+      `${API_BASE_URL}/shifts`,
+      {
+        cache: "no-store",
+      }
+    );
+
+    if (!shiftsResponse.ok) {
+      throw new Error(
+        `Impossible de récupérer les shifts (${shiftsResponse.status})`
+      );
+    }
+
+    const shiftsData = await shiftsResponse.json();
+
+    const shifts = Array.isArray(shiftsData)
+      ? shiftsData
+      : Array.isArray(shiftsData?.data)
+      ? shiftsData.data
+      : [];
+
+    // ---------------------------------------------------------
+    // 6. GET PLANNING FOR THIS EMPLOYEE + DATE
+    // ---------------------------------------------------------
+
+    const planningResponse = await fetch(
+      `${API_BASE_URL}/planning?date=${encodeURIComponent(
+        workDate
+      )}`,
+      {
+        cache: "no-store",
+      }
+    );
+
+    if (!planningResponse.ok) {
+      throw new Error(
+        `Impossible de récupérer le planning (${planningResponse.status})`
+      );
+    }
+
+    const planningData = await planningResponse.json();
+
+    const planning = Array.isArray(planningData)
+      ? planningData
+      : Array.isArray(planningData?.data)
+      ? planningData.data
+      : [];
+
+    const employeePlanning = planning.find((p: any) => {
+      const planningEmployeeId =
+        typeof p.empId === "object"
+          ? p.empId?._id
+          : p.empId;
+
+      return (
+        String(planningEmployeeId) ===
+        String(employee._id)
+      );
+    });
+
+    // ---------------------------------------------------------
+    // 7. FIND THE ASSIGNED SHIFT
+    // ---------------------------------------------------------
+
+    let shift: any = null;
+
+    if (employeePlanning) {
+      const planningShiftId =
+        typeof employeePlanning.shiftId === "object"
+          ? employeePlanning.shiftId?._id
+          : employeePlanning.shiftId;
+
+      shift = shifts.find(
+        (s: any) =>
+          String(s._id) === String(planningShiftId) ||
+          String(s.shift_id) === String(planningShiftId)
+      );
+    }
+
+    if (!shift) {
+      throw new Error(
+        `Aucun shift trouvé dans le planning pour l'employé ${employeeNumber} le ${workDate}.`
+      );
+    }
+
+    const shiftId = String(
+      shift._id ?? shift.shift_id
+    );
+
+    const shiftStart = String(
+      shift.start_time ?? "00:00"
+    ).slice(0, 5);
+
+    const shiftEnd = String(
+      shift.end_time ?? "00:00"
+    ).slice(0, 5);
+
+    // ---------------------------------------------------------
+    // 8. CALCULATE WORK HOURS
+    // ---------------------------------------------------------
+
+    let workMinutes = 0;
+
+    if (
+      clockIn !== "—" &&
+      clockOut !== "00:00" &&
+      clockOut !== "—"
+    ) {
+      const [inH, inM] = clockIn
+        .slice(0, 5)
+        .split(":")
+        .map(Number);
+
+      const [outH, outM] = clockOut
+        .slice(0, 5)
+        .split(":")
+        .map(Number);
+
+      let inMinutes = inH * 60 + inM;
+      let outMinutes = outH * 60 + outM;
+
+      if (outMinutes < inMinutes) {
+        outMinutes += 1440;
+      }
+
+      workMinutes = Math.max(
+        0,
+        outMinutes - inMinutes
+      );
+    }
+
+    const workHours =
+      `${String(Math.floor(workMinutes / 60)).padStart(
+        2,
+        "0"
+      )}:${String(workMinutes % 60).padStart(2, "0")}`;
+
+    // ---------------------------------------------------------
+    // 9. CALCULATE DELAY
+    // ---------------------------------------------------------
+
+    let lateMinutes = 0;
+
+    if (clockIn !== "—") {
+      const [inH, inM] = clockIn
+        .slice(0, 5)
+        .split(":")
+        .map(Number);
+
+      const [startH, startM] = shiftStart
+        .split(":")
+        .map(Number);
+
+      lateMinutes = Math.max(
+        0,
+        inH * 60 +
+          inM -
+          (startH * 60 + startM)
+      );
+    }
+
+    // ---------------------------------------------------------
+    // 10. CALCULATE OVERTIME
+    // ---------------------------------------------------------
+
+    let overtimeMinutes = 0;
+
+    if (
+      clockOut !== "00:00" &&
+      clockOut !== "—"
+    ) {
+      const [outH, outM] = clockOut
+        .slice(0, 5)
+        .split(":")
+        .map(Number);
+
+      const [startH, startM] = shiftStart
+        .split(":")
+        .map(Number);
+
+      const [endH, endM] = shiftEnd
+        .split(":")
+        .map(Number);
+
+      let actualOut = outH * 60 + outM;
+      let expectedEnd = endH * 60 + endM;
+
+      // Overnight shift
+      if (expectedEnd < startH * 60 + startM) {
+        expectedEnd += 1440;
+
+        if (actualOut < startH * 60 + startM) {
+          actualOut += 1440;
+        }
+      }
+
+      overtimeMinutes = Math.max(
+        0,
+        actualOut - expectedEnd
+      );
+    }
+
+    // ---------------------------------------------------------
+    // 11. CREATE / UPDATE WORKTIME
+    // ---------------------------------------------------------
+
+    const worktimePayload = {
+      // Use the employee internal numeric ID for worktime.emp_id.
+      emp_id: Number(employee.num ?? employee.empNumber),
+
+      // IMPORTANT:
+      // Mongo shift IDs are strings/ObjectIds.
+      shift_id: shiftId,
+
+      work_date: workDate,
+
+      clock_in: clockIn,
+      clock_out: clockOut,
+
+      late_minutes: String(lateMinutes),
+      overtime_minutes: String(overtimeMinutes),
+
+      work_hours: workHours,
+
+      consomation: 0,
+      penalty: 0,
+      bonus: 0,
+
+      absent: false,
+      absent_comment: "",
+    };
+
+    console.log(
+      "Saving manual punch to worktime:",
+      worktimePayload
+    );
+
+    await upsertWorktime(
+      worktimePayload,
+      null
+    );
+
+    // ---------------------------------------------------------
+    // 12. RELOAD UI
+    // ---------------------------------------------------------
+
     setShowAddModal(false);
 
-    // Clear form
     setNewPunch({
       deviceUserId: "",
       timestamp: "",
     });
 
-    // Reload logs from MongoDB
     await loadLogs();
 
+    alert(
+      clockOut !== "00:00"
+        ? "Pointage ajouté et worktime mis à jour avec Clock In + Clock Out."
+        : "Pointage ajouté et worktime créé avec le Clock In."
+    );
   } catch (err) {
-    console.error("Error adding punch:", err);
+    console.error(
+      "Error adding punch:",
+      err
+    );
 
     setError(
       err instanceof Error
@@ -811,22 +1231,7 @@ const addPunch = async () => {
 
  {/* STATUS */}
 <td className="border-b border-gray-100 px-4 py-2">
-  {log.clockOut ? (
-    <span
-      className="
-        inline-flex
-        rounded-md
-        bg-green-100
-        px-2
-        py-1
-        text-xs
-        font-medium
-        text-green-700
-      "
-    >
-      Validated
-    </span>
-  ) : (
+  {!log.clockOut ? (
     <span
       className="
         inline-flex
@@ -841,7 +1246,48 @@ const addPunch = async () => {
     >
       Not validated
     </span>
-  )}
+  ) : (() => {
+      const minutes = getMinutesBetween(
+        log.clockIn,
+        log.clockOut
+      );
+
+      if (minutes !== null && minutes < 15) {
+        return (
+          <span
+            className="
+              inline-flex
+              rounded-md
+              bg-yellow-100
+              px-2
+              py-1
+              text-xs
+              font-medium
+              text-yellow-700
+            "
+          >
+            Pause
+          </span>
+        );
+      }
+
+      return (
+        <span
+          className="
+            inline-flex
+            rounded-md
+            bg-green-100
+            px-2
+            py-1
+            text-xs
+            font-medium
+            text-green-700
+          "
+        >
+          Validated
+        </span>
+      );
+    })()}
 </td>
 
                     </tr>

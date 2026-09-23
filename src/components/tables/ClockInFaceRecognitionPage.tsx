@@ -375,7 +375,6 @@ function isPunchInsideOperationalDay(
 /* ============================================================================
    DEVICE LOG -> EMPLOYEE ENTRY
 ============================================================================ */
-
 function deviceLogsToEntries(
   logs: DeviceAttendanceLog[],
   employees: Employee[],
@@ -386,6 +385,8 @@ function deviceLogsToEntries(
   {
     clockIn: string;
     clockOut: string;
+    periods: WorkPeriod[];
+    workHours: string;
   }
 > {
   const result: Record<
@@ -393,73 +394,155 @@ function deviceLogsToEntries(
     {
       clockIn: string;
       clockOut: string;
+      periods: WorkPeriod[];
+      workHours: string;
     }
   > = {};
 
   for (const employee of employees) {
-    const employeeId =
-      String(
-        employee.empNumber
-      );
+    const employeeId = String(employee.empNumber);
 
-    const employeeLogs =
-      logs
-        .filter((log) => {
-          const deviceId =
-            normalizeDeviceId(
-              log.deviceUserId
-            );
-
-          if (
-            deviceId !==
-            employeeId
-          ) {
-            return false;
-          }
-
-          return isPunchInsideOperationalDay(
-            log.timestamp,
-            operationDate,
-            shifts
-          );
-        })
-        .sort(
-          (a, b) =>
-            new Date(
-              a.timestamp
-            ).getTime() -
-            new Date(
-              b.timestamp
-            ).getTime()
+    const employeeLogs = logs
+      .filter((log) => {
+        const deviceId = normalizeDeviceId(
+          log.deviceUserId
         );
 
-    if (
-      employeeLogs.length === 0
-    ) {
+        if (deviceId !== employeeId) {
+          return false;
+        }
+
+        return isPunchInsideOperationalDay(
+          log.timestamp,
+          operationDate,
+          shifts
+        );
+      })
+      .sort(
+        (a, b) =>
+          new Date(a.timestamp).getTime() -
+          new Date(b.timestamp).getTime()
+      );
+
+    if (!employeeLogs.length) {
       continue;
     }
 
-    result[employeeId] = {
-      clockIn:
-        deviceTime(
-          employeeLogs[0]
-            .timestamp
+    /*
+     * Punch sequence:
+     *
+     * 0 = IN
+     * 1 = OUT
+     * 2 = IN
+     * 3 = OUT
+     * ...
+     */
+
+    const periods: WorkPeriod[] = [];
+
+    for (
+      let i = 0;
+      i + 1 < employeeLogs.length;
+      i += 2
+    ) {
+      periods.push({
+        clockIn: deviceTime(
+          employeeLogs[i].timestamp
         ),
 
+        clockOut: deviceTime(
+          employeeLogs[i + 1].timestamp
+        ),
+      });
+    }
+
+    /*
+     * If there is an odd number of punches,
+     * the employee is currently working.
+     *
+     * Example:
+     *
+     * 08:00 IN
+     * 12:00 OUT
+     * 12:30 IN
+     *
+     * The last period is still open.
+     */
+
+    if (employeeLogs.length % 2 === 1) {
+      periods.push({
+        clockIn: deviceTime(
+          employeeLogs[
+            employeeLogs.length - 1
+          ].timestamp
+        ),
+
+        clockOut: "00:00",
+      });
+    }
+
+    /*
+     * Calculate ONLY completed work periods.
+     *
+     * Therefore pauses are NOT counted.
+     */
+
+    let totalMinutes = 0;
+
+    for (const period of periods) {
+      if (
+        period.clockIn === "00:00" ||
+        period.clockOut === "00:00"
+      ) {
+        continue;
+      }
+
+      let minutes =
+        toMinutes(period.clockOut) -
+        toMinutes(period.clockIn);
+
+      /*
+       * Overnight period.
+       */
+      if (minutes < 0) {
+        minutes += 1440;
+      }
+
+      totalMinutes += minutes;
+    }
+
+    result[employeeId] = {
+      /*
+       * First punch of the day.
+       */
+      clockIn: deviceTime(
+        employeeLogs[0].timestamp
+      ),
+
+      /*
+       * Last punch ONLY if it is an OUT.
+       *
+       * If the employee is currently working,
+       * clockOut stays empty.
+       */
       clockOut:
-        employeeLogs.length > 1
+        employeeLogs.length % 2 === 0
           ? deviceTime(
               employeeLogs[
                 employeeLogs.length - 1
               ].timestamp
             )
           : "00:00",
+
+      periods,
+
+      workHours:
+        formatMin(totalMinutes),
     };
   }
 
   return result;
 }
-
 /* ============================================================================
    FETCH MACHINE ATTENDANCE
 ============================================================================ */
@@ -590,14 +673,27 @@ interface Employee {
   FirstName: string;
 }
 
+interface WorkPeriod {
+  clockIn: string;
+  clockOut: string;
+}
+
 interface EmployeeTimeEntry {
   clockIn: string;
   clockOut: string;
+
+  // All completed work periods for this shift/day.
+  periods: WorkPeriod[];
+
+  // Total actual worked time, excluding pauses.
+  workHours: string;
+
   absent: boolean;
   absentComment: string;
   consomation: number | string;
   penalty: number | string;
   workTimeId: string | null;
+
   _dirty?: boolean;
   _saving?: boolean;
 }
@@ -738,27 +834,31 @@ const formatMin = (
           2,
           "0"
         )}`;
+const calcHoursFromPeriods = (
+  periods: WorkPeriod[]
+): string => {
+  let total = 0;
 
-const calcHours = (
-  i: string,
-  o: string
-) => {
-  if (
-    i === "00:00" ||
-    o === "00:00"
-  ) {
-    return "00:00";
+  for (const period of periods) {
+    if (
+      period.clockIn === "00:00" ||
+      period.clockOut === "00:00"
+    ) {
+      continue;
+    }
+
+    let minutes =
+      toMinutes(period.clockOut) -
+      toMinutes(period.clockIn);
+
+    if (minutes < 0) {
+      minutes += 1440;
+    }
+
+    total += minutes;
   }
 
-  let d =
-    toMinutes(o) -
-    toMinutes(i);
-
-  if (d < 0) {
-    d += 1440;
-  }
-
-  return formatMin(d);
+  return formatMin(total);
 };
 
 const calcLate = (
@@ -906,37 +1006,36 @@ const badgeLabel = (
 /* ============================================================================
    WORKTIME CONVERSION
 ============================================================================ */
-
 function recordToEntry(
   r: WorktimeRecord
 ): EmployeeTimeEntry {
   return {
-    clockIn:
-      r.clock_in ??
-      "00:00",
+    clockIn: r.clock_in ?? "00:00",
 
-    clockOut:
-      r.clock_out ??
-      "00:00",
+    clockOut: r.clock_out ?? "00:00",
 
-    absent:
-      r.absent ??
-      false,
+    /*
+     * Worktime currently stores the daily summary.
+     *
+     * The individual periods come from the
+     * attendance-machine logs.
+     */
+    periods: [],
+
+    workHours: r.work_hours ?? "00:00",
+
+    absent: r.absent ?? false,
 
     absentComment:
-      r.absent_comment ??
-      "",
+      r.absent_comment ?? "",
 
     consomation:
-      r.consomation ??
-      0,
+      r.consomation ?? 0,
 
     penalty:
-      r.penalty ??
-      0,
+      r.penalty ?? 0,
 
-    workTimeId:
-      r._id,
+    workTimeId: r._id,
   };
 }
 
@@ -948,46 +1047,38 @@ function entryToPayload(
   shiftStart: string,
   shiftEnd: string
 ): WorktimePayload {
+  // Plan A: Worktime stores the daily total, while periods preserve
+  // every IN/OUT pair. Recalculate from periods whenever they exist
+  // so the value sent to Worktime is always the current total.
   const hours =
-    calcHours(
-      entry.clockIn,
-      entry.clockOut
-    );
+    entry.periods?.length > 0
+      ? calcHoursFromPeriods(entry.periods)
+      : entry.workHours || "00:00";
 
-  const late =
-    calcLate(
-      entry.clockIn,
-      shiftStart
-    );
+  const late = calcLate(
+    entry.clockIn,
+    shiftStart
+  );
 
-  const ot =
-    calcOvertime(
-      entry.clockOut,
-      shiftEnd
-    );
+  const ot = calcOvertime(
+    entry.clockOut,
+    shiftEnd
+  );
 
   return {
-    emp_id:
-      empNum,
+    emp_id: empNum,
 
-    /*
-     * Backend Worktime schema should use number for shift_id.
-     */
-    shift_id:
-      Number(shiftId),
+    shift_id: shiftId as any,
 
-    work_date:
-      date,
+    work_date: date,
 
     clock_in:
-      entry.clockIn !==
-      "00:00"
+      entry.clockIn !== "00:00"
         ? entry.clockIn
         : undefined,
 
     clock_out:
-      entry.clockOut !==
-      "00:00"
+      entry.clockOut !== "00:00"
         ? entry.clockOut
         : undefined,
 
@@ -997,25 +1088,27 @@ function entryToPayload(
     overtime_minutes:
       String(ot),
 
-    work_hours:
-      hours,
+    /*
+     * THIS is now the total actual
+     * working time.
+     *
+     * Example:
+     * 08:00-12:00 + 12:30-16:00
+     * = 07:30
+     */
+    work_hours: hours,
 
     consomation:
-      Number(
-        entry.consomation
-      ) || 0,
+      Number(entry.consomation) || 0,
 
     penalty:
-      Number(
-        entry.penalty
-      ) || 0,
+      Number(entry.penalty) || 0,
 
     absent:
       entry.absent,
 
     absent_comment:
-      entry.absentComment ||
-      undefined,
+      entry.absentComment || undefined,
   };
 }
 
@@ -1186,15 +1279,15 @@ export default function AttendancePage({
     DeviceAttendanceLog[]
   >([]);
 
-  const [
-    deviceEntries,
-    setDeviceEntries,
-  ] = useState<
+const [deviceEntries, setDeviceEntries] =
+  useState<
     Record<
       string,
       {
         clockIn: string;
         clockOut: string;
+        periods: WorkPeriod[];
+        workHours: string;
       }
     >
   >({});
@@ -1218,6 +1311,17 @@ export default function AttendancePage({
     useRef<
       Set<string>
     >(new Set());
+
+  /*
+   * Remember only signatures that were ACTUALLY accepted by the backend.
+   * This is intentionally separate from `entries` because React state can
+   * already contain the latest machine punches before MongoDB has been
+   * updated.
+   */
+  const lastSavedMachineSignature =
+    useRef<
+      Record<string, string>
+    >({});
 
   const [
     deviceStatus,
@@ -1814,20 +1918,20 @@ export default function AttendancePage({
                     };
 
                   next[key] = {
-                    ...existing,
+  ...existing,
 
-                    clockIn:
-                      machine.clockIn,
+  clockIn: machine.clockIn,
 
-                    clockOut:
-                      machine.clockOut,
+  clockOut: machine.clockOut,
 
-                    absent:
-                      false,
+  periods: machine.periods,
 
-                    _dirty:
-                      false,
-                  };
+  workHours: machine.workHours,
+
+  absent: false,
+
+  _dirty: false,
+};
                 }
               );
             }
@@ -1944,63 +2048,58 @@ export default function AttendancePage({
   ) =>
     `${empNum}-${shiftId}`;
 
-  const getEntry = (
-    empNum: number
-  ): EmployeeTimeEntry => {
-    const stored =
-      entries[
-        entryKey(empNum)
-      ] ?? {
-        clockIn:
-          "00:00",
+ const getEntry = (
+  empNum: number
+): EmployeeTimeEntry => {
+  const stored =
+    entries[
+      entryKey(empNum)
+    ] ?? {
+      clockIn: "00:00",
+      clockOut: "00:00",
 
-        clockOut:
-          "00:00",
+      periods: [],
 
-        absent:
-          false,
+      workHours: "00:00",
 
-        absentComment:
-          "",
+      absent: false,
+      absentComment: "",
 
-        consomation:
-          0,
+      consomation: 0,
+      penalty: 0,
 
-        penalty:
-          0,
-
-        workTimeId:
-          null,
-      };
-
-    const machine =
-      deviceEntries[
-        String(empNum)
-      ];
-
-    /*
-     * Machine values are authoritative.
-     */
-    if (!machine) {
-      return stored;
-    }
-
-    return {
-      ...stored,
-
-      clockIn:
-        machine.clockIn,
-
-      clockOut:
-        machine.clockOut,
-
-      absent:
-        false,
-
-      _dirty:
-        false,
+      workTimeId: null,
     };
+
+  const machine =
+    deviceEntries[
+      String(empNum)
+    ];
+
+  if (!machine) {
+    return stored;
+  }
+
+  return {
+    ...stored,
+
+    clockIn:
+      machine.clockIn,
+
+    clockOut:
+      machine.clockOut,
+
+    periods:
+      machine.periods,
+
+    workHours:
+      machine.workHours,
+
+    absent: false,
+
+    _dirty: false,
   };
+};
 
   /* --------------------------------------------------------------------------
      MANUAL SAVE
@@ -2135,31 +2234,29 @@ export default function AttendancePage({
   -------------------------------------------------------------------------- */
 
   /**
-   * THIS IS THE IMPORTANT FIX.
+   * Machine attendance is stored as ONE daily Worktime document:
    *
-   * Machine punches now automatically trigger database persistence.
+   *   employee + operational date = one record
    *
-   * First punch:
+   * Every time the machine produces a new punch sequence:
    *
-   *   clockIn = 08:03
-   *   clockOut = 00:00
+   *   08:00 -> 09:00
    *
-   * -> creates/updates worktime.
+   * then:
    *
-   * Second punch:
+   *   08:00 -> 09:00
+   *   09:30 -> 10:14
    *
-   *   clockIn = 08:03
-   *   clockOut = 16:12
+   * we call upsertWorktime().
    *
-   * -> updates the SAME worktime document.
+   * upsertWorktime() is responsible for:
    *
-   * Therefore:
+   *   1. finding the existing Worktime by employee + date
+   *   2. PUT/updating it when it exists
+   *   3. POST/creating it when it does not exist
    *
-   * refresh during shift
-   *      ↓
-   * database still contains clockIn
-   *      ↓
-   * page reloads clockIn
+   * We do NOT use `entries` to decide whether MongoDB is already up to date.
+   * `entries` is React state and may be newer than the database.
    */
   useEffect(() => {
     if (
@@ -2177,288 +2274,456 @@ export default function AttendancePage({
 
     const saveMachinePunches =
       async () => {
-        for (
-          const emp of employees
-        ) {
+        for (const emp of employees) {
           if (cancelled) {
             return;
           }
 
           const machine =
             deviceEntries[
-              String(
-                emp.empNumber
-              )
+              String(emp.empNumber)
             ];
 
           if (!machine) {
             continue;
           }
 
-          /*
-           * A single employee may technically be assigned
-           * multiple shifts. We preserve your existing behavior
-           * of applying the machine punch to every assigned shift.
-           */
-          const employeeShifts =
-            assignedShifts[
-              emp.num
-            ] ?? [];
+          if (machine.clockIn === "00:00") {
+            console.log(
+              "⏭️ MACHINE SAVE SKIPPED - no clock-in:",
+              emp.empNumber
+            );
+            continue;
+          }
 
-          for (
-            const shiftId of employeeShifts
+          const employeeShifts =
+            assignedShifts[emp.num] ?? [];
+
+          if (!employeeShifts.length) {
+            console.log(
+              "⏭️ MACHINE SAVE SKIPPED - employee has no assigned shift:",
+              emp.empNumber
+            );
+            continue;
+          }
+
+          /*
+           * Worktime is a DAILY record.
+           *
+           * The shift_id is only metadata for the daily document.
+           * Prefer the currently displayed shift when it is assigned,
+           * otherwise use the employee's first assigned shift.
+           */
+          const shiftId =
+            currentTab &&
+            employeeShifts.includes(currentTab)
+              ? currentTab
+              : employeeShifts[0];
+
+          const shift =
+            shifts.find(
+              (s) =>
+                s.shift_id === shiftId
+            );
+
+          if (!shift) {
+            console.error(
+              "❌ MACHINE SAVE FAILED - shift not found:",
+              {
+                employee: emp.empNumber,
+                shiftId,
+                employeeShifts,
+              }
+            );
+            continue;
+          }
+
+          const key =
+            `${emp.num}-${shiftId}`;
+
+          /*
+           * Build the DAILY summary from every machine period.
+           *
+           * Example:
+           *   08:00 -> 09:00
+           *   09:14 -> 10:14
+           *
+           * becomes:
+           *   clock_in  = 08:00
+           *   clock_out = 10:14
+           *   work_hours = 02:00
+           */
+          const completedPeriods =
+            machine.periods.filter(
+              (period) =>
+                period.clockIn !== "00:00" &&
+                period.clockOut !== "00:00"
+            );
+
+          const firstClockIn =
+            machine.periods.length > 0
+              ? machine.periods[0].clockIn
+              : "00:00";
+
+          const lastClockOut =
+            completedPeriods.length > 0
+              ? completedPeriods[
+                  completedPeriods.length - 1
+                ].clockOut
+              : "00:00";
+
+          const totalWorkHours =
+            calcHoursFromPeriods(
+              machine.periods
+            );
+
+          /*
+           * Signature of the COMPLETE machine attendance.
+           *
+           * This is NOT used to determine whether the database contains
+           * the record. It is only used to avoid sending the exact same
+           * request twice after React/effect re-renders.
+           */
+          const periodsSignature =
+            machine.periods
+              .map(
+                (period) =>
+                  `${period.clockIn}-${period.clockOut}`
+              )
+              .join(",");
+
+          const signature =
+            `${operationalDate}|${emp.empNumber}|${firstClockIn}|${lastClockOut}|${totalWorkHours}|${periodsSignature}`;
+
+          const saveKey =
+            `${operationalDate}-${emp.empNumber}`;
+
+          console.log(
+            "🔍 MACHINE SAVE CHECK:",
+            {
+              employee:
+                emp.empNumber,
+              operationalDate,
+              signature,
+              lastSuccessfullySaved:
+                lastSavedMachineSignature.current[
+                  saveKey
+                ],
+              periods:
+                machine.periods,
+            }
+          );
+
+          /*
+           * The exact same machine state was already successfully
+           * accepted by the backend.
+           *
+           * IMPORTANT:
+           * This does NOT compare with `entries`.
+           */
+          if (
+            lastSavedMachineSignature.current[
+              saveKey
+            ] === signature
           ) {
+            console.log(
+              "⏭️ MACHINE SAVE SKIPPED - exact machine state already saved:",
+              {
+                employee:
+                  emp.empNumber,
+                signature,
+              }
+            );
+            continue;
+          }
+
+          /*
+           * Prevent two identical requests from being sent at the
+           * same time.
+           */
+          if (
+            machineSaveInFlight.current.has(
+              signature
+            )
+          ) {
+            console.log(
+              "⏭️ MACHINE SAVE SKIPPED - request already in flight:",
+              signature
+            );
+            continue;
+          }
+
+          machineSaveInFlight.current.add(
+            signature
+          );
+
+          /*
+           * We intentionally do NOT use `entries` here to decide
+           * whether a Worktime already exists.
+           *
+           * MongoDB is checked by upsertWorktime().
+           */
+          const existing =
+            entries[key] ??
+            {
+              clockIn: "00:00",
+              clockOut: "00:00",
+              periods: [],
+              workHours: "00:00",
+              absent: false,
+              absentComment: "",
+              consomation: 0,
+              penalty: 0,
+              workTimeId: null,
+            };
+
+          const machineEntry:
+            EmployeeTimeEntry =
+            {
+              ...existing,
+
+              clockIn:
+                firstClockIn,
+
+              clockOut:
+                lastClockOut,
+
+              periods:
+                machine.periods,
+
+              workHours:
+                totalWorkHours,
+
+              absent: false,
+
+              absentComment:
+                existing.absentComment ?? "",
+
+              consomation:
+                existing.consomation ?? 0,
+
+              penalty:
+                existing.penalty ?? 0,
+            };
+
+          const payload =
+            entryToPayload(
+              machineEntry,
+              emp.num,
+              shiftId,
+              operationalDate,
+              shift.start_time,
+              shift.end_time
+            );
+
+          console.log(
+            "===================================================="
+          );
+          console.log(
+            "💾 MACHINE ATTENDANCE SAVE"
+          );
+          console.log(
+            "Employee:",
+            emp.empNumber
+          );
+          console.log(
+            "Operational date:",
+            operationalDate
+          );
+          console.log(
+            "Shift ID:",
+            shiftId
+          );
+          console.log(
+            "Assigned shifts:",
+            employeeShifts
+          );
+          console.log(
+            "Machine periods:",
+            machine.periods
+          );
+          console.log(
+            "Daily clock IN:",
+            firstClockIn
+          );
+          console.log(
+            "Daily clock OUT:",
+            lastClockOut
+          );
+          console.log(
+            "Daily work hours:",
+            totalWorkHours
+          );
+          console.log(
+            "FINAL PAYLOAD SENT TO BACKEND:",
+            payload
+          );
+          console.log(
+            "===================================================="
+          );
+
+          try {
+            /*
+             * IMPORTANT:
+             *
+             * We intentionally pass NULL here.
+             *
+             * This forces upsertWorktime() to check MongoDB using:
+             *
+             *   employee + operational date
+             *
+             * If the employee already has today's Worktime:
+             *   -> PUT /worktime/:id
+             *
+             * If not:
+             *   -> POST /worktime
+             *
+             * This is safer than trusting the React `entries` state.
+             */
+            const saved =
+              await upsertWorktime(
+                payload,
+                null
+              );
+
+            console.log(
+              "===================================================="
+            );
+            console.log(
+              "✅ MACHINE ATTENDANCE BACKEND RESPONSE"
+            );
+            console.log(
+              "Employee:",
+              emp.empNumber
+            );
+            console.log(
+              "Returned Mongo ID:",
+              saved?._id
+            );
+            console.log(
+              "Returned clock_in:",
+              saved?.clock_in
+            );
+            console.log(
+              "Returned clock_out:",
+              saved?.clock_out
+            );
+            console.log(
+              "Returned work_hours:",
+              saved?.work_hours
+            );
+            console.log(
+              "FULL BACKEND RESPONSE:",
+              saved
+            );
+            console.log(
+              "===================================================="
+            );
+
+            /*
+             * Only mark this machine state as saved AFTER the
+             * backend has successfully accepted it.
+             */
+            lastSavedMachineSignature.current[
+              saveKey
+            ] = signature;
+
+            console.log(
+              "💾 MACHINE SIGNATURE MARKED AS SUCCESSFULLY SAVED:",
+              {
+                saveKey,
+                signature,
+              }
+            );
+
             if (cancelled) {
               return;
             }
 
-            const shift =
-              shifts.find(
-                (s) =>
-                  s.shift_id ===
-                  shiftId
-              );
+            setEntries(
+              (prev) => {
+                const next = {
+                  ...prev,
 
-            if (!shift) {
-              continue;
-            }
+                  [key]: {
+                    ...prev[key],
 
-            /*
-             * We cannot save a machine record without a clock-in.
-             */
-            if (
-              machine.clockIn ===
-              "00:00"
-            ) {
-              continue;
-            }
+                    ...machineEntry,
 
-            const key =
-              `${emp.num}-${shiftId}`;
+                    workTimeId:
+                      saved._id,
 
-            const existing =
-              entries[key] ??
-              {
-                clockIn:
-                  "00:00",
+                    _dirty: false,
 
-                clockOut:
-                  "00:00",
+                    _saving: false,
+                  },
+                };
 
-                absent:
-                  false,
+                saveEntriesToStorage(
+                  operationalDate,
+                  next
+                );
 
-                absentComment:
-                  "",
-
-                consomation:
-                  0,
-
-                penalty:
-                  0,
-
-                workTimeId:
-                  null,
-              };
-
-            /*
-             * If exactly the same punch is already persisted,
-             * there is nothing to do.
-             */
-            if (
-              existing.workTimeId &&
-              existing.clockIn ===
-                machine.clockIn &&
-              existing.clockOut ===
-                machine.clockOut
-            ) {
-              continue;
-            }
-
-            /*
-             * Prevent duplicate requests for the exact same
-             * machine state while one request is still running.
-             */
-            const signature =
-              `${operationalDate}|${key}|${machine.clockIn}|${machine.clockOut}`;
-
-            if (
-              machineSaveInFlight.current.has(
-                signature
-              )
-            ) {
-              continue;
-            }
-
-            machineSaveInFlight.current.add(
-              signature
+                return next;
+              }
+            );
+          } catch (error) {
+            console.error(
+              "===================================================="
+            );
+            console.error(
+              "❌ MACHINE ATTENDANCE SAVE FAILED"
+            );
+            console.error(
+              "Employee:",
+              emp.empNumber
+            );
+            console.error(
+              "Payload that failed:",
+              payload
+            );
+            console.error(
+              "Error:",
+              error
+            );
+            console.error(
+              "===================================================="
             );
 
-            const machineEntry:
-              EmployeeTimeEntry =
-              {
-                ...existing,
-
-                clockIn:
-                  machine.clockIn,
-
-                clockOut:
-                  machine.clockOut,
-
-                absent:
-                  false,
-              };
-
-            const payload =
-              entryToPayload(
-                machineEntry,
-                emp.num,
-                shiftId,
-                operationalDate,
-                shift.start_time,
-                shift.end_time
+            /*
+             * IMPORTANT:
+             * Do NOT update lastSavedMachineSignature on failure.
+             *
+             * That means the next effect run can retry the same
+             * attendance instead of thinking it was already saved.
+             */
+            if (!cancelled) {
+              setApiError(
+                `Machine attendance save failed for employee ${emp.empNumber}: ${String(
+                  error
+                )}`
               );
-
-            try {
-              console.log(
-                "================================="
-              );
-
-              console.log(
-                "💾 SAVING MACHINE ATTENDANCE"
-              );
-
-              console.log(
-                "Employee:",
-                emp.empNumber
-              );
-
-              console.log(
-                "Shift:",
-                shiftId
-              );
-
-              console.log(
-                "Clock In:",
-                machine.clockIn
-              );
-
-              console.log(
-                "Clock Out:",
-                machine.clockOut
-              );
-
-              console.log(
-                "Delay:",
-                payload.late_minutes
-              );
-
-              console.log(
-                "Overtime:",
-                payload.overtime_minutes
-              );
-
-              console.log(
-                "Work Hours:",
-                payload.work_hours
-              );
-
-              console.log(
-                "================================="
-              );
-
-              /*
-               * IMPORTANT:
-               *
-               * If workTimeId exists, update that document.
-               *
-               * Otherwise upsertWorktime searches by:
-               *
-               * employee + shift + date
-               *
-               * and updates an existing document or creates one.
-               */
-              const saved =
-                await upsertWorktime(
-                  payload,
-                  existing.workTimeId ??
-                    null
-                );
-
-              if (cancelled) {
-                return;
-              }
 
               setEntries(
-                (prev) => {
-                  const next = {
-                    ...prev,
+                (prev) => ({
+                  ...prev,
 
-                    [key]: {
-                      ...prev[key],
+                  [key]: {
+                    ...prev[key],
 
-                      ...machineEntry,
+                    _saving:
+                      false,
 
-                      workTimeId:
-                        saved._id,
-
-                      _dirty:
-                        false,
-
-                      _saving:
-                        false,
-                    },
-                  };
-
-                  saveEntriesToStorage(
-                    operationalDate,
-                    next
-                  );
-
-                  return next;
-                }
-              );
-
-              console.log(
-                "✅ MACHINE ATTENDANCE SAVED:",
-                saved
-              );
-            } catch (
-              error
-            ) {
-              console.error(
-                "❌ FAILED TO SAVE MACHINE ATTENDANCE:",
-                error
-              );
-
-              if (!cancelled) {
-                setApiError(
-                  `Machine attendance save failed for employee ${emp.empNumber}: ${String(
-                    error
-                  )}`
-                );
-
-                setEntries(
-                  (prev) => ({
-                    ...prev,
-
-                    [key]: {
-                      ...prev[key],
-
-                      _saving:
-                        false,
-
-                      _dirty:
-                        true,
-                    },
-                  })
-                );
-              }
-            } finally {
-              machineSaveInFlight.current.delete(
-                signature
+                    _dirty:
+                      true,
+                  },
+                })
               );
             }
+          } finally {
+            machineSaveInFlight.current.delete(
+              signature
+            );
           }
         }
       };
@@ -2474,7 +2739,7 @@ export default function AttendancePage({
     employees,
     shifts,
     assignedShifts,
-    entries,
+    currentTab,
   ]);
 
   /* --------------------------------------------------------------------------
@@ -3263,10 +3528,11 @@ export default function AttendancePage({
                       );
 
                     const hours =
-                      calcHours(
-                        entry.clockIn,
-                        entry.clockOut
-                      );
+                      entry.periods?.length > 0
+                        ? calcHoursFromPeriods(
+                            entry.periods
+                          )
+                        : entry.workHours || "00:00";
 
                     return (
                       <tr
