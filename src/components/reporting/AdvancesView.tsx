@@ -1,14 +1,34 @@
 "use client";
-import React from "react";
+import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import { Table, TableHeader, TableBody, TableRow, TableCell } from "../ui/table";
+import SimpleRangePicker from "./SimpleRangePicker";
 import { useAdvancesReport } from "@/hooks/useAdvancesReport";
-import { AdvanceRecord } from "@/components/reporting/types";
+import { AdvanceRecord, DateRange } from "@/components/reporting/types";
+import { getThisMonthRange } from "@/lib/reporting";
 
 const TABLE_HEADERS = ["Employee", "Amount", "Date", "Reason", ""];
 
 const AdvancesView: React.FC = () => {
-  const { advances, totalAdvanced, search, setSearch, loading, error, revokeAdvance } = useAdvancesReport();
+  const { advances, search, setSearch, loading, error, revokeAdvance } = useAdvancesReport();
+  const [range, setRange] = useState<DateRange>(getThisMonthRange());
+
+  // Keep only advances inside the selected range (compares the YYYY-MM-DD part, so
+  // it also works if the API returns full ISO timestamps).
+  const filteredAdvances = useMemo(
+    () =>
+      advances.filter((a: AdvanceRecord) => {
+        const day = String(a.date).slice(0, 10);
+        return day >= range.start && day <= range.end;
+      }),
+    [advances, range]
+  );
+
+  // Recomputed from the filtered list so it always matches what's in the table
+  const totalAdvanced = useMemo(
+    () => filteredAdvances.reduce((sum, a) => sum + (Number(a.amount) || 0), 0),
+    [filteredAdvances]
+  );
 
   return (
     <div className="flex flex-col gap-5">
@@ -16,6 +36,8 @@ const AdvancesView: React.FC = () => {
         <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Advances</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400">Salary advances given to employees.</p>
       </div>
+
+      <SimpleRangePicker range={range} onApply={setRange} />
 
       <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
         <div className="flex flex-col gap-1">
@@ -45,16 +67,16 @@ const AdvancesView: React.FC = () => {
         <Table className="min-w-full">
           <TableHeader className="bg-gray-50 dark:bg-gray-800/60">
             <TableRow>
-              {TABLE_HEADERS.map((h) => (
-                <TableCell key={h} isHeader className="p-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">
+              {TABLE_HEADERS.map((h, idx) => (
+                <TableCell key={`${h}-${idx}`} isHeader className="p-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">
                   {h}
                 </TableCell>
               ))}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {advances.length ? (
-              advances.map((a: AdvanceRecord, idx: number) => (
+            {filteredAdvances.length ? (
+              filteredAdvances.map((a: AdvanceRecord, idx: number) => (
                 <TableRow key={a.id || idx}>
                   <TableCell className="p-3 text-sm font-medium text-gray-800 dark:text-white">
                     {a.employee ? (
@@ -80,7 +102,7 @@ const AdvancesView: React.FC = () => {
               ))
             ) : (
               <TableRow key="empty">
-                <TableCell className="p-6 text-center text-sm text-gray-400">No advances on record</TableCell>
+                <TableCell className="p-6 text-center text-sm text-gray-400">No advances in this range</TableCell>
               </TableRow>
             )}
           </TableBody>

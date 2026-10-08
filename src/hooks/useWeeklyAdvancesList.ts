@@ -9,7 +9,7 @@ import {
   deleteAdvance,
   API_BASE_URL,
 } from "@/lib/reporting";
-import { payrollConfig, sumHours, sumConsommation } from "@/lib/payrollConfig";
+import { payrollConfig, sumHours, sumConsommation, sumAbsences } from "@/lib/payrollConfig";
 
 export interface WeeklyAdvanceRow {
   empId: number | string;
@@ -17,6 +17,7 @@ export interface WeeklyAdvanceRow {
   lastName: string;
   hourlyRate: number;
   hours: number;
+  absences: number;
   weeklySalary: number; // brut for the week: hours * hourlyRate
   consommation: number;
   advanceOffer: number;
@@ -94,6 +95,7 @@ export function useWeeklyAdvancesList() {
         const hours = sumHours(empRows);
         const weeklySalary = hours * hourlyRate;
         const consommation = sumConsommation(empRows);
+        const absences = empRows.reduce((sum, r) => sum + (r.absent ? 1 : 0), 0);
         const advanceOffer = payrollConfig.weeklyAdvance({ hours, hourlyRate, consommation });
         const existing = advanceByEmp[String(emp.emp_id)];
 
@@ -103,6 +105,7 @@ export function useWeeklyAdvancesList() {
           lastName: emp.LastName,
           hourlyRate: Number(hourlyRate.toFixed(2)),
           hours: Number(hours.toFixed(2)),
+          absences,
           weeklySalary: Number(weeklySalary.toFixed(2)),
           consommation: Number(consommation.toFixed(2)),
           advanceOffer: Number(advanceOffer.toFixed(2)),
@@ -112,31 +115,29 @@ export function useWeeklyAdvancesList() {
       });
   }, [employees, rows, search, advanceByEmp, scheduledIds]);
 
+
   const giveAdvance = useCallback(
-    async (empId: number | string, amount: number) => {
-      try {
-        const res = await fetch(`${API_BASE_URL}/advances`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            emp_id: empId,
-            amount,
-            date: range.start,
-            reason: `Weekly advance (${range.start} to ${range.end})`,
-          }),
-        });
-        if (!res.ok) throw new Error("Failed to create advance");
-        const created = await res.json();
-        setAdvances((prev) => [
-          ...prev,
-          { id: created._id, empId, employee: undefined, amount, date: range.start, reason: "Weekly advance" },
-        ]);
-      } catch (err) {
-        console.error("Error giving advance:", err);
-      }
+    async (empId: number | string, amount: number, date: string) => {
+      const res = await fetch(`${API_BASE_URL}/advances`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          emp_id: empId,
+          amount,
+          date,
+          reason: `Weekly advance (${range.start} to ${range.end})`,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to create advance"); // the modal catches this and shows an error
+      const created = await res.json();
+      setAdvances((prev) => [
+        ...prev,
+        { id: created._id, empId, employee: undefined, amount, date, reason: "Weekly advance" },
+      ]);
     },
     [range]
   );
+
 
   const revokeAdvance = useCallback(async (advanceId: string | undefined) => {
     if (!advanceId) return;
@@ -155,6 +156,7 @@ export function useWeeklyAdvancesList() {
     setRange: load,
     advanceRows,
     search,
+    //sumAbsences,
     setSearch,
     loading,
     error,

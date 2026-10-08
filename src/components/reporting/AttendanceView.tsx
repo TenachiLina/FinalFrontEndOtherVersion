@@ -1,21 +1,17 @@
 "use client";
-import React from "react";
-import Button from "../ui/button/Button";
+import React, { useEffect, useState } from "react";
 import { Table, TableHeader, TableBody, TableRow, TableCell } from "../ui/table";
+import SimpleRangePicker from "./SimpleRangePicker";
 import { useAttendanceReport, AttendanceRow } from "@/hooks/useAttendanceReport";
-import DateInput from "./DateInput";
+import { DateRange } from "@/components/reporting/types";
+import { getThisWeekRange } from "@/lib/reporting";
 
 const TABLE_HEADERS = ["Employee", "Date", "Late (min)", "Absent", "Comment"];
 
 const AttendanceView: React.FC = () => {
   const {
-    filterMode,
     setFilterMode,
-    selectedDate,
-    setSelectedDate,
-    customStart,
     setCustomStart,
-    customEnd,
     setCustomEnd,
     fetchReport,
     rows,
@@ -26,6 +22,30 @@ const AttendanceView: React.FC = () => {
     error,
   } = useAttendanceReport();
 
+  const [range, setRange] = useState<DateRange>(getThisWeekRange());
+  // Bumped on every apply: the hook's fetchReport reads its own state, so we must
+  // wait for the new custom start/end to be committed before calling it.
+  const [applyTick, setApplyTick] = useState(0);
+
+  const applyRange = (r: DateRange) => {
+    setRange(r);
+    setFilterMode("custom");
+    setCustomStart(r.start);
+    setCustomEnd(r.end);
+    setApplyTick((t) => t + 1);
+  };
+
+  // Load the default range (this week) on mount so the picker and the table agree
+  useEffect(() => {
+    applyRange(range);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (applyTick > 0) fetchReport();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [applyTick]);
+
   return (
     <div className="flex flex-col gap-5">
       <div>
@@ -33,49 +53,12 @@ const AttendanceView: React.FC = () => {
         <p className="text-sm text-gray-500 dark:text-gray-400">Lateness and absences across all employees.</p>
       </div>
 
-      {/* Filter bar */}
-      <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Range</label>
-          <select
-            value={filterMode}
-            onChange={(e) => setFilterMode(e.target.value as typeof filterMode)}
-            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
-          >
-            <option value="day">Day</option>
-            <option value="week">Week</option>
-            <option value="month">Month</option>
-            <option value="custom">Custom</option>
-          </select>
-        </div>
+      <SimpleRangePicker range={range} onApply={applyRange} />
 
-        {filterMode === "custom" ? (
-          <>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Start</label>
-              <DateInput value={customStart} onChange={setCustomStart} />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-gray-500 dark:text-gray-400">End</label>
-              <DateInput value={customEnd} onChange={setCustomEnd} />
-            </div>
-          </>
-        ) : (
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Start Date</label>
-            <DateInput value={selectedDate} onChange={setSelectedDate} />
-          </div>
-        )}
-
-        <Button size="md" variant="primary" onClick={fetchReport}>
-          Apply
-        </Button>
-
-        <label className="ml-auto flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-          <input type="checkbox" checked={onlyIssues} onChange={(e) => setOnlyIssues(e.target.checked)} />
-          Only show issues
-        </label>
-      </div>
+      <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+        <input type="checkbox" checked={onlyIssues} onChange={(e) => setOnlyIssues(e.target.checked)} />
+        Only show issues
+      </label>
 
       {error && (
         <div className="rounded-lg bg-red-50 px-4 py-2 text-sm text-red-600 dark:bg-red-500/10 dark:text-red-400">
