@@ -24,10 +24,13 @@ const ViewCalender: React.FC = () => {
     loading, error,
     handleExport,
     handleWeeklyExport,
+    handleWeeklyExportManager,
     showExportDayMenu,
     showWeeklyExportMenu,
+    showWeeklyExportManagerMenu,
     toggleExportMenu,
     toggleWeeklyExportMenu,
+    toggleWeeklyExportManagerMenu,
     closeMenus,  
   } = useViewPlanning();
 
@@ -181,28 +184,28 @@ const ViewCalender: React.FC = () => {
                       <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
                     </button>
                   </div>
-                  <div className="flex w-full items-center gap-3">
+                  <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-1">
                     {/* Date - LEFT */}
-                    <div className="min-w-0 flex-shrink-0">
+                    {/* <div className="shrink-0">
                       <span className="text-sm font-medium text-gray-800 dark:text-white whitespace-nowrap">
                         {formattedDate}
                       </span>
-                    </div>
-
+                    </div> */}
+                   
                     {/* Export Buttons - RIGHT */}
-                    <div className="ml-auto flex min-w-0 flex-1 justify-end gap-2">
+                    <div className="ml-auto flex shrink-0 items-center gap-2">
 
-                      {/* Export current day Planning */}
-                      <div className="relative">
-                        <Tooltip text="Download only the planning of the selected day from the left-side calendar. Click this button and choose which format you want (PDF or Excel).">
+                      {/* Export Day */}
+                      <div className="relative shrink-0">
+                        <Tooltip text="Download only the planning of the selected day. Choose PDF or Excel.">
                           <Button
                             size="sm"
                             variant="primary"
                             onClick={toggleExportMenu}
-                            className="h-10 min-w-0 flex-1 max-w-[140px] px-3 justify-center text-center whitespace-nowrap"
+                            className="h-10 whitespace-nowrap px-2 text-sm"
                           >
                             <ArrowTopRightOnSquareIcon
-                              className="w-4 h-4 text-gray-100"
+                              className="h-4 w-4 text-gray-100"
                               strokeWidth={3}
                             />
                             Export Day
@@ -210,9 +213,9 @@ const ViewCalender: React.FC = () => {
                         </Tooltip>
 
                         {showExportDayMenu && (
-                          <div className="absolute right-0 mt-2 w-48 rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800 z-50">
+                          <div className="absolute right-0 z-50 mt-2 w-48 rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
                             <button
-                              className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
                               onClick={() => {
                                 handleExport("excel");
                                 closeMenus();
@@ -220,9 +223,8 @@ const ViewCalender: React.FC = () => {
                             >
                               📊 Excel (.xlsx)
                             </button>
-
                             <button
-                              className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
                               onClick={() => {
                                 handleExport("pdf");
                                 closeMenus();
@@ -234,27 +236,68 @@ const ViewCalender: React.FC = () => {
                         )}
                       </div>
 
-                      {/* Export Weekly Planning */}
-                      <div className="relative">
-                        <Tooltip text="Download the planning of one week in each month. Click the button to choose the format (PDF or Excel).">
+                      {/* Export Week (Manager) */}
+                      <div className="relative shrink-0">
+                        <Tooltip text="Download the manager's weekly planning in PDF or Excel format.">
+                          <Button
+                            size="sm"
+                            variant="primary"
+                            onClick={toggleWeeklyExportManagerMenu}
+                            className="h-10 whitespace-nowrap px-2 text-sm"
+                          >
+                            <ArrowTopRightOnSquareIcon
+                              className="h-4 w-4 text-gray-100"
+                              strokeWidth={3}
+                            />
+                            Manager Export
+                          </Button>
+                        </Tooltip>
+
+                        {showWeeklyExportManagerMenu && (
+                          <div className="absolute right-0 z-50 mt-2 w-48 rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                            <button
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+                              onClick={() => {
+                                handleWeeklyExportManager("excel");
+                                closeMenus();
+                              }}
+                            >
+                              📊 Excel (.xlsx)
+                            </button>
+                            <button
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+                              onClick={() => {
+                                handleWeeklyExportManager("pdf");
+                                closeMenus();
+                              }}
+                            >
+                              📄 PDF (.pdf)
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Export Week */}
+                      <div className="relative shrink-0">
+                        <Tooltip text="Download the weekly planning in PDF or Excel format.">
                           <Button
                             size="sm"
                             variant="primary"
                             onClick={toggleWeeklyExportMenu}
-                            className="h-10 min-w-0 flex-1 max-w-[140px] px-3 justify-center text-center whitespace-nowrap"
+                            className="h-10 whitespace-nowrap px-2 text-sm"
                           >
                             <ArrowTopRightOnSquareIcon
-                              className="w-4 h-4 text-gray-100"
+                              className="h-4 w-4 text-gray-100"
                               strokeWidth={3}
                             />
-                            Export Week
+                            Employees Export 
                           </Button>
                         </Tooltip>
 
                         {showWeeklyExportMenu && (
-                          <div className="absolute right-0 mt-2 w-48 rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800 z-50">
+                          <div className="absolute right-0 z-50 mt-2 w-48 rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
                             <button
-                              className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
                               onClick={() => {
                                 handleWeeklyExport("excel");
                                 closeMenus();
@@ -262,9 +305,8 @@ const ViewCalender: React.FC = () => {
                             >
                               📊 Excel (.xlsx)
                             </button>
-
                             <button
-                              className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
                               onClick={() => {
                                 handleWeeklyExport("pdf");
                                 closeMenus();
@@ -277,6 +319,7 @@ const ViewCalender: React.FC = () => {
                       </div>
 
                     </div>
+
                   </div>
                 </div>
               )}
@@ -403,7 +446,7 @@ const ViewCalender: React.FC = () => {
                         className={
                           rowIdx % 2 === 0
                             ? ""
-                            : "bg-gray-50/50 dark:bg-white/[0.01]"
+                            : "bg-gray-50/50 dark:bg-white/[0.01]"  
                         }
                       >
                         {/* Task name */}

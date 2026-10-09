@@ -52,6 +52,7 @@ export const useViewPlanning = () => {
 
   const [showExportDayMenu, setShowExportDayMenu] = useState(false);
   const [showWeeklyExportMenu, setShowWeeklyExportMenu] = useState(false);
+  const [showWeeklyExportManagerMenu, setShowWeeklyExportManagerMenu] = useState(false);
 
   const toggleExportMenu = () => {
     setShowExportDayMenu((prev) => !prev);
@@ -62,10 +63,16 @@ export const useViewPlanning = () => {
     setShowWeeklyExportMenu((prev) => !prev);
     setShowExportDayMenu(false);
   };
+  
+  const toggleWeeklyExportManagerMenu = () => {
+    setShowWeeklyExportManagerMenu((prev) => !prev);
+    setShowExportDayMenu(false);
+  };
 
   const closeMenus = () => {
     setShowExportDayMenu(false);
     setShowWeeklyExportMenu(false);
+    setShowWeeklyExportManagerMenu(false);
   };
 
   // ── Fetch meta once ──────────────────────────────────────────────
@@ -174,6 +181,15 @@ export const useViewPlanning = () => {
       window.location.href =
         `http://localhost:3001/planning/export-first-week?year=${year}&month=${month}&format=${format}`;
   };
+
+  const handleWeeklyExportManager = (format: "excel" | "pdf") => {
+    const date = new Date(currentDate);
+    const year = date.getFullYear();
+    const month = date.getMonth(); // JavaScript months are 0-based
+    console.log("📅 Month sent is: ", month);
+      window.location.href =
+        `http://localhost:3001/planning/export-first-week-manager?year=${year}&month=${month}&format=${format}`;
+  };
   
 
   return {
@@ -191,10 +207,14 @@ export const useViewPlanning = () => {
     loading, error,
     handleExport,
     handleWeeklyExport,
+    handleWeeklyExportManager,
     showExportDayMenu,
     showWeeklyExportMenu,
+    showWeeklyExportManagerMenu,
     toggleExportMenu,
     toggleWeeklyExportMenu,
+    toggleWeeklyExportManagerMenu,
     closeMenus,
   };
+  
 };
