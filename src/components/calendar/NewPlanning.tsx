@@ -85,7 +85,8 @@ const ShiftGrid: React.FC = () => {
   <>
         {/* Page header / view controls */}
         <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 ml-auto">
+            
             {/* Show table only */}
             <Tooltip text="Show table only">
               <button
@@ -119,9 +120,9 @@ const ShiftGrid: React.FC = () => {
                 <ArrowUturnLeftIcon className="h-5 w-5" />
               </button>
             </Tooltip>
+
           </div>
         </div>
-
         {/* <div
           className={`flex gap-4 items-start ${
             showTableOnly ? "w-full" : ""
