@@ -224,10 +224,12 @@ export async function fetchWorktimeRows(
   if (!res.ok) throw new Error("Failed to fetch worktime report.");
 
   const data = await res.json();
-  // ⚠️ ASSUMPTION: findAll() returns an array of raw rows directly.
-  // If it returns { rows: [...] } or a paginated shape, adjust this line.
   const list: WorktimeRowRaw[] = Array.isArray(data) ? data : data.rows || [];
-  return list.map(normalizeRow);
+
+  // The API can return rows outside the requested range, so keep only the days inside it.
+  return list
+    .map(normalizeRow)
+    .filter((r) => r.work_date && r.work_date >= range.start && r.work_date <= range.end);
 }
 
 export async function fetchAdvances(

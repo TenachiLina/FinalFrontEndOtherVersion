@@ -25,8 +25,8 @@ export interface WeeklyAdvanceRow {
   advanceId?: string; // present only when advanceGiven is true; needed to revoke
 }
 
-export function useWeeklyAdvancesList() {
-  const [range, setRangeState] = useState<DateRange>(getThisWeekRange());
+export function useWeeklyAdvancesList(initialRange?: DateRange) {
+  const [range, setRangeState] = useState<DateRange>(initialRange ?? getThisWeekRange());
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [rows, setRows] = useState<WorktimeRow[]>([]);
   const [advances, setAdvances] = useState<AdvanceRecord[]>([]);
@@ -61,7 +61,7 @@ export function useWeeklyAdvancesList() {
   }, [range]);
 
   useEffect(() => {
-    load(getThisWeekRange());
+    load(initialRange ?? getThisWeekRange());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

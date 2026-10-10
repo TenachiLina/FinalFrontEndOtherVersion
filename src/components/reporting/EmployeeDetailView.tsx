@@ -1,11 +1,13 @@
 "use client";
-import React, { useState } from "react";
+import React, { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import Button from "../ui/button/Button";
 import { Table, TableHeader, TableBody, TableRow, TableCell } from "../ui/table";
 import { useEmployeeReport } from "@/hooks/useEmployeeReport";
 import { WorktimeRow } from "@/components/reporting/types";
 import { toLocalDateString } from "@/lib/reporting";
+import { readRange, rangeQuery } from "@/lib/rangeParams";
 import DateInput from "./DateInput";
 
 interface EmployeeDetailViewProps {
@@ -14,15 +16,37 @@ interface EmployeeDetailViewProps {
 
 type Tab = "advance" | "payroll";
 
-const EmployeeDetailView: React.FC<EmployeeDetailViewProps> = ({ empId }) => {
-  const { employee, loadingEmployee, week, month } = useEmployeeReport(empId);
-  const [tab, setTab] = useState<Tab>("advance");
+const EmployeeDetailContent: React.FC<EmployeeDetailViewProps> = ({ empId }) => {
+  const params = useSearchParams();
+  const urlRange = readRange(params); // week / month the user was looking at
+  const from = params.get("from"); // which list page the user came from
+
+  const initialTab: Tab = params.get("tab") === "payroll" ? "payroll" : "advance";
+  const [tab, setTab] = useState<Tab>(initialTab);
+
+  // The report opens directly on the week / month selected on the list page (one load, no race)
+  const { employee, loadingEmployee, week, month } = useEmployeeReport(empId, {
+    week: initialTab === "advance" ? urlRange : undefined,
+    month: initialTab === "payroll" ? urlRange : undefined,
+  });
+
+  // "Back" returns to the page the user came from, on the same week / month
+  const backHref =
+    from === "weekly-advances" || from === "monthly-payroll"
+      ? `/reporting/${from}${urlRange ? `?${rangeQuery(urlRange)}` : ""}`
+      : "/";
+  const backLabel =
+    from === "weekly-advances"
+      ? "← Back to Weekly Advances"
+      : from === "monthly-payroll"
+      ? "← Back to Monthly Payroll"
+      : "← Back to Overview";
 
   return (
     <div className="flex flex-col gap-5">
       <div>
-        <Link href="/" className="text-sm text-brand-500 hover:text-brand-600">
-          ← Back to Overview
+        <Link href={backHref} className="text-sm text-brand-500 hover:text-brand-600">
+          {backLabel}
         </Link>
         <h1 className="mt-1 text-2xl font-bold text-gray-800 dark:text-white">
           {loadingEmployee
@@ -49,6 +73,13 @@ const EmployeeDetailView: React.FC<EmployeeDetailViewProps> = ({ empId }) => {
   );
 };
 
+// useSearchParams needs a Suspense boundary for production builds
+const EmployeeDetailView: React.FC<EmployeeDetailViewProps> = (props) => (
+  <Suspense fallback={null}>
+    <EmployeeDetailContent {...props} />
+  </Suspense>
+);
+
 const TabButton: React.FC<{ active: boolean; onClick: () => void; children: React.ReactNode }> = ({
   active,
   onClick,
@@ -72,6 +103,11 @@ const TabButton: React.FC<{ active: boolean; onClick: () => void; children: Reac
 
 const WeeklyAdvanceTab: React.FC<{ week: ReturnType<typeof useEmployeeReport>["week"] }> = ({ week }) => {
   const [customStart, setCustomStart] = useState(week.range.start);
+
+  // Keep the date field in sync when the range is set from the URL
+  useEffect(() => {
+    setCustomStart(week.range.start);
+  }, [week.range.start]);
 
   const handleWeekChange = (start: string) => {
     const startDate = new Date(start);
@@ -176,7 +212,7 @@ const MonthlyPayrollTab: React.FC<{ month: ReturnType<typeof useEmployeeReport>[
           {month.payout.net.toFixed(2)} DA
         </div>
         <div className="mt-1 text-xs text-gray-400">
-          brut − penalties − consommation − advances given this month
+          brut − penalties − consommation − advances given this month + primes
         </div>
       </div>
 
@@ -187,6 +223,7 @@ const MonthlyPayrollTab: React.FC<{ month: ReturnType<typeof useEmployeeReport>[
         <SummaryCard label="Penalties" value={`${month.penalties.toFixed(2)} DA`} negative />
         <SummaryCard label="Consommation" value={`${month.consommation.toFixed(2)} DA`} negative />
         <SummaryCard label="Advances Deducted" value={`${month.advancesTotal.toFixed(2)} DA`} negative />
+        <SummaryCard label="Primes" value={`${month.bonusesTotal.toFixed(2)} DA`} />
         <SummaryCard label="Absences" value={`${month.absences}`} />
         <SummaryCard label="Late Minutes" value={`${month.lateMinutes} min`} />
       </div>
@@ -233,12 +270,12 @@ const DayTable: React.FC<{ rows: WorktimeRow[] }> = ({ rows }) => {
         <TableBody>
           {rows.length ? (
             rows.map((r, idx) => {
-              const dateObj = new Date(`${r.work_date}T00:00:00`);
-              const weekday = dateObj.toLocaleDateString("en-US", { weekday: "short" });
+              const dateObj = r.work_date ? new Date(`${r.work_date}T00:00:00`) : null;
+              const weekday = dateObj ? dateObj.toLocaleDateString("en-US", { weekday: "short" }) : "";
               return (
                 <TableRow key={idx} className={r.is_empty ? "bg-gray-50/60 dark:bg-white/[0.01]" : ""}>
                   <TableCell className="p-3 text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {weekday}, {r.work_date}
+                    {r.work_date ? `${weekday}, ${r.work_date}` : "Date unknown"}
                   </TableCell>
                   <TableCell className="p-3 text-center text-sm text-gray-600 dark:text-gray-400">
                     {r.work_hours ? `${r.work_hours}h` : "—"}

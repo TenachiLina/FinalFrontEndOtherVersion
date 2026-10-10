@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { Employee, WorktimeRow, DateRange, AdvanceRecord } from "@/components/reporting/types";
 import { getThisMonthRange, fetchEmployees, fetchWorktimeRows, fetchAdvances, fetchScheduledEmpIds } from "@/lib/reporting";
 import { payrollConfig, sumHours, sumConsommation, sumPenalties, sumAbsences } from "@/lib/payrollConfig";
+import { fetchBonuses, BonusRecord } from "@/lib/bonuses";
 
 export interface MonthlyPayrollRow {
   empId: number | string;
@@ -14,15 +15,18 @@ export interface MonthlyPayrollRow {
   penalties: number;
   consommation: number;
   advancesDeducted: number;
+  bonuses: number; // primes given in the month — added to net
   net: number;
   absences: number;
 }
 
-export function useMonthlyPayrollList() {
-  const [range, setRangeState] = useState<DateRange>(getThisMonthRange());
+// initialRange: lets the page reopen on a specific month (e.g. when coming back from an employee's details)
+export function useMonthlyPayrollList(initialRange?: DateRange) {
+  const [range, setRangeState] = useState<DateRange>(initialRange ?? getThisMonthRange());
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [rows, setRows] = useState<WorktimeRow[]>([]);
   const [advances, setAdvances] = useState<AdvanceRecord[]>([]);
+  const [bonuses, setBonuses] = useState<BonusRecord[]>([]);
   const [scheduledIds, setScheduledIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -35,14 +39,16 @@ export function useMonthlyPayrollList() {
       const emps = await fetchEmployees();
       setEmployees(emps);
 
-      const [worktimeRows, advanceRecords, scheduled] = await Promise.all([
+      const [worktimeRows, advanceRecords, bonusRecords, scheduled] = await Promise.all([
         fetchWorktimeRows(r),
         fetchAdvances(emps, undefined, r).catch(() => [] as AdvanceRecord[]),
+        fetchBonuses(r).catch(() => [] as BonusRecord[]),
         fetchScheduledEmpIds(r).catch(() => new Set<string>()),
       ]);
 
       setRows(worktimeRows);
       setAdvances(advanceRecords);
+      setBonuses(bonusRecords);
       setScheduledIds(scheduled);
       setRangeState(r);
     } catch (err) {
@@ -54,7 +60,7 @@ export function useMonthlyPayrollList() {
   }, [range]);
 
   useEffect(() => {
-    load(getThisMonthRange());
+    load(initialRange ?? getThisMonthRange());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -66,6 +72,15 @@ export function useMonthlyPayrollList() {
     });
     return map;
   }, [advances]);
+
+  const bonusesByEmp = useMemo(() => {
+    const map: Record<string, number> = {};
+    bonuses.forEach((b) => {
+      const key = String(b.empId);
+      map[key] = (map[key] || 0) + b.amount;
+    });
+    return map;
+  }, [bonuses]);
 
   const payrollRows: MonthlyPayrollRow[] = useMemo(() => {
     const groups: Record<string, WorktimeRow[]> = {};
@@ -90,6 +105,7 @@ export function useMonthlyPayrollList() {
         const consommation = sumConsommation(empRows);
         const absences = sumAbsences(empRows);
         const advancesDeducted = advancesByEmp[String(emp.emp_id)] || 0;
+        const empBonuses = bonusesByEmp[String(emp.emp_id)] || 0;
 
         const { brut, net } = payrollConfig.monthlyPayout({
           hours,
@@ -110,17 +126,19 @@ export function useMonthlyPayrollList() {
           penalties: Number(penalties.toFixed(2)),
           consommation: Number(consommation.toFixed(2)),
           advancesDeducted: Number(advancesDeducted.toFixed(2)),
-          net: Number(net.toFixed(2)),
+          bonuses: Number(empBonuses.toFixed(2)),
+          net: Number((net + empBonuses).toFixed(2)), // primes are added to the net salary
           absences,
         };
       });
-  }, [employees, rows, search, advancesByEmp, scheduledIds]);
+  }, [employees, rows, search, advancesByEmp, bonusesByEmp, scheduledIds]);
 
   const totals = useMemo(
     () => ({
       totalBrut: payrollRows.reduce((sum, r) => sum + r.brut, 0).toFixed(2),
       totalNet: payrollRows.reduce((sum, r) => sum + r.net, 0).toFixed(2),
       totalAdvances: payrollRows.reduce((sum, r) => sum + r.advancesDeducted, 0).toFixed(2),
+      totalBonuses: payrollRows.reduce((sum, r) => sum + r.bonuses, 0).toFixed(2),
     }),
     [payrollRows]
   );

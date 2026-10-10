@@ -1,10 +1,12 @@
 "use client";
-import React, { useState } from "react";
+import React, { Suspense, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Table, TableHeader, TableBody, TableRow, TableCell } from "../ui/table";
 import RangePicker from "./RangePicker";
 import AdvanceModal from "./AdvanceModal";
 import { useWeeklyAdvancesList, WeeklyAdvanceRow } from "@/hooks/useWeeklyAdvancesList";
+import { readRange, rangeQuery } from "@/lib/rangeParams";
 
 const TABLE_HEADERS = [
   "Employee",
@@ -22,9 +24,11 @@ const TABLE_HEADERS = [
 const sumBy = (rows: WeeklyAdvanceRow[], pick: (r: WeeklyAdvanceRow) => unknown): number =>
   rows.reduce((acc, r) => acc + (Number(pick(r)) || 0), 0);
 
-const WeeklyAdvancesView: React.FC = () => {
+const WeeklyAdvancesContent: React.FC = () => {
+  const params = useSearchParams();
+  // When coming back from an employee's details, reopen the same week
   const { range, setRange, advanceRows, search, setSearch, loading, error, giveAdvance, revokeAdvance } =
-    useWeeklyAdvancesList();
+    useWeeklyAdvancesList(readRange(params));
 
   // Employee row for which the "Give Advance" modal is open (null = closed)
   const [selected, setSelected] = useState<WeeklyAdvanceRow | null>(null);
@@ -124,7 +128,7 @@ const WeeklyAdvancesView: React.FC = () => {
                     </TableCell>
                     <TableCell className="p-3 text-right">
                       <Link
-                        href={`/reporting/employee/${r.empId}`}
+                        href={`/reporting/employee/${r.empId}?tab=advance&${rangeQuery(range)}&from=weekly-advances`}
                         className="inline-flex items-center gap-1 rounded-lg border border-brand-200 bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand-600 hover:bg-brand-100 dark:border-brand-900 dark:bg-brand-500/10 dark:text-brand-400 dark:hover:bg-brand-500/20"
                       >
                         Details
@@ -176,5 +180,12 @@ const WeeklyAdvancesView: React.FC = () => {
     </div>
   );
 };
+
+// useSearchParams needs a Suspense boundary for production builds
+const WeeklyAdvancesView: React.FC = () => (
+  <Suspense fallback={null}>
+    <WeeklyAdvancesContent />
+  </Suspense>
+);
 
 export default WeeklyAdvancesView;
