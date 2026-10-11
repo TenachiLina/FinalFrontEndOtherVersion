@@ -163,12 +163,16 @@ export type Cell = {
   // Backup employees for this main employee
   backups: BackupRef[];
 
-  // Optional label for a backup employee
-  backupTitle?: string;
+   // Backup employee ID used by the frontend grid
+  backupEmployeeId?: string | null;
+
+  // Backup employee display name
+  backupTitle?: string | null;
 
   planningId?: string;
   tasks?: ShiftTask[];
 };
+
 
 
 // ─────────────────────────────────────────────────────────────

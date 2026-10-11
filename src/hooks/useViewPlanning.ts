@@ -119,12 +119,17 @@ export const useViewPlanning = () => {
         newGrid[taskId][shiftId].push({
           id: item.empId._id,
           title: `${item.empId.firstName} ${item.empId.lastName}`,
-
+          
+          backups: item.backupEmpIds?.map((backup) => ({
+            id: backup._id,
+            title: `${backup.firstName} ${backup.lastName}`,
+          })) ?? [],
+          
           // Backup employee
           backupEmployeeId: item.backupEmpId?._id ?? null,
           backupTitle: item.backupEmpId
             ? `${item.backupEmpId.firstName} ${item.backupEmpId.lastName}`
-            : null,
+            : undefined,
 
           planningId: item._id,
           tasks: item.tasks ?? [],
