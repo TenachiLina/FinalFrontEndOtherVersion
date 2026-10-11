@@ -35,11 +35,11 @@ import type {
 
 const DEVICE_ATTENDANCE_API =
   process.env.NEXT_PUBLIC_DEVICE_ATTENDANCE_API ??
-  "${API_BASE_URL}/attendance/device-logs";
+  `${API_BASE_URL}/attendance/device-logs`;
 
 const DEVICE_STATUS_API =
   process.env.NEXT_PUBLIC_DEVICE_STATUS_API ??
-  "${API_BASE_URL}/device/status";
+  `${API_BASE_URL}/device/status`;
 
 interface DeviceAttendanceLog {
   _id?: string;
@@ -1202,7 +1202,7 @@ export default function AttendancePage({
   /* --------------------------------------------------------------------------
      STATE
   -------------------------------------------------------------------------- */
-
+  const [attendanceLoading, setAttendanceLoading] = useState(true);
   const [
     specialTimes,
     setSpecialTimes,
@@ -1309,6 +1309,8 @@ const [deviceEntries, setDeviceEntries] =
   } | null>(null);
   const [selectedBackupId, setSelectedBackupId] =
     useState("");
+
+
 
   const saveTimers =
     useRef<
@@ -1769,11 +1771,13 @@ const [deviceEntries, setDeviceEntries] =
     setDeviceLogs([]);
     setDeviceEntries({});
 
+    setAttendanceLoading(true);
     setEntries({});
 
     const loadAttendance =
       async () => {
         try {
+          
           const [
             records,
             logs,
@@ -1787,6 +1791,7 @@ const [deviceEntries, setDeviceEntries] =
                 operationalDate,
                 shifts
               ),
+              
             ]);
 
           if (cancelled) {
@@ -1937,21 +1942,14 @@ const [deviceEntries, setDeviceEntries] =
                         null,
                     };
 
-                  next[key] = {
-  ...existing,
-
-  clockIn: machine.clockIn,
-
-  clockOut: machine.clockOut,
-
-  periods: machine.periods,
-
-  workHours: machine.workHours,
-
-  absent: false,
-
-  _dirty: false,
-};
+                 next[key] = {
+                  ...existing,
+                  clockIn: machine.clockIn,
+                  clockOut: machine.clockOut,
+                  periods: machine.periods,
+                  workHours: machine.workHours,
+                  _dirty: false,
+                };
                 }
               );
             }
@@ -1978,6 +1976,7 @@ const [deviceEntries, setDeviceEntries] =
             setDeviceLoading(
               false
             );
+            setAttendanceLoading(false);
           }
         }
       };
@@ -2070,58 +2069,44 @@ const [deviceEntries, setDeviceEntries] =
   ) =>
     `${empNum}-${shiftId}`;
 
- const getEntry = (
-  empNum: number
-): EmployeeTimeEntry => {
-  const stored =
-    entries[
-      entryKey(empNum)
-    ] ?? {
-      clockIn: "00:00",
-      clockOut: "00:00",
 
-      periods: [],
+  
+  const getEntry = (
+    empNum: number
+  ): EmployeeTimeEntry => {
+    const stored =
+      entries[entryKey(empNum)] ?? {
+        clockIn: "00:00",
+        clockOut: "00:00",
+        periods: [],
+        workHours: "00:00",
+        absent: false,
+        absentComment: "",
+        consomation: 0,
+        penalty: 0,
+        workTimeId: null,
+        backupEmpNum: null,
+      };
 
-      workHours: "00:00",
+    const machine = deviceEntries[String(empNum)];
 
-      absent: false,
-      absentComment: "",
+    // No machine data: preserve the database entry.
+    if (!machine) {
+      return stored;
+    }
 
-      consomation: 0,
-      penalty: 0,
-
-      workTimeId: null,
+    // Machine data may update times, but must not
+    // override the employee's absence status.
+    return {
+      ...stored,
+      clockIn: machine.clockIn,
+      clockOut: machine.clockOut,
+      periods: machine.periods,
+      workHours: machine.workHours,
+      _dirty: false,
     };
-
-  const machine =
-    deviceEntries[
-      String(empNum)
-    ];
-
-  if (!machine) {
-    return stored;
-  }
-
-  return {
-    ...stored,
-
-    clockIn:
-      machine.clockIn,
-
-    clockOut:
-      machine.clockOut,
-
-    periods:
-      machine.periods,
-
-    workHours:
-      machine.workHours,
-
-    absent: false,
-
-    _dirty: false,
   };
-};
+
 
   /* --------------------------------------------------------------------------
      MANUAL SAVE
@@ -3581,6 +3566,11 @@ const confirmAbsence = () => {
           TABLE
       ===================================================================== */}
 
+      {attendanceLoading ? (
+        <div className="p-6 text-center text-gray-500">
+          Loading attendance...
+        </div>
+      ) : (
       <div className="rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
         <div className="flex items-center justify-between px-5 py-4 gap-4 flex-wrap border-b border-gray-100 dark:border-white/[0.05]">
           <h2 className="text-base font-semibold text-gray-800 dark:text-white">
@@ -4055,6 +4045,7 @@ const confirmAbsence = () => {
           in this shift
         </div>
       </div>
+      )}
     </>
   );
 }
