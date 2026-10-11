@@ -2,7 +2,9 @@
 import React from "react";
 import { Modal } from "@/components/ui/modal";
 import Button from "@/components/ui/button/Button";
+import TaskRow from "@/components/TaskRow/TaskRow";
 // import { ArrowDownTrayIcon, ArrowTopRightOnSquareIcon } from "@heroicons/react/24/outline";
+
 import {
   ArrowDownTrayIcon,
   TableCellsIcon,
@@ -682,99 +684,6 @@ const ShiftGrid: React.FC = () => {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
           {/* ── Add Modal ─────────────────────────────────────────────────── */}
           <Modal isOpen={isOpen} onClose={handleClose} className="max-w-[500px] p-6 lg:p-10">
             <div className="flex flex-col gap-6">
@@ -849,7 +758,6 @@ const ShiftGrid: React.FC = () => {
                 </label>
                 <Tooltip text="Write the name of the employee that could replace the main one (After that hit the button add).">
                   <input
-                    autoFocus
                     type="text"
                     value={
                       selectedBackupEmployee
@@ -938,62 +846,16 @@ const ShiftGrid: React.FC = () => {
                 )}
 
                 <div className="flex flex-col gap-2">
-                  {addTasks.map((task) => (
-                    <div
-                      key={task.id}
-                      className="flex items-center gap-2 rounded-lg border border-gray-200 dark:border-gray-700 p-2"
-                    >
-                      {/* Start time */}
-                      <input
-                        type="time"
-                        value={task.startTime}
-                        onChange={(e) =>
-                          updateTask(task.id, {
-                            startTime: e.target.value,
-                          })
-                        }
-                        className="h-9 w-24 rounded-md border border-gray-300 bg-transparent px-2 text-xs text-gray-800 dark:border-gray-700 dark:text-white/90"
+                  <div className="flex flex-col gap-2">
+                    {addTasks.map((task) => (
+                      <TaskRow
+                        key={task.id}
+                        task={task}
+                        onUpdate={(patch) => updateTask(task.id, patch)}
+                        onRemove={() => removeTask(task.id)}
                       />
-
-                      <span className="text-xs text-gray-400">
-                        –
-                      </span>
-
-                      {/* End time */}
-                      <input
-                        type="time"
-                        value={task.endTime}
-                        onChange={(e) =>
-                          updateTask(task.id, {
-                            endTime: e.target.value,
-                          })
-                        }
-                        className="h-9 w-24 rounded-md border border-gray-300 bg-transparent px-2 text-xs text-gray-800 dark:border-gray-700 dark:text-white/90"
-                      />
-
-                      {/* Task name */}
-                      <input
-                        type="text"
-                        value={task.label}
-                        placeholder="Task, e.g. Reception"
-                        onChange={(e) =>
-                          updateTask(task.id, {
-                            label: e.target.value,
-                          })
-                        }
-                        className="h-9 flex-1 rounded-md border border-gray-300 bg-transparent px-2 text-xs text-gray-800 placeholder:text-gray-400 dark:border-gray-700 dark:text-white/90"
-                      />
-
-                      {/* Remove */}
-                      <button
-                        type="button"
-                        onClick={() => removeTask(task.id)}
-                        className="text-red-400 hover:text-red-600 text-xs shrink-0"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               </div>
               {/* ── end task breakdown block ───────────────────────────── */}
@@ -1226,21 +1088,16 @@ const ShiftGrid: React.FC = () => {
                 )}
 
                 <div className="flex flex-col gap-2">
-                  {editTasks.map((task) => (
-                    <div key={task.id} className="flex items-center gap-2 rounded-lg border border-gray-200 dark:border-gray-700 p-2">
-                      <input type="time" value={task.startTime}
-                        onChange={(e) => updateEditTask(task.id, { startTime: e.target.value })}
-                        className="h-9 w-24 rounded-md border border-gray-300 bg-transparent px-2 text-xs text-gray-800 dark:border-gray-700 dark:text-white/90" />
-                      <span className="text-xs text-gray-400">–</span>
-                      <input type="time" value={task.endTime}
-                        onChange={(e) => updateEditTask(task.id, { endTime: e.target.value })}
-                        className="h-9 w-24 rounded-md border border-gray-300 bg-transparent px-2 text-xs text-gray-800 dark:border-gray-700 dark:text-white/90" />
-                      <input type="text" value={task.label} placeholder="Task, e.g. Reception"
-                        onChange={(e) => updateEditTask(task.id, { label: e.target.value })}
-                        className="h-9 flex-1 rounded-md border border-gray-300 bg-transparent px-2 text-xs text-gray-800 placeholder:text-gray-400 dark:border-gray-700 dark:text-white/90" />
-                      <button type="button" onClick={() => removeEditTask(task.id)} className="text-red-400 hover:text-red-600 text-xs shrink-0">✕</button>
-                    </div>
-                  ))}
+                  <div className="flex flex-col gap-2">
+                    {editTasks.map((task) => (
+                      <TaskRow
+                        key={task.id}
+                        task={task}
+                        onUpdate={(patch) => updateEditTask(task.id, patch)}
+                        onRemove={() => removeEditTask(task.id)}
+                      />
+                    ))}
+                  </div>
                 </div>
               </div>
               {/* ── end task breakdown block ───────────────────────────────── */}
