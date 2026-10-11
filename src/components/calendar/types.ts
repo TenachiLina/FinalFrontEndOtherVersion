@@ -156,17 +156,17 @@ export type BackupRef = {
 // ─────────────────────────────────────────────────────────────
 // Planning Grid Cell
 // ─────────────────────────────────────────────────────────────
-
 export type Cell = {
   id: string;
-
   title: string;
 
   // Backup employees for this main employee
   backups: BackupRef[];
 
-  planningId?: string;
+  // Optional label for a backup employee
+  backupTitle?: string;
 
+  planningId?: string;
   tasks?: ShiftTask[];
 };
 
