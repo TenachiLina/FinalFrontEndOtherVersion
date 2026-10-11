@@ -8,6 +8,7 @@ import React, {
   useRef,
 } from "react";
 
+import { API_BASE_URL } from "@/lib/config";
 import Badge from "../ui/badge/Badge";
 
 import {
@@ -33,11 +34,11 @@ import type {
 
 const DEVICE_ATTENDANCE_API =
   process.env.NEXT_PUBLIC_DEVICE_ATTENDANCE_API ??
-  "http://localhost:3001/attendance/device-logs";
+  "${API_BASE_URL}/attendance/device-logs";
 
 const DEVICE_STATUS_API =
   process.env.NEXT_PUBLIC_DEVICE_STATUS_API ??
-  "http://localhost:3001/device/status";
+  "${API_BASE_URL}/device/status";
 
 interface DeviceAttendanceLog {
   _id?: string;
@@ -3043,7 +3044,7 @@ const [deviceEntries, setDeviceEntries] =
         No shifts found — check
         that{" "}
         <code className="mx-1 font-mono bg-gray-100 px-1 rounded">
-          localhost:3001/shifts
+          ${API_BASE_URL}/shifts
         </code>{" "}
         returns data and CORS
         is enabled.

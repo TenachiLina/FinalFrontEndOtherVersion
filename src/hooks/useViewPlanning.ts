@@ -2,9 +2,10 @@ import { useState, useCallback, useEffect } from "react";
 import { useModal } from "@/hooks/useModal";
 import { Cell, GridData, TaskRecord, ShiftRecord, EmployeeRecord, PlanningRecord } from "../components/calendar/types";
 import * as XLSX from 'xlsx';
+import { API_BASE_URL } from "@/lib/config";
 
 const apiFetch = <T,>(path: string): Promise<T> =>
-  fetch(`http://localhost:3001${path}`).then((r) => {
+  fetch(`${API_BASE_URL}${path}`).then((r) => {
     if (!r.ok) throw new Error(`Failed to fetch ${path}`);
     return r.json();
   });
@@ -167,7 +168,7 @@ export const useViewPlanning = () => {
     const day = date.getDate();
 
     window.location.href =
-      `http://localhost:3001/planning/export-current-day` +
+      `${API_BASE_URL}/planning/export-current-day` +
       `?year=${year}` +
       `&month=${month}` +
       `&day=${day}` +
@@ -179,7 +180,7 @@ export const useViewPlanning = () => {
     const month = date.getMonth(); // JavaScript months are 0-based
     console.log("📅 Month sent is: ", month);
       window.location.href =
-        `http://localhost:3001/planning/export-first-week?year=${year}&month=${month}&format=${format}`;
+        `${API_BASE_URL}/planning/export-first-week?year=${year}&month=${month}&format=${format}`;
   };
 
   const handleWeeklyExportManager = (format: "excel" | "pdf") => {
@@ -188,7 +189,7 @@ export const useViewPlanning = () => {
     const month = date.getMonth(); // JavaScript months are 0-based
     console.log("📅 Month sent is: ", month);
       window.location.href =
-        `http://localhost:3001/planning/export-first-week-manager?year=${year}&month=${month}&format=${format}`;
+        `${API_BASE_URL}/planning/export-first-week-manager?year=${year}&month=${month}&format=${format}`;
   };
   
 

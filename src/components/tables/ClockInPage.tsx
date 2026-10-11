@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { API_BASE_URL } from "@/lib/config";
 import Badge from "../ui/badge/Badge";
 import {
   getWorktimesByDate,
@@ -434,7 +435,7 @@ export default function AttendancePage({
 
   if (!loading && !shifts.length) return (
     <div className="flex items-center justify-center h-32 text-gray-400 text-sm">
-      No shifts found — check that <code className="mx-1 font-mono bg-gray-100 px-1 rounded">localhost:3001/shifts</code> returns data and CORS is enabled.
+      No shifts found — check that <code className="mx-1 font-mono bg-gray-100 px-1 rounded">${API_BASE_URL}/shifts</code> returns data and CORS is enabled.
     </div>
   );
 

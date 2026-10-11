@@ -9,7 +9,7 @@ import {
 } from "@/components/reporting/types";
 
 // ⚠️ Adjust to match your real API base / env var if different.
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001";
+import { API_BASE_URL } from "@/lib/config";
 
 // ─────────────────────────────────────────────────────────────────────────
 // Time / date helpers (ported from old ReportingContent.jsx)
@@ -226,9 +226,11 @@ export async function fetchWorktimeRows(
   const data = await res.json();
   const list: WorktimeRowRaw[] = Array.isArray(data) ? data : data.rows || [];
 
-  // The API can return rows outside the requested range, so keep only the days inside it.
   return list
     .map(normalizeRow)
+    // The API ignores ?empId and returns every employee's rows, so keep only this employee's.
+    .filter((r) => empId === undefined || empId === null || String(r.emp_id) === String(empId))
+    // The API can also return rows outside the requested range, so keep only the days inside it.
     .filter((r) => r.work_date && r.work_date >= range.start && r.work_date <= range.end);
 }
 

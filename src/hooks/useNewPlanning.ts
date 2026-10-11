@@ -1,14 +1,13 @@
 "use client";
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useModal } from "@/hooks/useModal";
-import {Cell, EmployeeRecord, GridData, PlanningRecord, Post, Shift, ShiftRecord, TaskRecord, ShiftTask } from "../components/calendar/types";
-import * as XLSX from 'xlsx';
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+import { Cell, EmployeeRecord, GridData, PlanningRecord, Post, Shift, ShiftRecord, TaskRecord, ShiftTask } from "../components/calendar/types";
+import * as XLSX from 'xlsx'; import { API_BASE_URL } from "@/lib/config";
 
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
+  const res = await fetch(`$${API_BASE_URL}${path}`, {
     headers: { "Content-Type": "application/json" }, ...init,
   });
   if (!res.ok) throw new Error(`${res.status} ${await res.text().catch(() => "")}`);
@@ -24,38 +23,38 @@ function buildEmptyGrid(posts: Post[], shifts: Shift[]): GridData {
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export const useShiftGrid = () => {
-  let stepsCounter : number = 0;
+  let stepsCounter: number = 0;
   const { isOpen, openModal, closeModal } = useModal();
 
   // ── Reference data ────────────────────────────────────────────────────────
-  const [posts,     setPosts]     = useState<Post[]>([]);
-  const [shifts,    setShifts]    = useState<Shift[]>([]);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [shifts, setShifts] = useState<Shift[]>([]);
   const [employees, setEmployees] = useState<EmployeeRecord[]>([]);
   const [loadingMeta, setLoadingMeta] = useState(true);
-  const [metaError,   setMetaError]   = useState<string | null>(null);
+  const [metaError, setMetaError] = useState<string | null>(null);
 
   // ── Grid & date ───────────────────────────────────────────────────────────
-  const [grid,          setGrid]          = useState<GridData>({});
-  const [currentDate,   setCurrentDate]   = useState(new Date());
+  const [grid, setGrid] = useState<GridData>({});
+  const [currentDate, setCurrentDate] = useState(new Date());
   const [calendarMonth, setCalendarMonth] = useState(new Date());
-  const [loadingGrid,   setLoadingGrid]   = useState(false);
+  const [loadingGrid, setLoadingGrid] = useState(false);
 
   // ── Add modal state ───────────────────────────────────────────────────────
   //For Main Employee:
-  const [activeCell,       setActiveCell]       = useState<{ postId: number; shiftId: string } | null>(null);
-  const [empSearch,        setEmpSearch]        = useState("");
+  const [activeCell, setActiveCell] = useState<{ postId: number; shiftId: string } | null>(null);
+  const [empSearch, setEmpSearch] = useState("");
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeRecord | null>(null);
   //Optional Backup Employee:
   const [backupEmpSearch, setBackupEmpSearch] = useState("");
   const [selectedBackupEmployee, setSelectedBackupEmployee] = useState<EmployeeRecord | null>(null);
   // ── Add modal tasks ─────────────────────────────────────────
   const [addTasks, setAddTasks] = useState<ShiftTask[]>([]);
-  
+
   // ── Edit modal ────────────────────────────────────────────────────────────
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   //For Main Employee:
   const [editingEmployee, setEditingEmployee] = useState<Cell | null>(null);
-  const [editTitle,       setEditTitle]       = useState("");
+  const [editTitle, setEditTitle] = useState("");
   const [editSelectedEmployee, setEditSelectedEmployee] = useState<EmployeeRecord | null>(null);
   //For Backup Employee:
   const [editBackupEmployee, setEditBackupEmployee] = useState<EmployeeRecord | null>(null);
@@ -64,9 +63,9 @@ export const useShiftGrid = () => {
 
   // ── List modal ────────────────────────────────────────────────────────────
   const [isListModalOpen, setIsListModalOpen] = useState(false);
-  const [listCell,        setListCell]        = useState<{ postId: number; shiftId: string } | null>(null);
+  const [listCell, setListCell] = useState<{ postId: number; shiftId: string } | null>(null);
   const listEmployees = listCell ? (grid[listCell.postId]?.[listCell.shiftId] ?? []) : [];
-  
+
   // ── Importing modal ────────────────────────────────────────────────────────────
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importDate, setImportDate] = useState("");
@@ -162,8 +161,8 @@ export const useShiftGrid = () => {
 
   // ── Date navigation ───────────────────────────────────────────────────────
   const goToToday = () => { const d = new Date(); setCurrentDate(d); setCalendarMonth(d); };
-  const goPrev    = () => setCurrentDate((d) => { const n = new Date(d); n.setDate(d.getDate() - 1); return n; });
-  const goNext    = () => setCurrentDate((d) => { const n = new Date(d); n.setDate(d.getDate() + 1); return n; });
+  const goPrev = () => setCurrentDate((d) => { const n = new Date(d); n.setDate(d.getDate() - 1); return n; });
+  const goNext = () => setCurrentDate((d) => { const n = new Date(d); n.setDate(d.getDate() + 1); return n; });
   const formattedDate = currentDate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
 
   // ── Add modal handlers ────────────────────────────────────────────────────
@@ -272,7 +271,7 @@ export const useShiftGrid = () => {
     grid,
     closeModal,
   ]);
-  
+
   const openEditModal = (emp: any, cell: any) => {
     setActiveCell(cell);
 
@@ -309,7 +308,7 @@ export const useShiftGrid = () => {
 
     setIsEditModalOpen(true);
   };
-  
+
   // task CRUD for the edit modal
   const addEditTask = useCallback(() => {
     setEditTasks((prev) => [
@@ -317,11 +316,11 @@ export const useShiftGrid = () => {
       { id: crypto.randomUUID(), label: "", startTime: "", endTime: "" },
     ]);
   }, []);
-  
+
   const updateEditTask = useCallback((taskId: string, patch: Partial<ShiftTask>) => {
     setEditTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, ...patch } : t)));
   }, []);
-  
+
   const removeEditTask = useCallback((taskId: string) => {
     setEditTasks((prev) => prev.filter((t) => t.id !== taskId));
   }, []);
@@ -354,7 +353,7 @@ export const useShiftGrid = () => {
       prev.filter((t) => t.id !== taskId)
     );
   }, []);
-  
+
   const handleEdit = useCallback(() => {
     if (!editingEmployee || !activeCell) return;
 
@@ -380,27 +379,27 @@ export const useShiftGrid = () => {
         [shiftId]: prev[postId][shiftId].map((emp) =>
           emp.id === editingEmployee.id
             ? {
-                ...emp,
+              ...emp,
 
-                // Main employee ID
-                id: editSelectedEmployee?._id ?? emp.id,
+              // Main employee ID
+              id: editSelectedEmployee?._id ?? emp.id,
 
-                // Main employee name
-                title: editSelectedEmployee
-                  ? `${editSelectedEmployee.firstName} ${editSelectedEmployee.lastName}`
-                  : editTitle.trim(),
+              // Main employee name
+              title: editSelectedEmployee
+                ? `${editSelectedEmployee.firstName} ${editSelectedEmployee.lastName}`
+                : editTitle.trim(),
 
-                // Backup employee
-                backupEmployeeId:
-                  editBackupEmployee?._id ?? null,
+              // Backup employee
+              backupEmployeeId:
+                editBackupEmployee?._id ?? null,
 
-                backupTitle: editBackupEmployee
-                  ? `${editBackupEmployee.firstName} ${editBackupEmployee.lastName}`
-                  : null,
+              backupTitle: editBackupEmployee
+                ? `${editBackupEmployee.firstName} ${editBackupEmployee.lastName}`
+                : null,
 
-                // Tasks
-                tasks: editTasks,
-              }
+              // Tasks
+              tasks: editTasks,
+            }
             : emp
         ),
       },
@@ -460,13 +459,13 @@ export const useShiftGrid = () => {
   // ── Save planning to DB ───────────────────────────────────────────────────
   const handleSavePlanning = useCallback(async () => {
     const planDate = currentDate.toLocaleDateString('en-CA', { timeZone: 'Africa/Algiers' }); // → "YYYY-MM-DD"
-    const entries: { 
-      shiftId: string; 
-      empId: string; 
+    const entries: {
+      shiftId: string;
+      empId: string;
       backupEmpId?: string | null;
-      taskId: number; 
-      planDate: string; 
-      tasks: ShiftTask[] 
+      taskId: number;
+      planDate: string;
+      tasks: ShiftTask[]
     }[] = [];
     console.log("entries before saving:", entries);
     console.log("🕸️🕸️grid before saving:", grid);
@@ -474,20 +473,20 @@ export const useShiftGrid = () => {
       shifts.forEach((shift) => {
         (grid[post.id]?.[shift.id] ?? []).forEach((cell) => {
           entries.push(
-            { 
-              shiftId: shift.id, 
-              empId: cell.id, 
+            {
+              shiftId: shift.id,
+              empId: cell.id,
               backupEmpId: cell.backupEmployeeId ?? null,
-              taskId: post.id, 
-              planDate, 
-              tasks: cell.tasks ?? [] 
+              taskId: post.id,
+              planDate,
+              tasks: cell.tasks ?? []
             });
         });
       });
     });
     if (entries.length === 0) { alert("No employees planned for this day."); return; }
     try {
-      const res = await fetch(`${BASE}/planning/bulk`, {
+      const res = await fetch(`$${API_BASE_URL}/planning/bulk`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ entries, planDate }),
@@ -514,7 +513,7 @@ export const useShiftGrid = () => {
     try {
       setIsCopyingMonth(true);
 
-      const res = await fetch(`${BASE}/planning/copy-month`, {
+      const res = await fetch(`$${API_BASE_URL}/planning/copy-month`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -559,19 +558,19 @@ export const useShiftGrid = () => {
 
   // ── Save planning to weekday ───────────────────────────────────────────────────
   const getSameWeekdayDatesInMonth = (date: Date): Date[] => {
-  const year = date.getFullYear();
-  const month = date.getMonth();
-  const weekday = date.getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const weekday = date.getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-  const result: Date[] = [];
-  for (let day = 1; day <= daysInMonth; day++) {
-    const d = new Date(year, month, day);
-    if (d.getDay() === weekday) result.push(d);
-  }
-  return result;
+    const result: Date[] = [];
+    for (let day = 1; day <= daysInMonth; day++) {
+      const d = new Date(year, month, day);
+      if (d.getDay() === weekday) result.push(d);
+    }
+    return result;
   };
-  
+
   const handleSaveToAllWeekdays = useCallback(async () => {
     const entries: {
       shiftId: string;
@@ -620,7 +619,7 @@ export const useShiftGrid = () => {
             planDate,
           }));
 
-          const res = await fetch(`${BASE}/planning/bulk`, {
+          const res = await fetch(`$${API_BASE_URL}/planning/bulk`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -732,7 +731,7 @@ export const useShiftGrid = () => {
             planDate,
           }));
 
-          const res = await fetch(`${BASE}/planning/bulk`, {
+          const res = await fetch(`$${API_BASE_URL}/planning/bulk`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -1007,7 +1006,7 @@ export const useShiftGrid = () => {
               if (
                 !backupName ||
                 backupName.toLowerCase() ===
-                  "no backup"
+                "no backup"
               ) {
                 currentEmployee = {
                   ...currentEmployee,
@@ -1258,7 +1257,7 @@ export const useShiftGrid = () => {
             if (
               !backupName ||
               backupName.toLowerCase() ===
-                "no backup"
+              "no backup"
             ) {
               return;
             }
@@ -1492,7 +1491,7 @@ export const useShiftGrid = () => {
     isListModalOpen, setIsListModalOpen,
     listCell, setListCell, listEmployees,
     handleDelete, handleSavePlanning,
-    excelInputRef, pdfInputRef, handleImportClick, handleExcelImportClick, handlePdfImportClick ,handleImportFile,
+    excelInputRef, pdfInputRef, handleImportClick, handleExcelImportClick, handlePdfImportClick, handleImportFile,
     showImportMenu, setShowImportMenu,
     handleSaveToAllWeekdays, handleSaveToNextWeekdays,
     addTasks, setAddTasks, addTask, updateTask, removeTask,
@@ -1501,7 +1500,7 @@ export const useShiftGrid = () => {
     setIsImportModalOpen,
     importDate,
     setImportDate,
-    handleImportFromDate, 
+    handleImportFromDate,
 
     isCopyMonthModalOpen,
     setIsCopyMonthModalOpen,
