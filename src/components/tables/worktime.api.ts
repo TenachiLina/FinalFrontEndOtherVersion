@@ -24,6 +24,10 @@ export interface WorktimePayload {
 
   absent?: boolean;
   absent_comment?: string;
+  //Main
+  backup_for_emp_id?: number | null;
+  //backup
+  backup_emp_id?: number | null;
 }
 
 export interface WorktimeRecord
