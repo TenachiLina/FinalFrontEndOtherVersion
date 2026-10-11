@@ -39,7 +39,7 @@ async function request<T>(
   init?: RequestInit
 ): Promise<T> {
 
-  const res = await fetch(`$${API_BASE_URL}${path}`, {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
     headers: {
       "Content-Type": "application/json",
     },

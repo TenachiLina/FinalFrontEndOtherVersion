@@ -2,12 +2,13 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useModal } from "@/hooks/useModal";
 import { Cell, EmployeeRecord, GridData, PlanningRecord, Post, Shift, ShiftRecord, TaskRecord, ShiftTask } from "../components/calendar/types";
-import * as XLSX from 'xlsx'; import { API_BASE_URL } from "@/lib/config";
+import * as XLSX from 'xlsx'; 
+import { API_BASE_URL } from "@/lib/config";
 
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`$${API_BASE_URL}${path}`, {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
     headers: { "Content-Type": "application/json" }, ...init,
   });
   if (!res.ok) throw new Error(`${res.status} ${await res.text().catch(() => "")}`);
@@ -486,7 +487,7 @@ export const useShiftGrid = () => {
     });
     if (entries.length === 0) { alert("No employees planned for this day."); return; }
     try {
-      const res = await fetch(`$${API_BASE_URL}/planning/bulk`, {
+      const res = await fetch(`${API_BASE_URL}/planning/bulk`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ entries, planDate }),
@@ -513,7 +514,7 @@ export const useShiftGrid = () => {
     try {
       setIsCopyingMonth(true);
 
-      const res = await fetch(`$${API_BASE_URL}/planning/copy-month`, {
+      const res = await fetch(`${API_BASE_URL}/planning/copy-month`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -619,7 +620,7 @@ export const useShiftGrid = () => {
             planDate,
           }));
 
-          const res = await fetch(`$${API_BASE_URL}/planning/bulk`, {
+          const res = await fetch(`${API_BASE_URL}/planning/bulk`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -731,7 +732,7 @@ export const useShiftGrid = () => {
             planDate,
           }));
 
-          const res = await fetch(`$${API_BASE_URL}/planning/bulk`, {
+          const res = await fetch(`${API_BASE_URL}/planning/bulk`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
