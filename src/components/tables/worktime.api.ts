@@ -34,6 +34,8 @@ export interface WorktimeRecord
   extends WorktimePayload {
   _id: string;
   worktime_id: number;
+  //backup
+  backup_emp_id?: number | null;
 }
 
 // ─── API helpers ──────────────────────────────────────────────────────────────
