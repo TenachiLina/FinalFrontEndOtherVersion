@@ -6,11 +6,32 @@ import { useSidebar } from "@/context/SidebarContext";
 import Image from "next/image";
 import Link from "next/link";
 import React, { useState ,useEffect,useRef} from "react";
+import { usePathname } from "next/navigation";
 
 const AppHeader: React.FC = () => {
   const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false);
 
   const { isMobileOpen, toggleSidebar, toggleMobileSidebar } = useSidebar();
+
+  const pathname = usePathname();
+  const pageTitles: Record<string, string> = {
+    "/": "Overview",
+    "/reporting/weekly-advances": "Weekly Advances",
+    "/reporting/monthly-payroll": "Monthly Payroll",
+    "/reporting/attendance": "Attendance",
+    "/reporting/advances": "Advances",
+    "/reporting/bonuses/give": "Give Primes",
+    "/reporting/bonuses/history": "Primes History",
+    "/calendar/DoPlanning": "New Planning",
+    "/calendar/ViewPlanning": "View Planning",
+    "/calendar/ShiftsManagment": "Shifts Management",
+    "/clockinpage": "Clock In / Out",
+    "/clockinfacerecognitionpage": "Clock In/Out with Face Recognition",
+    "/clockinpagehistory": "Clock In/Out History",
+    "/addEmployeeForm": "Add Employee",
+    "/basic-tables": "View Employees",
+  };
+  const currentPage = pageTitles[pathname] ?? "Nexo InOuty";
 
   const handleToggle = () => {
     if (window.innerWidth >= 1024) {
@@ -122,7 +143,12 @@ const AppHeader: React.FC = () => {
 
           <div className="hidden lg:block">
             <form>
-              <div className="relative">
+              <div className="flex flex-1 items-center px-3 lg:px-6">
+                <h1 className="text-lg font-semibold text-gray-800 dark:text-white">
+                  {currentPage}
+                </h1>
+              </div>
+              {/* <div className="relative">
                 <span className="absolute -translate-y-1/2 left-4 top-1/2 pointer-events-none">
                   <svg
                     className="fill-gray-500 dark:fill-gray-400"
@@ -151,7 +177,7 @@ const AppHeader: React.FC = () => {
                   <span> ⌘ </span>
                   <span> K </span>
                 </button>
-              </div>
+              </div> */}
             </form>
           </div>
         </div>
