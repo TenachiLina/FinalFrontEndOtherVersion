@@ -98,10 +98,11 @@ export const useShiftsManagement = () => {
       setFormError("Start time and end time are required.");
       return;
     }
-    if (form.startTime > form.endTime) {
-      setFormError("Start time must be before end time.");
-      return;
-    }
+    // if (form.startTime > form.endTime) {
+    //   setFormError("Start time must be before end time.");
+    //   return;
+    // }
+    
     if (form.endTime === form.startTime) {
       setFormError("Start time and end time can't be the same.");
       return;
