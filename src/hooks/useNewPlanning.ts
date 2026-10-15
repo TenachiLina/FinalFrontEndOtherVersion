@@ -2,7 +2,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useModal } from "@/hooks/useModal";
 import { Cell, EmployeeRecord, GridData, PlanningRecord, Post, Shift, ShiftRecord, TaskRecord, ShiftTask, BackupRef } from "../components/calendar/types";
-import * as XLSX from 'xlsx'; 
+import * as XLSX from 'xlsx';
 import { API_BASE_URL } from "@/lib/config";
 
 
@@ -186,13 +186,91 @@ export const useShiftGrid = () => {
       .catch((e) => setMetaError(String(e)))
       .finally(() => setLoadingMeta(false));
   }, []);
-  useEffect(() => {
-    if (posts.length === 0 || shifts.length === 0) {
-      return;
-    }
+  // ── Load the saved planning of the selected day ───────────────────────────
+  const loadPlanningForDate = useCallback(
+    async (
+      date: Date,
+      opts?: { signal?: { cancelled: boolean }; notifyOnError?: boolean }
+    ) => {
+      const signal = opts?.signal;
+      try {
+        setLoadingGrid(true);
 
-    setGrid(buildEmptyGrid(posts, shifts));
-  }, [currentDate, posts, shifts]);
+        const dateStr = date.toLocaleDateString("en-CA", {
+          timeZone: "Africa/Algiers",
+        });
+
+        const records = await apiFetch<PlanningRecord[]>(
+          `/planning/import/${dateStr}`
+        );
+
+        if (signal?.cancelled) return;
+
+        const newGrid = buildEmptyGrid(posts, shifts);
+
+        const toBackupRef = (id: string, title?: string | null): BackupRef => {
+          const e = employees.find((x) => x._id === id);
+          return {
+            id,
+            title:
+              title ??
+              (e ? `${e.firstName} ${e.lastName}` : "Unknown employee"),
+          };
+        };
+
+        records.forEach((record: any) => {
+          if (newGrid[record.taskId]?.[record.shiftId] === undefined) return;
+
+          let backups: BackupRef[] = [];
+
+          if (Array.isArray(record.backups)) {
+            backups = record.backups.map((b: any) =>
+              toBackupRef(String(b.id ?? b._id), b.title)
+            );
+          } else if (Array.isArray(record.backupEmpIds)) {
+            backups = record.backupEmpIds.map((b: any) =>
+              toBackupRef(typeof b === "string" ? b : String(b._id))
+            );
+          } else if (record.backupEmpId) {
+            const legacyId =
+              typeof record.backupEmpId === "string"
+                ? record.backupEmpId
+                : String(record.backupEmpId._id);
+            backups = [toBackupRef(legacyId, record.backupTitle)];
+          }
+
+          newGrid[record.taskId][record.shiftId].push({
+            id: record.empId,
+            title: record.title,
+            backups,
+            tasks: record.tasks ?? [],
+            planningId: record.id,
+          });
+        });
+
+        setGrid(newGrid);
+      } catch (err) {
+        if (signal?.cancelled) return;
+        console.error("Error loading planning:", err);
+        setGrid(buildEmptyGrid(posts, shifts));
+        if (opts?.notifyOnError) alert("Failed to import planning.");
+      } finally {
+        if (!signal?.cancelled) setLoadingGrid(false);
+      }
+    },
+    [posts, shifts, employees]
+  );
+
+  useEffect(() => {
+    if (posts.length === 0 || shifts.length === 0) return;
+
+    const signal = { cancelled: false };
+    loadPlanningForDate(currentDate, { signal });
+
+    return () => {
+      signal.cancelled = true;
+    };
+  }, [currentDate, posts, shifts, loadPlanningForDate]);
 
   // ── Date navigation ───────────────────────────────────────────────────────
   const goToToday = () => { const d = new Date(); setCurrentDate(d); setCalendarMonth(d); };
@@ -1359,130 +1437,10 @@ export const useShiftGrid = () => {
 
   const handleImportFromDate = useCallback(
     async (date: Date) => {
-      try {
-        setLoadingGrid(true);
-
-        const dateStr = date.toLocaleDateString("en-CA", {
-          timeZone: "Africa/Algiers",
-        });
-
-        const records = await apiFetch<PlanningRecord[]>(
-          `/planning/import/${dateStr}`
-        );
-
-        console.log("records from import:", records);
-
-        // ---------------------------------------------
-        // 1. Create an empty grid
-        // ---------------------------------------------
-
-        const importedGrid = buildEmptyGrid(
-          posts,
-          shifts
-        );
-
-        // Build a BackupRef from an id (title comes from the
-        // backend if provided, otherwise from the employees list)
-        const toBackupRef = (
-          id: string,
-          title?: string | null
-        ): BackupRef => {
-          const e = employees.find((x) => x._id === id);
-          return {
-            id,
-            title:
-              title ??
-              (e
-                ? `${e.firstName} ${e.lastName}`
-                : "Unknown employee"),
-          };
-        };
-
-        // ---------------------------------------------
-        // 2. Put imported planning into the grid
-        // ---------------------------------------------
-
-        records.forEach((record: any) => {
-
-          if (
-            importedGrid[record.taskId] &&
-            importedGrid[record.taskId][record.shiftId] !== undefined
-          ) {
-
-            // Supports: new shape (backups / backupEmpIds)
-            // and the legacy shape (backupEmpId + backupTitle)
-            let backups: BackupRef[] = [];
-
-            if (Array.isArray(record.backups)) {
-              backups = record.backups.map((b: any) =>
-                toBackupRef(String(b.id ?? b._id), b.title)
-              );
-            } else if (Array.isArray(record.backupEmpIds)) {
-              backups = record.backupEmpIds.map((b: any) =>
-                toBackupRef(typeof b === "string" ? b : String(b._id))
-              );
-            } else if (record.backupEmpId) {
-              const legacyId =
-                typeof record.backupEmpId === "string"
-                  ? record.backupEmpId
-                  : String(record.backupEmpId._id);
-              backups = [toBackupRef(legacyId, record.backupTitle)];
-            }
-
-            importedGrid[
-              record.taskId
-            ][
-              record.shiftId
-            ].push({
-
-              // Main employee ID
-              id: record.empId,
-
-              // Main employee name
-              title: record.title,
-
-              // Backup employees
-              backups,
-
-              // Existing tasks
-              tasks:
-                record.tasks ?? [],
-
-              // Existing planning ID
-              planningId:
-                record.id,
-            });
-          }
-        });
-
-        console.log(
-          "grid after date import:",
-          importedGrid
-        );
-
-        setGrid(importedGrid);
-
-        console.log(
-          "Leaving import from date now"
-        );
-
-      } catch (err) {
-
-        console.error(err);
-
-        alert(
-          "Failed to import planning."
-        );
-
-      } finally {
-
-        setLoadingGrid(false);
-      }
-
+      await loadPlanningForDate(date, { notifyOnError: true });
     },
-    [posts, shifts, employees]
+    [loadPlanningForDate]
   );
-
   return {
     posts, shifts, employees, filteredEmployees, loadingMeta, metaError, loadingGrid,
     grid,
@@ -1527,7 +1485,7 @@ export const useShiftGrid = () => {
 // import { useState, useCallback, useEffect, useRef } from "react";
 // import { useModal } from "@/hooks/useModal";
 // import { Cell, EmployeeRecord, GridData, PlanningRecord, Post, Shift, ShiftRecord, TaskRecord, ShiftTask } from "../components/calendar/types";
-// import * as XLSX from 'xlsx'; 
+// import * as XLSX from 'xlsx';
 // import { API_BASE_URL } from "@/lib/config";
 
 
