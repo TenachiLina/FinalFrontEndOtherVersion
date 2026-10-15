@@ -11,8 +11,7 @@ const BASE =
 export interface WorktimePayload {
   worktime_id?: number;
   emp_id: number;
-  shift_id: string;
-  work_date: string;
+shift_id?: string | null;  work_date: string;
 
   clock_in?: string;
   clock_out?: string;
@@ -29,10 +28,10 @@ export interface WorktimePayload {
   absent_comment?: string;
 }
 
-export interface WorktimeRecord
-  extends WorktimePayload {
+export interface WorktimeRecord extends WorktimePayload {
   _id: string;
   worktime_id: number;
+  shift_id?: string | null;
 }
 
 // ─── API helpers ──────────────────────────────────────────────────────────────
