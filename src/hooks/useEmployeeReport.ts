@@ -7,7 +7,6 @@ import {
   fetchWorktimeRows,
   fetchAdvances,
   deleteAdvance,
-  API_BASE_URL,
 } from "@/lib/reporting";
 import {
   payrollConfig,
@@ -18,6 +17,7 @@ import {
   sumLateMinutes,
 } from "@/lib/payrollConfig";
 import { fetchBonuses, BonusRecord } from "@/lib/bonuses";
+import { API_BASE_URL } from "@/lib/config";
 
 // Ranges to open on (e.g. the week / month selected on the list page the user came from).
 export interface EmployeeReportInitialRanges {

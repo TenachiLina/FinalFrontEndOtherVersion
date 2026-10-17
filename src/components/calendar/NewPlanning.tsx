@@ -2,7 +2,9 @@
 import React from "react";
 import { Modal } from "@/components/ui/modal";
 import Button from "@/components/ui/button/Button";
+import TaskRow from "@/components/TaskRow/TaskRow";
 // import { ArrowDownTrayIcon, ArrowTopRightOnSquareIcon } from "@heroicons/react/24/outline";
+
 import {
   ArrowDownTrayIcon,
   TableCellsIcon,
@@ -20,10 +22,10 @@ const ShiftGrid: React.FC = () => {
   currentDate, setCurrentDate,
   calendarMonth, setCalendarMonth,
   goToToday, goPrev, goNext, formattedDate,
-  isOpen, activeCell, empSearch, setEmpSearch, selectedEmployee, setSelectedEmployee, backupEmpSearch, setBackupEmpSearch, selectedBackupEmployee, setSelectedBackupEmployee,
+  isOpen, activeCell, empSearch, setEmpSearch, selectedEmployee, setSelectedEmployee, backupEmpSearch, setBackupEmpSearch, selectedBackupEmployees, addBackup, removeBackup,
   filteredBackupEmployees,
   handleCellClick, handleSave, handleClose,
-  isEditModalOpen, editSelectedEmployee, editingEmployee, setEditSelectedEmployee, editTitle, setEditTitle, editBackupEmployee, setEditBackupEmployee, editBackupSearch, setEditBackupSearch,
+  isEditModalOpen, editSelectedEmployee, editingEmployee, setEditSelectedEmployee, editTitle, setEditTitle, editBackupEmployees, addEditBackup, removeEditBackup, editBackupSearch, setEditBackupSearch,
   filteredEditBackupEmployees, filteredEditEmployees,
   addTasks, setAddTasks, addTask, updateTask, removeTask,
   editTasks, addEditTask, updateEditTask, removeEditTask,
@@ -51,6 +53,12 @@ const ShiftGrid: React.FC = () => {
 
   const activePost  = activeCell ? posts.find((p) => p.id === activeCell.postId)  : null;
   const activeShift = activeCell ? shifts.find((s) => s.id === activeCell.shiftId) : null;
+
+  // "Ali Ali, Akram Akram" or "No backup"
+  const backupLabel = (backups?: { title: string }[]) =>
+    backups && backups.length > 0
+      ? backups.map((b) => b.title).join(", ")
+      : "No backup";
 
   const getCalendarDays = (date: Date) => {
     const year = date.getFullYear(), month = date.getMonth();
@@ -476,16 +484,12 @@ const ShiftGrid: React.FC = () => {
                                       {emp.title}
                                     </span>
 
-                                    {/* Backup employee */}
+                                    {/* Backup employees */}
                                     <span
                                       className="text-[10px] px-2 text-gray-400 dark:text-gray-500 truncate"
-                                      title={
-                                        emp.backupTitle
-                                          ? `Backup: ${emp.backupTitle}`
-                                          : "No backup"
-                                      }
+                                      title={`Backup: ${backupLabel(emp.backups)}`}
                                     >
-                                      Backup: {emp.backupTitle ?? "No backup"}
+                                      Backup: {backupLabel(emp.backups)}
                                     </span>
 
                                     {/* Tasks */}
@@ -619,16 +623,12 @@ const ShiftGrid: React.FC = () => {
                                       {emp.title}
                                     </span>
 
-                                    {/* Backup employee */}
+                                    {/* Backup employees */}
                                     <span
                                       className="text-[10px] text-gray-400 dark:text-gray-500 truncate"
-                                      title={
-                                        emp.backupTitle
-                                          ? `Backup: ${emp.backupTitle}`
-                                          : "No backup"
-                                      }
+                                      title={`Backup: ${backupLabel(emp.backups)}`}
                                     >
-                                      Backup: {emp.backupTitle ?? "No backup"}
+                                      Backup: {backupLabel(emp.backups)}
                                     </span>
 
                                     {/* Tasks */}
@@ -682,99 +682,6 @@ const ShiftGrid: React.FC = () => {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
           {/* ── Add Modal ─────────────────────────────────────────────────── */}
           <Modal isOpen={isOpen} onClose={handleClose} className="max-w-[500px] p-6 lg:p-10">
             <div className="flex flex-col gap-6">
@@ -794,7 +701,7 @@ const ShiftGrid: React.FC = () => {
                 <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                   Main Employee
                 </label>
-                <Tooltip text="Write the name of the main employee (If you don't want to add a backup, hit the button add directly else Write first the name of the backup bellow.)">
+                <Tooltip text="Write the name of the main employee. Then optionally add backups below, and hit Add.">
                   <input
                     autoFocus
                     type="text"
@@ -839,81 +746,77 @@ const ShiftGrid: React.FC = () => {
                   </button>
                 </div>
               )}
-              {/* Backup Employee */}
+
+              {/* Backup Employees */}
               <div className="relative">
                 <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
-                  Backup Employee
-                  <span className="ml-1 text-xs text-gray-400">
-                    (optional)
-                  </span>
+                  Backup Employees
+                  <span className="ml-1 text-xs text-gray-400">(optional)</span>
                 </label>
-                <Tooltip text="Write the name of the employee that could replace the main one (After that hit the button add).">
+
+                <Tooltip text="Type a name and press Enter (or click a result) to add a backup. Repeat to add more.">
                   <input
-                    autoFocus
                     type="text"
-                    value={
-                      selectedBackupEmployee
-                        ? `${selectedBackupEmployee.firstName} ${selectedBackupEmployee.lastName}`
-                        : backupEmpSearch
-                    }
-                    onChange={(e) => {
-                      setBackupEmpSearch(e.target.value);
-                      setSelectedBackupEmployee(null);
+                    value={backupEmpSearch}
+                    onChange={(e) => setBackupEmpSearch(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        if (backupEmpSearch.trim() && filteredBackupEmployees.length > 0) {
+                          addBackup(filteredBackupEmployees[0]);
+                        }
+                      }
                     }}
                     placeholder="Search backup employee..."
                     className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
                   />
                 </Tooltip>
-                {!selectedBackupEmployee && backupEmpSearch.length > 0 && (
-                  <ul className="absolute z-50 mt-1 w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg max-h-48 overflow-y-auto">
+
+                {backupEmpSearch.trim().length > 0 && (
+                  <ul className="absolute z-50 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900">
                     {filteredBackupEmployees.length === 0 ? (
-                      <li className="px-4 py-3 text-sm text-gray-400">
-                        No employees found
-                      </li>
+                      <li className="px-4 py-3 text-sm text-gray-400">No employees found</li>
                     ) : (
-                      filteredBackupEmployees.map((emp) => (
+                      filteredBackupEmployees.map((emp, i) => (
                         <li
                           key={emp._id}
-                          onClick={() => {
-                            setSelectedBackupEmployee(emp);
-                            setBackupEmpSearch("");
-                          }}
-                          className="flex items-center justify-between px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-brand-50 dark:hover:bg-brand-900/20 cursor-pointer"
+                          onClick={() => addBackup(emp)}
+                          className={`flex cursor-pointer items-center justify-between px-4 py-2.5 text-sm text-gray-700 hover:bg-brand-50 dark:text-gray-200 dark:hover:bg-brand-900/20 ${
+                            i === 0 ? "bg-brand-50/60 dark:bg-brand-900/10" : ""
+                          }`}
                         >
-                          <span>
-                            {emp.firstName} {emp.lastName}
-                          </span>
-
-                          <span className="text-xs text-gray-400 font-mono">
-                            #{emp.empNumber}
-                          </span>
+                          <span>{emp.firstName} {emp.lastName}</span>
+                          <span className="font-mono text-xs text-gray-400">#{emp.empNumber}</span>
                         </li>
                       ))
                     )}
                   </ul>
                 )}
+
+                {selectedBackupEmployees.length > 0 && (
+                  <div className="mt-2 flex flex-col gap-2">
+                    {selectedBackupEmployees.map((b) => (
+                      <div
+                        key={b._id}
+                        className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 dark:border-gray-700 dark:bg-gray-800"
+                      >
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                          {b.firstName} {b.lastName}
+                          <span className="ml-2 text-xs text-gray-400">#{b.empNumber}</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => removeBackup(b._id)}
+                          className="text-xs text-red-400 hover:text-red-600"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-              {selectedBackupEmployee && (
-                <div className="flex items-center justify-between rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-3 py-2">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                    ✓ {selectedBackupEmployee.firstName}{" "}
-                    {selectedBackupEmployee.lastName}
-                    <span className="ml-2 text-xs text-gray-400">
-                      #{selectedBackupEmployee.empNumber}
-                    </span>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedBackupEmployee(null);
-                      setBackupEmpSearch("");
-                    }}
-                    className="text-gray-400 hover:text-gray-600 text-xs"
-                  >
-                    ✕
-                  </button>
-                </div>
-              )}
+
               {/* ── task breakdown ─────────────────────────────────────── */}
               <div className="mt-4">
                 <div className="flex items-center justify-between mb-2">
@@ -938,62 +841,16 @@ const ShiftGrid: React.FC = () => {
                 )}
 
                 <div className="flex flex-col gap-2">
-                  {addTasks.map((task) => (
-                    <div
-                      key={task.id}
-                      className="flex items-center gap-2 rounded-lg border border-gray-200 dark:border-gray-700 p-2"
-                    >
-                      {/* Start time */}
-                      <input
-                        type="time"
-                        value={task.startTime}
-                        onChange={(e) =>
-                          updateTask(task.id, {
-                            startTime: e.target.value,
-                          })
-                        }
-                        className="h-9 w-24 rounded-md border border-gray-300 bg-transparent px-2 text-xs text-gray-800 dark:border-gray-700 dark:text-white/90"
+                  <div className="flex flex-col gap-2">
+                    {addTasks.map((task) => (
+                      <TaskRow
+                        key={task.id}
+                        task={task}
+                        onUpdate={(patch) => updateTask(task.id, patch)}
+                        onRemove={() => removeTask(task.id)}
                       />
-
-                      <span className="text-xs text-gray-400">
-                        –
-                      </span>
-
-                      {/* End time */}
-                      <input
-                        type="time"
-                        value={task.endTime}
-                        onChange={(e) =>
-                          updateTask(task.id, {
-                            endTime: e.target.value,
-                          })
-                        }
-                        className="h-9 w-24 rounded-md border border-gray-300 bg-transparent px-2 text-xs text-gray-800 dark:border-gray-700 dark:text-white/90"
-                      />
-
-                      {/* Task name */}
-                      <input
-                        type="text"
-                        value={task.label}
-                        placeholder="Task, e.g. Reception"
-                        onChange={(e) =>
-                          updateTask(task.id, {
-                            label: e.target.value,
-                          })
-                        }
-                        className="h-9 flex-1 rounded-md border border-gray-300 bg-transparent px-2 text-xs text-gray-800 placeholder:text-gray-400 dark:border-gray-700 dark:text-white/90"
-                      />
-
-                      {/* Remove */}
-                      <button
-                        type="button"
-                        onClick={() => removeTask(task.id)}
-                        className="text-red-400 hover:text-red-600 text-xs shrink-0"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               </div>
               {/* ── end task breakdown block ───────────────────────────── */}
@@ -1023,13 +880,23 @@ const ShiftGrid: React.FC = () => {
                   <div key={emp.id} className="px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-800 text-sm text-gray-700 dark:text-white">
                     <div className="flex items-center justify-between">
                       <div className="flex flex-col min-w-0">
-                        <span className="truncate font-medium">
-                          {emp.title}
-                        </span>
+                        <span className="truncate font-medium">{emp.title}</span>
 
-                        <span className="text-xs text-gray-400 truncate">
-                          Backup: {emp.backupTitle ?? "No backup"}
-                        </span>
+                        {emp.backups && emp.backups.length > 0 ? (
+                          <div className="mt-0.5 flex flex-wrap items-center gap-1">
+                            <span className="text-xs text-gray-400">Backup:</span>
+                            {emp.backups.map((b) => (
+                              <span
+                                key={b.id}
+                                className="rounded bg-white px-1.5 py-0.5 text-[10px] text-gray-600 dark:bg-gray-700 dark:text-gray-300"
+                              >
+                                {b.title}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-gray-400 truncate">Backup: No backup</span>
+                        )}
                       </div>
                       <div className="flex items-center gap-2 ml-2 shrink-0">
                         <Tooltip text="Click this button, If you want to modify this assignment (main, backup, one of them or to add special tasks within the shift.).">
@@ -1143,68 +1010,73 @@ const ShiftGrid: React.FC = () => {
                   </div>
                 )}
               </div>
-              {/* It allows to edit both main and backup employees, if the backup doesn't exist yet it displays it displays "to add a backup" or its name with remove button to add another one */}
+
+              {/* Backup Employees */}
               <div className="relative">
                 <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
-                  Backup Employee
-                  <span className="ml-1 text-xs text-gray-400">
-                    (optional)
-                  </span>
+                  Backup Employees
+                  <span className="ml-1 text-xs text-gray-400">(optional)</span>
                 </label>
-                <Tooltip text="Add a Backup if it doesn't exist yet, Modify it if it already exists or Remove it If you don't need a backup.">
-                <input
-                  type="text"
-                  value={
-                    editBackupEmployee
-                      ? `${editBackupEmployee.firstName} ${editBackupEmployee.lastName}`
-                      : editBackupSearch
-                  }
-                  onChange={(e) => {
-                    setEditBackupSearch(e.target.value);
-                    setEditBackupEmployee(null);
-                  }}
-                  placeholder="Search backup employee..."
-                  className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
-                />
-                </Tooltip>
-                {!editBackupEmployee && editBackupSearch.length > 0 && (
-                  <ul className="absolute z-50 mt-1 w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg max-h-48 overflow-y-auto">
-                    {filteredEditBackupEmployees.map((emp) => (
-                      <li
-                        key={emp._id}
-                        onClick={() => {
-                          setEditBackupEmployee(emp);
-                          setEditBackupSearch("");
-                        }}
-                        className="flex items-center justify-between px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-brand-50 dark:hover:bg-brand-900/20 cursor-pointer"
-                      >
-                        <span>
-                          {emp.firstName} {emp.lastName}
-                        </span>
 
-                        <span className="text-xs text-gray-400 font-mono">
-                          #{emp.empNumber}
-                        </span>
-                      </li>
-                    ))}
+                <Tooltip text="Type a name and press Enter (or click a result) to add a backup. Click ✕ on a backup to remove it.">
+                  <input
+                    type="text"
+                    value={editBackupSearch}
+                    onChange={(e) => setEditBackupSearch(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        if (editBackupSearch.trim() && filteredEditBackupEmployees.length > 0) {
+                          addEditBackup(filteredEditBackupEmployees[0]);
+                        }
+                      }
+                    }}
+                    placeholder="Search backup employee..."
+                    className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+                  />
+                </Tooltip>
+
+                {editBackupSearch.trim().length > 0 && (
+                  <ul className="absolute z-50 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900">
+                    {filteredEditBackupEmployees.length === 0 ? (
+                      <li className="px-4 py-3 text-sm text-gray-400">No employees found</li>
+                    ) : (
+                      filteredEditBackupEmployees.map((emp, i) => (
+                        <li
+                          key={emp._id}
+                          onClick={() => addEditBackup(emp)}
+                          className={`flex cursor-pointer items-center justify-between px-4 py-2.5 text-sm text-gray-700 hover:bg-brand-50 dark:text-gray-200 dark:hover:bg-brand-900/20 ${
+                            i === 0 ? "bg-brand-50/60 dark:bg-brand-900/10" : ""
+                          }`}
+                        >
+                          <span>{emp.firstName} {emp.lastName}</span>
+                          <span className="font-mono text-xs text-gray-400">#{emp.empNumber}</span>
+                        </li>
+                      ))
+                    )}
                   </ul>
                 )}
-                {editBackupEmployee && (
-                  <div className="mt-2 flex items-center justify-between rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-3 py-2">
-                    <span className="text-sm text-gray-700 dark:text-gray-200">
-                      {editBackupEmployee.firstName}{" "}
-                      {editBackupEmployee.lastName}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditBackupEmployee(null);
-                        setEditBackupSearch("");
-                      }}
-                      className="text-red-400 hover:text-red-600 text-xs"
-                    >
-                      Remove
-                    </button>
+
+                {editBackupEmployees.length > 0 && (
+                  <div className="mt-2 flex flex-col gap-2">
+                    {editBackupEmployees.map((b) => (
+                      <div
+                        key={b._id}
+                        className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 dark:border-gray-700 dark:bg-gray-800"
+                      >
+                        <span className="text-sm text-gray-700 dark:text-gray-200">
+                          {b.firstName} {b.lastName}
+                          <span className="ml-2 text-xs text-gray-400">#{b.empNumber}</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => removeEditBackup(b._id)}
+                          className="text-xs text-red-400 hover:text-red-600"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
@@ -1226,21 +1098,16 @@ const ShiftGrid: React.FC = () => {
                 )}
 
                 <div className="flex flex-col gap-2">
-                  {editTasks.map((task) => (
-                    <div key={task.id} className="flex items-center gap-2 rounded-lg border border-gray-200 dark:border-gray-700 p-2">
-                      <input type="time" value={task.startTime}
-                        onChange={(e) => updateEditTask(task.id, { startTime: e.target.value })}
-                        className="h-9 w-24 rounded-md border border-gray-300 bg-transparent px-2 text-xs text-gray-800 dark:border-gray-700 dark:text-white/90" />
-                      <span className="text-xs text-gray-400">–</span>
-                      <input type="time" value={task.endTime}
-                        onChange={(e) => updateEditTask(task.id, { endTime: e.target.value })}
-                        className="h-9 w-24 rounded-md border border-gray-300 bg-transparent px-2 text-xs text-gray-800 dark:border-gray-700 dark:text-white/90" />
-                      <input type="text" value={task.label} placeholder="Task, e.g. Reception"
-                        onChange={(e) => updateEditTask(task.id, { label: e.target.value })}
-                        className="h-9 flex-1 rounded-md border border-gray-300 bg-transparent px-2 text-xs text-gray-800 placeholder:text-gray-400 dark:border-gray-700 dark:text-white/90" />
-                      <button type="button" onClick={() => removeEditTask(task.id)} className="text-red-400 hover:text-red-600 text-xs shrink-0">✕</button>
-                    </div>
-                  ))}
+                  <div className="flex flex-col gap-2">
+                    {editTasks.map((task) => (
+                      <TaskRow
+                        key={task.id}
+                        task={task}
+                        onUpdate={(patch) => updateEditTask(task.id, patch)}
+                        onRemove={() => removeEditTask(task.id)}
+                      />
+                    ))}
+                  </div>
                 </div>
               </div>
               {/* ── end task breakdown block ───────────────────────────────── */}

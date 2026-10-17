@@ -2,10 +2,7 @@
 // Drop this alongside your AttendancePage component.
 // Base URL can be overridden via NEXT_PUBLIC_API_URL env var.
 
-const BASE =
-  process.env.NEXT_PUBLIC_API_URL ??
-  "http://localhost:3001";
-
+import { API_BASE_URL } from "@/lib/config";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface WorktimePayload {
@@ -26,12 +23,18 @@ shift_id?: string | null;  work_date: string;
 
   absent?: boolean;
   absent_comment?: string;
+  //Main
+  backup_for_emp_id?: number | null;
+  //backup
+  backup_emp_id?: number | null;
 }
 
 export interface WorktimeRecord extends WorktimePayload {
   _id: string;
   worktime_id: number;
   shift_id?: string | null;
+  //backup
+  backup_emp_id?: number | null;
 }
 
 // ─── API helpers ──────────────────────────────────────────────────────────────
@@ -41,7 +44,7 @@ async function request<T>(
   init?: RequestInit
 ): Promise<T> {
 
-  const res = await fetch(`${BASE}${path}`, {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
     headers: {
       "Content-Type": "application/json",
     },
@@ -69,8 +72,7 @@ async function request<T>(
 
   if (!res.ok) {
     throw new Error(
-      `[worktime] ${res.status} ${
-        text || res.statusText
+      `[worktime] ${res.status} ${text || res.statusText
       }`
     );
   }
@@ -91,7 +93,7 @@ export const getWorktimes = (
 ) => {
   const qs = params
     ? "?" +
-      new URLSearchParams(params).toString()
+    new URLSearchParams(params).toString()
     : "";
 
   return request<WorktimeRecord[]>(

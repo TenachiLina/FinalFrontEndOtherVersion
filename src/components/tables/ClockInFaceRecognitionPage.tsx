@@ -8,6 +8,7 @@ import React, {
   useRef,
 } from "react";
 
+import { API_BASE_URL } from "@/lib/config";
 import Badge from "../ui/badge/Badge";
 
 import {
@@ -25,6 +26,7 @@ import {
 
 import type {
   PlanningRecord,
+  EmployeeRecord,
 } from "./../calendar/types";
 
 /* ============================================================================
@@ -33,11 +35,11 @@ import type {
 
 const DEVICE_ATTENDANCE_API =
   process.env.NEXT_PUBLIC_DEVICE_ATTENDANCE_API ??
-  "http://localhost:3001/attendance/device-logs";
+  `${API_BASE_URL}/attendance/device-logs`;
 
 const DEVICE_STATUS_API =
   process.env.NEXT_PUBLIC_DEVICE_STATUS_API ??
-  "http://localhost:3001/device/status";
+  `${API_BASE_URL}/device/status`;
 
 interface DeviceAttendanceLog {
   _id?: string;
@@ -696,7 +698,10 @@ interface EmployeeTimeEntry {
 
   _dirty?: boolean;
   _saving?: boolean;
+  
+  backupEmpNum?: number | null;
 }
+
 
 interface ManualInputState {
   employee: number | null;
@@ -1036,6 +1041,8 @@ function recordToEntry(
       r.penalty ?? 0,
 
     workTimeId: r._id,
+
+    backupEmpNum: r.backup_emp_id ?? null,
   };
 }
 
@@ -1109,7 +1116,9 @@ function entryToPayload(
 
     absent_comment:
       entry.absentComment || undefined,
-  };
+      
+    backup_emp_id: entry.backupEmpNum ?? null,
+    };
 }
 
 /* ============================================================================
@@ -1193,7 +1202,7 @@ export default function AttendancePage({
   /* --------------------------------------------------------------------------
      STATE
   -------------------------------------------------------------------------- */
-
+  const [attendanceLoading, setAttendanceLoading] = useState(true);
   const [
     specialTimes,
     setSpecialTimes,
@@ -1291,6 +1300,17 @@ const [deviceEntries, setDeviceEntries] =
       }
     >
   >({});
+  
+  const [dailyPlanning, setDailyPlanning] =
+  useState<PlanningRecord[]>([]);
+  const [absenceModal, setAbsenceModal] = useState<{
+    empNum: number;
+    backups: EmployeeRecord[];
+  } | null>(null);
+  const [selectedBackupId, setSelectedBackupId] =
+    useState("");
+
+
 
   const saveTimers =
     useRef<
@@ -1515,6 +1535,8 @@ const [deviceEntries, setDeviceEntries] =
           if (cancelled) {
             return;
           }
+
+          setDailyPlanning(planningRecords);
 
           /* ---------------------------------------------------------------
              EMPLOYEES
@@ -1749,11 +1771,13 @@ const [deviceEntries, setDeviceEntries] =
     setDeviceLogs([]);
     setDeviceEntries({});
 
+    setAttendanceLoading(true);
     setEntries({});
 
     const loadAttendance =
       async () => {
         try {
+          
           const [
             records,
             logs,
@@ -1767,6 +1791,7 @@ const [deviceEntries, setDeviceEntries] =
                 operationalDate,
                 shifts
               ),
+              
             ]);
 
           if (cancelled) {
@@ -1917,21 +1942,14 @@ const [deviceEntries, setDeviceEntries] =
                         null,
                     };
 
-                  next[key] = {
-  ...existing,
-
-  clockIn: machine.clockIn,
-
-  clockOut: machine.clockOut,
-
-  periods: machine.periods,
-
-  workHours: machine.workHours,
-
-  absent: false,
-
-  _dirty: false,
-};
+                 next[key] = {
+                  ...existing,
+                  clockIn: machine.clockIn,
+                  clockOut: machine.clockOut,
+                  periods: machine.periods,
+                  workHours: machine.workHours,
+                  _dirty: false,
+                };
                 }
               );
             }
@@ -1958,6 +1976,7 @@ const [deviceEntries, setDeviceEntries] =
             setDeviceLoading(
               false
             );
+            setAttendanceLoading(false);
           }
         }
       };
@@ -1997,45 +2016,47 @@ const [deviceEntries, setDeviceEntries] =
      EMPLOYEE FILTER
   -------------------------------------------------------------------------- */
 
-  const filteredEmployees =
-    useMemo(() => {
-      if (!currentTab) {
-        return [];
+  const filteredEmployees = useMemo(() => {
+    if (!currentTab) {
+      return [];
+    }
+
+    const q = search.toLowerCase();
+
+    // Collect employee numbers of backups selected for absent employees.
+    const backupEmployeeNums = new Set<number>();
+
+    Object.values(entries).forEach((entry) => {
+      if (entry.absent && entry.backupEmpNum != null) {
+        backupEmployeeNums.add(Number(entry.backupEmpNum));
       }
+    });
 
-      const q =
-        search.toLowerCase();
+    return employees.filter((emp) => {
+      const inShift = (
+        assignedShifts[emp.num] ?? []
+      ).includes(currentTab);
 
-      return employees.filter(
-        (emp) => {
-          const inShift =
-            (
-              assignedShifts[
-                emp.num
-              ] ?? []
-            ).includes(
-              currentTab
-            );
-
-          return (
-            inShift &&
-            (
-              emp.FirstName
-                .toLowerCase()
-                .includes(q) ||
-              emp.empNumber
-                .toLowerCase()
-                .includes(q)
-            )
-          );
-        }
+      const isSelectedBackup = backupEmployeeNums.has(
+        Number(emp.empNumber)
       );
-    }, [
-      currentTab,
-      employees,
-      assignedShifts,
-      search,
-    ]);
+
+      const matchesSearch =
+        emp.FirstName.toLowerCase().includes(q) ||
+        String(emp.empNumber).toLowerCase().includes(q);
+
+      return (
+        (inShift || isSelectedBackup) &&
+        matchesSearch
+      );
+    });
+  }, [
+    currentTab,
+    employees,
+    assignedShifts,
+    search,
+    entries,
+  ]);
 
   /* --------------------------------------------------------------------------
      ENTRY
@@ -2048,58 +2069,44 @@ const [deviceEntries, setDeviceEntries] =
   ) =>
     `${empNum}-${shiftId}`;
 
- const getEntry = (
-  empNum: number
-): EmployeeTimeEntry => {
-  const stored =
-    entries[
-      entryKey(empNum)
-    ] ?? {
-      clockIn: "00:00",
-      clockOut: "00:00",
 
-      periods: [],
+  
+  const getEntry = (
+    empNum: number
+  ): EmployeeTimeEntry => {
+    const stored =
+      entries[entryKey(empNum)] ?? {
+        clockIn: "00:00",
+        clockOut: "00:00",
+        periods: [],
+        workHours: "00:00",
+        absent: false,
+        absentComment: "",
+        consomation: 0,
+        penalty: 0,
+        workTimeId: null,
+        backupEmpNum: null,
+      };
 
-      workHours: "00:00",
+    const machine = deviceEntries[String(empNum)];
 
-      absent: false,
-      absentComment: "",
+    // No machine data: preserve the database entry.
+    if (!machine) {
+      return stored;
+    }
 
-      consomation: 0,
-      penalty: 0,
-
-      workTimeId: null,
+    // Machine data may update times, but must not
+    // override the employee's absence status.
+    return {
+      ...stored,
+      clockIn: machine.clockIn,
+      clockOut: machine.clockOut,
+      periods: machine.periods,
+      workHours: machine.workHours,
+      _dirty: false,
     };
-
-  const machine =
-    deviceEntries[
-      String(empNum)
-    ];
-
-  if (!machine) {
-    return stored;
-  }
-
-  return {
-    ...stored,
-
-    clockIn:
-      machine.clockIn,
-
-    clockOut:
-      machine.clockOut,
-
-    periods:
-      machine.periods,
-
-    workHours:
-      machine.workHours,
-
-    absent: false,
-
-    _dirty: false,
   };
-};
+
 
   /* --------------------------------------------------------------------------
      MANUAL SAVE
@@ -2878,26 +2885,106 @@ const [deviceEntries, setDeviceEntries] =
      ABSENCE
   -------------------------------------------------------------------------- */
 
-  const toggleAbsent = (
-    empNum: number,
-    absent: boolean
-  ) =>
-    updateEntry(
-      empNum,
-      {
-        absent,
+  
+const toggleAbsent = (
+  empNum: number,
+  absent: boolean
+) => {
+  if (!currentTab) return;
 
-        ...(absent
-          ? {
-              clockIn:
-                "00:00",
+  // The manager is cancelling the absence.
+  if (!absent) {
+    updateEntry(empNum, {
+      absent: false,
+      backupEmpNum: null,
+    });
 
-              clockOut:
-                "00:00",
-            }
-          : {}),
-      }
-    );
+    setAbsenceModal(null);
+    setSelectedBackupId("");
+    return;
+  }
+
+  const employee = employees.find(
+    (emp) => emp.num === empNum
+  );
+
+  if (!employee) return;
+
+  const planning = dailyPlanning.find(
+    (p) =>
+      p.empId?._id === employee.mongoId &&
+      p.shiftId?._id === currentTab
+  );
+
+  const backups = (
+    planning?.backupEmpIds ?? []
+  ).filter(
+    (backup): backup is EmployeeRecord =>
+      typeof backup === "object" &&
+      backup !== null &&
+      Boolean(backup._id)
+  );
+
+  // No backups configured: mark the employee absent directly.
+  if (backups.length === 0) {
+    updateEntry(empNum, {
+      absent: true,
+      clockIn: "00:00",
+      clockOut: "00:00",
+      backupEmpNum: null,
+    });
+    return;
+  }
+
+  // Ask the manager to choose a backup.
+  setSelectedBackupId("");
+  setAbsenceModal({
+    empNum,
+    backups,
+  });
+};
+
+const confirmAbsence = () => {
+  if (!absenceModal || !selectedBackupId || !currentTab) {
+    return;
+  }
+
+  const backup = absenceModal.backups.find(
+    (item) => item._id === selectedBackupId
+  );
+
+  if (!backup) return;
+
+  // Find the backup in the main employees list.
+  const backupEmployee = employees.find(
+    (emp) => emp.mongoId === backup._id
+  );
+
+  if (!backupEmployee) {
+    setApiError("The selected backup employee could not be found.");
+    return;
+  }
+
+  // 1. Mark the original employee absent.
+  updateEntry(absenceModal.empNum, {
+    absent: true,
+    clockIn: "00:00",
+    clockOut: "00:00",
+    backupEmpNum: backup.empNumber,
+  });
+
+  // 2. Ensure the backup has a separate attendance entry.
+  // Preserve any existing clock-in/out times.
+  updateEntry(backupEmployee.num, {
+    absent: false,
+  });
+
+  // Close the modal.
+  setAbsenceModal(null);
+  setSelectedBackupId("");
+};
+
+
 
   /* --------------------------------------------------------------------------
      RESET
@@ -3043,7 +3130,7 @@ const [deviceEntries, setDeviceEntries] =
         No shifts found — check
         that{" "}
         <code className="mx-1 font-mono bg-gray-100 px-1 rounded">
-          localhost:3001/shifts
+          ${API_BASE_URL}/shifts
         </code>{" "}
         returns data and CORS
         is enabled.
@@ -3052,6 +3139,7 @@ const [deviceEntries, setDeviceEntries] =
   }
 
   return (
+    
     <>
       {/* =====================================================================
           MANUAL TIME EDIT MODAL
@@ -3164,6 +3252,97 @@ const [deviceEntries, setDeviceEntries] =
           </div>
         </>
       )}
+
+      {absenceModal && (
+        <>
+          {/* Background overlay */}
+          <div
+            className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
+            onClick={() => {
+              setAbsenceModal(null);
+              setSelectedBackupId("");
+            }}
+          />
+
+          {/* Absence modal */}
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="backup-dialog-title"
+            className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-gray-200 bg-white p-6 shadow-xl dark:border-white/[0.1] dark:bg-gray-900"
+          >
+            <h3
+              id="backup-dialog-title"
+              className="text-lg font-semibold text-gray-800 dark:text-white"
+            >
+              Choose a replacement
+            </h3>
+
+            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+              Select one of the planned backup employees to replace
+              {" "}
+              {employees.find(
+                (emp) => emp.num === absenceModal.empNum
+              )?.FirstName ?? "the absent employee"}.
+            </p>
+
+            {/* Planned backup employees */}
+            <div className="mt-4 space-y-2">
+              {absenceModal.backups.map((backup) => (
+                <label
+                  key={backup._id}
+                  className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors ${
+                    selectedBackupId === backup._id
+                      ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+                      : "border-gray-200 hover:bg-gray-50 dark:border-white/[0.1] dark:hover:bg-white/[0.05]"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="plannedBackup"
+                    value={backup._id}
+                    checked={selectedBackupId === backup._id}
+                    onChange={() => setSelectedBackupId(backup._id)}
+                    className="h-4 w-4 accent-blue-600"
+                  />
+
+                  <span className="text-sm font-medium text-gray-800 dark:text-white">
+                    {backup.firstName} {backup.lastName}
+                  </span>
+
+                  <span className="ml-auto text-xs text-gray-400">
+                    EMP-{backup.empNumber}
+                  </span>
+                </label>
+              ))}
+            </div>
+
+            {/* Actions */}
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setAbsenceModal(null);
+                  setSelectedBackupId("");
+                }}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.05]"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                disabled={!selectedBackupId}
+                onClick={confirmAbsence}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Confirm absence
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
 
       {/* =====================================================================
           ERROR
@@ -3387,6 +3566,11 @@ const [deviceEntries, setDeviceEntries] =
           TABLE
       ===================================================================== */}
 
+      {attendanceLoading ? (
+        <div className="p-6 text-center text-gray-500">
+          Loading attendance...
+        </div>
+      ) : (
       <div className="rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
         <div className="flex items-center justify-between px-5 py-4 gap-4 flex-wrap border-b border-gray-100 dark:border-white/[0.05]">
           <h2 className="text-base font-semibold text-gray-800 dark:text-white">
@@ -3500,6 +3684,15 @@ const [deviceEntries, setDeviceEntries] =
                         entry
                       );
 
+                    //states  
+                    const backupEmployee =
+                    entry.backupEmpNum == null
+                      ? undefined
+                      : employees.find(
+                          (item) =>
+                            Number(item.empNumber) === Number(entry.backupEmpNum)
+                        );
+
                     const st =
                       specialTimes[
                         `${emp.mongoId}-${currentTab}`
@@ -3557,6 +3750,17 @@ const [deviceEntries, setDeviceEntries] =
                               emp.empNumber
                             }
                           </p>
+
+                          {entry.absent && (
+                            <p className="mt-1 text-xs text-blue-600 dark:text-blue-400">
+                              Backup:{" "}
+                              {backupEmployee
+                                ? `${backupEmployee.FirstName} `
+                                : entry.backupEmpNum != null
+                                  ? `Employee #${entry.backupEmpNum}`
+                                  : "Not assigned"}
+                            </p>
+                          )}
                         </td>
 
                         {/* STATUS */}
@@ -3841,6 +4045,7 @@ const [deviceEntries, setDeviceEntries] =
           in this shift
         </div>
       </div>
+      )}
     </>
   );
 }

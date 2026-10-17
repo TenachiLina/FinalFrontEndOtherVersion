@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { API_BASE_URL } from "@/lib/config";
 import Badge from "../ui/badge/Badge";
 import {
   getWorktimesByDate,
@@ -155,6 +156,21 @@ export default function AttendancePage({
   const [specialTimes, setSpecialTimes] =
     useState<Record<string, { clockIn?: string; clockOut?: string }>>({});
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+ 
+  //Backup Employees states: 
+  const [absenceModal, setAbsenceModal] = useState<{
+    empNum: number;
+    backups: EmployeeRecord[];
+  } | null>(null);
+
+  const [selectedBackupId, setSelectedBackupId] = useState("");
+
+  const [selectedBackups, setSelectedBackups] = useState<
+    Record<string, EmployeeRecord>
+  >({}); 
+
+  const [savedBackupAssignments, setSavedBackupAssignments] =
+  useState<Record<string, number>>({});
 
   // ── Load employees, shifts, planning for the selected date ───────────────
   useEffect(() => {
@@ -228,6 +244,19 @@ export default function AttendancePage({
   if (!currentDate) return;
   getWorktimesByDate(selectedDate)
     .then((records) => {
+      const assignments: Record<string, number> = {};
+      records.forEach((record) => {
+        if (
+          record.backup_emp_id != null &&
+          record.shift_id
+        ) {
+          assignments[
+            `${record.emp_id}-${record.shift_id}`
+          ] = record.backup_emp_id;
+        }
+      });
+      setSavedBackupAssignments(assignments);
+      
       setEntries((prev) => {
         // Start with whatever is in localStorage
         const fromStorage = loadEntriesFromStorage(selectedDate);
@@ -245,6 +274,43 @@ export default function AttendancePage({
     })
     .catch((e) => setApiError(String(e)));
 }, [selectedDate]);
+
+
+useEffect(() => {
+  const restored: Record<string, EmployeeRecord> = {};
+
+  for (const [key, backupEmpNum] of Object.entries(
+    savedBackupAssignments
+  )) {
+    // Employee number comes before the first hyphen.
+    // The shift ID itself may also contain hyphens.
+    const separatorIndex = key.indexOf("-");
+
+    if (separatorIndex === -1) continue;
+
+    const mainEmpNum = Number(key.slice(0, separatorIndex));
+    const shiftId = key.slice(separatorIndex + 1);
+
+    const planning = planningRecords.find(
+      (p) =>
+        p.empId?.empNumber === mainEmpNum &&
+        p.shiftId?._id === shiftId
+    );
+
+    const backup = (planning?.backupEmpIds ?? []).find(
+      (b) =>
+        typeof b === "object" &&
+        b !== null &&
+        b.empNumber === backupEmpNum
+    );
+
+    if (backup) {
+      restored[key] = backup;
+    }
+  }
+
+  setSelectedBackups(restored);
+}, [savedBackupAssignments, planningRecords]);
   // ── Derived ───────────────────────────────────────────────────────────────
   const currentShift = useMemo(
     () => shifts.find((s) => s.shift_id === currentTab) ?? null,
@@ -331,8 +397,148 @@ export default function AttendancePage({
     updateEntry(employee, { [type]: value });
     setManualInput({ employee: null, type: null, value: "" });
   };
-  const toggleAbsent = (empNum: number, absent: boolean) =>
-    updateEntry(empNum, { absent, ...(absent ? { clockIn: "00:00", clockOut: "00:00" } : {}) });
+  // const toggleAbsent = (empNum: number, absent: boolean) =>
+  //   updateEntry(empNum, { absent, ...(absent ? { clockIn: "00:00", clockOut: "00:00" } : {}) });
+  const handleAbsentClick = (
+    emp: AttendanceEmployee,
+    absent: boolean
+  ) => {
+    // If the checkbox is unchecked, cancel the absence.
+    if (!absent) {
+      updateEntry(emp.num, { absent: false });
+
+      const key = `${emp.num}-${currentTab}`;
+
+      setSelectedBackups((prev) => {
+        const updated = { ...prev };
+        delete updated[key];
+        return updated;
+      });
+      if (currentTab) {
+        upsertWorktime(
+          {
+            emp_id: emp.num,
+            shift_id: currentTab,
+            work_date: selectedDate,
+            absent: false,
+            backup_emp_id: null,
+          },
+          getEntry(emp.num).workTimeId
+        ).catch((error) => {
+          console.error("Failed to clear saved backup:", error);
+          setApiError("Could not clear the saved backup assignment.");
+        });
+      }
+
+      return;
+    }
+
+    if (!currentTab) return;
+
+    const planning = getPlanningForEmployee(emp, currentTab);
+
+    const backups = (planning?.backupEmpIds ?? []).filter(
+      (backup): backup is EmployeeRecord =>
+        typeof backup === "object" &&
+        backup !== null &&
+        Boolean(backup._id)
+    );
+
+    // No planned backups: mark the employee absent directly.
+    if (backups.length === 0) {
+      updateEntry(emp.num, {
+        absent: true,
+        clockIn: "00:00",
+        clockOut: "00:00",
+      });
+      return;
+    }
+
+    // Open the selection modal.
+    setSelectedBackupId("");
+    setAbsenceModal({
+      empNum: emp.num,
+      backups,
+    });
+  };
+  const confirmAbsence = async () => {
+  if (!absenceModal || !selectedBackupId || !currentTab) {
+    return;
+  }
+
+  const backup = absenceModal.backups.find(
+    (b) => b._id === selectedBackupId
+  );
+
+  if (!backup) return;
+
+  const mainEmpNum = absenceModal.empNum;
+  const key = `${mainEmpNum}-${currentTab}`;
+
+  const previousEntry = getEntry(mainEmpNum);
+
+  const updatedEntry: EmployeeTimeEntry = {
+    ...previousEntry,
+    absent: true,
+    clockIn: "00:00",
+    clockOut: "00:00",
+    _dirty: false,
+    _saving: false,
+  };
+
+  try {
+    // Build the absent employee's worktime payload.
+    const payload = entryToPayload(
+      updatedEntry,
+      mainEmpNum,
+      currentTab,
+      selectedDate,
+      currentShift?.start_time ?? "",
+      currentShift?.end_time ?? ""
+    );
+
+    // Save the absence and selected backup on the MAIN employee's record.
+    const saved = await upsertWorktime(
+      {
+        ...payload,
+        absent: true,
+        clock_in: "00:00",
+        clock_out: "00:00",
+        backup_emp_id: backup.empNumber,
+      },
+      previousEntry.workTimeId
+    );
+
+    // Update the attendance entry after the API succeeds.
+    setEntries((prev) => {
+      const next = {
+        ...prev,
+        [key]: {
+          ...updatedEntry,
+          workTimeId: saved._id,
+        },
+      };
+
+      saveEntriesToStorage(selectedDate, next);
+
+      return next;
+    });
+
+    // Store the selected backup for immediate display.
+    setSelectedBackups((prev) => ({
+      ...prev,
+      [key]: backup,
+    }));
+
+    setAbsenceModal(null);
+    setSelectedBackupId("");
+  } catch (error) {
+    console.error("Failed to save absence and backup:", error);
+    setApiError("Could not save the absence and selected backup.");
+  }
+  };
+
+
   const clearAllData = () => {
     if (!window.confirm("Reset all clock-in/out data for today?")) return;
     setEntries((prev) => {
@@ -343,77 +549,87 @@ export default function AttendancePage({
       return reset;
     });
   };
-  const getAttendanceRows = ( 
-    employees: Employee[],
-    shiftId: string | null
-  ): AttendanceRow[] => {
-    if (!shiftId) {
-      return employees.map((employee) => ({
-        employee,
-        isBackup: false,
-      }));
+  
+const getAttendanceRows = (
+  employees: Employee[],
+  shiftId: string | null
+): AttendanceRow[] => {
+  if (!shiftId) {
+    return employees.map((employee) => ({
+      employee,
+      isBackup: false,
+    }));
+  }
+
+  const rows: AttendanceRow[] = [];
+
+  for (const employee of employees) {
+    // 1. Always display the main employee.
+    rows.push({
+      employee,
+      isBackup: false,
+    });
+
+    // 2. Get this employee's attendance entry for the selected shift.
+    const entry = getEntry(employee.num);
+
+    // 3. Display a replacement only when the main employee is absent.
+    if (!entry.absent) {
+      continue;
     }
 
-    const rows: AttendanceRow[] = [];
+    // 4. Get the backup selected in the absence modal.
+    const backupKey = `${employee.num}-${shiftId}`;
+    const backupRecord = selectedBackups[backupKey];
 
-    for (const employee of employees) {
-      // Always display the main employee
-      rows.push({
-        employee,
-        isBackup: false,
-      });
-
-      // Get this employee's attendance entry
-      const entry = getEntry(employee.num);
-
-      // Backup only appears when the main employee is absent
-      if (!entry.absent) {
-        continue;
-      }
-
-      // Find planning for this employee + shift
-      const planning = planningRecords.find(
-        (p) =>
-          p.empId?._id === employee.mongoId &&
-          p.shiftId?._id === shiftId
-      );
-
-      // No planning or no backup
-      if (!planning?.backupEmpId) {
-        continue;
-      }
-
-      // Convert API EmployeeRecord -> frontend Employee
-      const backupEmployee = employeeRecordToEmployee(
-        planning.backupEmpId
-      );
-
-      // Prevent duplicate rows
-      if (
-        rows.some(
-          (row) =>
-            row.employee.mongoId === backupEmployee.mongoId
-        )
-      ) {
-        continue;
-      }
-
-      // Add backup as a real attendance employee
-      rows.push({
-        employee: backupEmployee,
-        isBackup: true,
-        backupOfEmpNum: employee.num,
-      });
+    // No backup selected: do not add a replacement row.
+    if (!backupRecord) {
+      continue;
     }
 
-    return rows;
+    // 5. Convert the API employee record to the frontend format.
+    const backupEmployee = employeeRecordToEmployee(backupRecord);
+
+    // 6. Prevent duplicate employee rows.
+    if (
+      rows.some(
+        (row) =>
+          row.employee.mongoId === backupEmployee.mongoId
+      )
+    ) {
+      continue;
+    }
+
+    // 7. Add the selected backup as an attendance row.
+    rows.push({
+      employee: backupEmployee,
+      isBackup: true,
+      backupOfEmpNum: employee.num,
+    });
+  }
+
+  return rows;
+};
+
+
+  //Helpers:
+  const getPlanningForEmployee = (
+    emp: AttendanceEmployee,
+    shiftId: string
+  ) => {
+    return planningRecords.find(
+      (p) =>
+        p.empId?._id === emp.mongoId &&
+        p.shiftId?._id === shiftId
+    );
   };
-
+  
   // ── Stats ─────────────────────────────────────────────────────────────────
   const attendanceRows = useMemo(
     () => getAttendanceRows(filteredEmployees, currentTab),
-    [filteredEmployees, currentTab, entries, planningRecords]
+    [filteredEmployees, currentTab, entries, planningRecords, selectedBackups]
   );
+
   const stats = useMemo(() => {
     let present = 0, absent = 0, pending = 0;
     filteredEmployees.forEach((emp) => {
@@ -434,7 +650,7 @@ export default function AttendancePage({
 
   if (!loading && !shifts.length) return (
     <div className="flex items-center justify-center h-32 text-gray-400 text-sm">
-      No shifts found — check that <code className="mx-1 font-mono bg-gray-100 px-1 rounded">localhost:3001/shifts</code> returns data and CORS is enabled.
+      No shifts found — check that <code className="mx-1 font-mono bg-gray-100 px-1 rounded">${API_BASE_URL}/shifts</code> returns data and CORS is enabled.
     </div>
   );
 
@@ -613,6 +829,81 @@ export default function AttendancePage({
 
 
             
+
+      {absenceModal && (
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
+            onClick={() => {
+              setAbsenceModal(null);
+              setSelectedBackupId("");
+            }}
+          />
+
+          <div className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-gray-200 bg-white p-6 shadow-xl dark:border-white/[0.1] dark:bg-gray-900">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
+              Choose a replacement
+            </h3>
+
+            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+              Select one of the planned backup employees to replace
+              the absent employee.
+            </p>
+
+            <div className="mt-4 space-y-2">
+              {absenceModal.backups.map((backup) => (
+                <label
+                  key={backup._id}
+                  className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 ${
+                    selectedBackupId === backup._id
+                      ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+                      : "border-gray-200 hover:bg-gray-50 dark:border-white/[0.1] dark:hover:bg-white/[0.05]"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="plannedBackup"
+                    value={backup._id}
+                    checked={selectedBackupId === backup._id}
+                    onChange={() => setSelectedBackupId(backup._id)}
+                    className="h-4 w-4 accent-blue-600"
+                  />
+
+                  <span className="text-sm font-medium text-gray-800 dark:text-white">
+                    {backup.firstName} {backup.lastName}
+                  </span>
+
+                  <span className="ml-auto text-xs text-gray-400">
+                    EMP-{backup.empNumber}
+                  </span>
+                </label>
+              ))}
+            </div>
+
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setAbsenceModal(null);
+                  setSelectedBackupId("");
+                }}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm dark:border-gray-700"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                disabled={!selectedBackupId}
+                onClick={confirmAbsence}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Confirm absence
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* API Error Banner */}
       {apiError && (
@@ -806,7 +1097,7 @@ export default function AttendancePage({
                     </td>
                     <td className="px-4 py-3">
                       <label className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" className="sr-only peer" checked={entry.absent} onChange={(e) => toggleAbsent(emp.num, e.target.checked)} />
+                        <input type="checkbox" className="sr-only peer" checked={entry.absent} onChange={(e) => handleAbsentClick(emp, e.target.checked)} />
                         <div className="w-9 h-5 bg-gray-200 dark:bg-white/[0.1] peer-focus:ring-2 peer-focus:ring-blue-500/20 rounded-full peer peer-checked:bg-red-500 transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4" />
                       </label>
                     </td>

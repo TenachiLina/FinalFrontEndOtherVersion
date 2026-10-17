@@ -1,6 +1,6 @@
 // → save as: lib/bonuses.ts
 import { DateRange } from "@/components/reporting/types";
-import { API_BASE_URL } from "@/lib/reporting";
+import { API_BASE_URL } from "@/lib/config";
 
 export interface BonusRecord {
   id: string;

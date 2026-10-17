@@ -1,11 +1,10 @@
 // Place at: src/hooks/useShiftsManagement.ts
 import { useState, useCallback, useEffect } from "react";
 import { useModal } from "@/hooks/useModal";
-
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+import { API_BASE_URL } from "@/lib/config";
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
     headers: { "Content-Type": "application/json" },
     ...init,
   });
@@ -25,9 +24,9 @@ export interface ManagedShift {
 }
 
 type ShiftView = "active" | "archived";
-type ShiftForm = {startTime: string; endTime: string };
+type ShiftForm = { startTime: string; endTime: string };
 
-const emptyForm: ShiftForm = {startTime: "", endTime: "" };
+const emptyForm: ShiftForm = { startTime: "", endTime: "" };
 
 export const useShiftsManagement = () => {
   const { isOpen, openModal, closeModal } = useModal();
@@ -76,7 +75,7 @@ export const useShiftsManagement = () => {
     (shift: ManagedShift) => {
       setModalMode("edit");
       setEditingShift(shift);
-      setForm({startTime: shift.startTime, endTime: shift.endTime });
+      setForm({ startTime: shift.startTime, endTime: shift.endTime });
       setFormError(null);
       openModal();
     },
@@ -99,10 +98,11 @@ export const useShiftsManagement = () => {
       setFormError("Start time and end time are required.");
       return;
     }
-    if (form.startTime > form.endTime) {
-      setFormError("Start time must be before end time.");
-      return;
-    }
+    // if (form.startTime > form.endTime) {
+    //   setFormError("Start time must be before end time.");
+    //   return;
+    // }
+    
     if (form.endTime === form.startTime) {
       setFormError("Start time and end time can't be the same.");
       return;

@@ -2,8 +2,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import Image from "next/image";
 import Badge from "../ui/badge/Badge";
-
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+import { API_BASE_URL } from "@/lib/config";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -24,27 +23,27 @@ type SortDir = "asc" | "desc";
 // ─── API ──────────────────────────────────────────────────────────────────────
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
     headers: { "Content-Type": "application/json" }, ...init,
   });
   if (!res.ok) throw new Error(`${res.status} ${await res.text().catch(() => "")}`);
   return res.json();
 }
 
-const getEmployees  = ()                                     => apiFetch<Employee[]>("/employees");
-const createEmployee= (body: Omit<Employee, "_id">)          => apiFetch<Employee>("/employees", { method: "POST", body: JSON.stringify(body) });
-const updateEmployee= (id: string, body: Partial<Employee>)  => apiFetch<Employee>(`/employees/${id}`, { method: "PUT", body: JSON.stringify(body) });
-const deleteEmployee= (id: string)                           => apiFetch<unknown>(`/employees/${id}`, { method: "DELETE" });
+const getEmployees = () => apiFetch<Employee[]>("/employees");
+const createEmployee = (body: Omit<Employee, "_id">) => apiFetch<Employee>("/employees", { method: "POST", body: JSON.stringify(body) });
+const updateEmployee = (id: string, body: Partial<Employee>) => apiFetch<Employee>(`/employees/${id}`, { method: "PUT", body: JSON.stringify(body) });
+const deleteEmployee = (id: string) => apiFetch<unknown>(`/employees/${id}`, { method: "DELETE" });
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
-const TrashIcon = () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>);
-const EditIcon  = () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>);
-const PlusIcon  = () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>);
-const CloseIcon = () => (<svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>);
-const SortIcon  = ({ active, dir }: { active: boolean; dir: SortDir }) => (
+const TrashIcon = () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4h6v2" /></svg>);
+const EditIcon = () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>);
+const PlusIcon = () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>);
+const CloseIcon = () => (<svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>);
+const SortIcon = ({ active, dir }: { active: boolean; dir: SortDir }) => (
   <svg className={`inline ml-1 w-3 h-3 ${active ? "text-blue-500" : "text-gray-300 dark:text-gray-600"}`} viewBox="0 0 10 14" fill="none">
-    <path d={dir === "asc" && active ? "M5 1v12M1 5l4-4 4 4" : "M5 1v12M1 9l4 4 4-4"} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d={dir === "asc" && active ? "M5 1v12M1 5l4-4 4 4" : "M5 1v12M1 9l4 4 4-4"} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
 
@@ -56,7 +55,7 @@ const emptyForm = () => ({
 });
 
 // ── Field helper ──────────────────────────────────────────────────────────
- // ── Field helper — OUTSIDE the component ─────────────────────────────────────
+// ── Field helper — OUTSIDE the component ─────────────────────────────────────
 const Field = ({
   label, name, type = "text", value, onChange,
 }: {
@@ -74,21 +73,21 @@ const Field = ({
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function BasicTableOne() {
-  const [data,        setData]        = useState<Employee[]>([]);
-  const [loading,     setLoading]     = useState(true);
-  const [apiError,    setApiError]    = useState<string | null>(null);
-  const [saving,      setSaving]      = useState(false);
+  const [data, setData] = useState<Employee[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  const [search,      setSearch]      = useState("");
+  const [search, setSearch] = useState("");
   const [showEntries, setShowEntries] = useState(5);
-  const [sortKey,     setSortKey]     = useState<SortKey>("empNumber");
-  const [sortDir,     setSortDir]     = useState<SortDir>("asc");
+  const [sortKey, setSortKey] = useState<SortKey>("empNumber");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [currentPage, setCurrentPage] = useState(1);
 
-  const [showForm,    setShowForm]    = useState(false);
-  const [isEditing,   setIsEditing]   = useState(false);
-  const [editingId,   setEditingId]   = useState<string | null>(null);
-  const [form,        setForm]        = useState(emptyForm());
+  const [showForm, setShowForm] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState(emptyForm());
 
   // ── Load from API ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -122,7 +121,7 @@ export default function BasicTableOne() {
   }, [filtered, sortKey, sortDir]);
 
   const totalPages = Math.max(1, Math.ceil(sorted.length / showEntries));
-  const paginated  = sorted.slice((currentPage - 1) * showEntries, currentPage * showEntries);
+  const paginated = sorted.slice((currentPage - 1) * showEntries, currentPage * showEntries);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(sortDir === "asc" ? "desc" : "asc");
@@ -144,12 +143,12 @@ export default function BasicTableOne() {
 
   const openEdit = (emp: Employee) => {
     setForm({
-      empNumber:     String(emp.empNumber),
-      firstName:     emp.firstName,
-      lastName:      emp.lastName,
-      baseSalary:    String(emp.baseSalary),
-      address:       emp.address    ?? "",
-      phoneNumber:   emp.phoneNumber ?? "",
+      empNumber: String(emp.empNumber),
+      firstName: emp.firstName,
+      lastName: emp.lastName,
+      baseSalary: String(emp.baseSalary),
+      address: emp.address ?? "",
+      phoneNumber: emp.phoneNumber ?? "",
       personalImage: emp.personalImage ?? "",
     });
     setIsEditing(true);
@@ -166,12 +165,12 @@ export default function BasicTableOne() {
     setApiError(null);
     try {
       const payload = {
-        empNumber:     Number(form.empNumber),
-        firstName:     form.firstName,
-        lastName:      form.lastName,
-        baseSalary:    Number(form.baseSalary),
-        address:       form.address    || undefined,
-        phoneNumber:   form.phoneNumber || undefined,
+        empNumber: Number(form.empNumber),
+        firstName: form.firstName,
+        lastName: form.lastName,
+        baseSalary: Number(form.baseSalary),
+        address: form.address || undefined,
+        phoneNumber: form.phoneNumber || undefined,
         personalImage: form.personalImage || undefined,
       };
 
@@ -201,7 +200,7 @@ export default function BasicTableOne() {
     }
   };
 
-  
+
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -217,14 +216,14 @@ export default function BasicTableOne() {
             </div>
             <div className="flex-1 overflow-y-auto px-6 py-5 flex flex-col gap-4">
               {apiError && <div className="rounded-lg border border-red-200 bg-red-50 dark:bg-red-900/20 px-3 py-2 text-sm text-red-600">⚠ {apiError}</div>}
-<Field label="Employee Number" name="empNumber" type="number" value={form.empNumber} onChange={handleChange} />
+              <Field label="Employee Number" name="empNumber" type="number" value={form.empNumber} onChange={handleChange} />
               <div className="grid grid-cols-2 gap-3">
-<Field label="First Name"  name="firstName" value={form.firstName} onChange={handleChange} />
-<Field label="Last Name"   name="lastName"  value={form.lastName}  onChange={handleChange} />
+                <Field label="First Name" name="firstName" value={form.firstName} onChange={handleChange} />
+                <Field label="Last Name" name="lastName" value={form.lastName} onChange={handleChange} />
               </div>
-<Field label="Base Salary" name="baseSalary" type="number" value={form.baseSalary} onChange={handleChange} />
-<Field label="Address"     name="address"    value={form.address}   onChange={handleChange} />
-<Field label="Phone"       name="phoneNumber" value={form.phoneNumber} onChange={handleChange} />
+              <Field label="Base Salary" name="baseSalary" type="number" value={form.baseSalary} onChange={handleChange} />
+              <Field label="Address" name="address" value={form.address} onChange={handleChange} />
+              <Field label="Phone" name="phoneNumber" value={form.phoneNumber} onChange={handleChange} />
             </div>
             <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 dark:border-white/[0.07]">
               <button onClick={() => setShowForm(false)} className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:border-white/[0.1] dark:text-gray-300 dark:hover:bg-white/[0.05] transition-colors">Cancel</button>
@@ -247,11 +246,11 @@ export default function BasicTableOne() {
               <span>Show</span>
               <select value={showEntries} onChange={(e) => { setShowEntries(Number(e.target.value)); setCurrentPage(1); }}
                 className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm text-gray-700 dark:border-white/[0.1] dark:bg-white/[0.05] dark:text-gray-300 focus:outline-none">
-                {[5,10,25,50].map((n) => <option key={n} value={n}>{n}</option>)}
+                {[5, 10, 25, 50].map((n) => <option key={n} value={n}>{n}</option>)}
               </select>
             </div>
             <div className="relative">
-              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
               <input type="text" placeholder="Search..." value={search}
                 onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
                 className="pl-9 pr-4 py-2 rounded-lg border border-gray-200 bg-white text-sm text-gray-700 placeholder-gray-400 dark:border-white/[0.1] dark:bg-white/[0.05] dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 w-48"
@@ -269,14 +268,14 @@ export default function BasicTableOne() {
             <thead>
               <tr className="border-b border-gray-100 dark:border-white/[0.05] bg-gray-50/60 dark:bg-white/[0.02]">
                 {([
-                  { label: "Emp #",       key: "empNumber"   },
-                  { label: "Photo",       key: null          },
-                  { label: "First Name",  key: "name"        },
-                  { label: "Last Name",   key: "name"        },
-                  { label: "Base Salary", key: "baseSalary"  },
-                  { label: "Address",     key: "address"     },
-                  { label: "Phone",       key: "phoneNumber" },
-                  { label: "Actions",     key: null          },
+                  { label: "Emp #", key: "empNumber" },
+                  { label: "Photo", key: null },
+                  { label: "First Name", key: "name" },
+                  { label: "Last Name", key: "name" },
+                  { label: "Base Salary", key: "baseSalary" },
+                  { label: "Address", key: "address" },
+                  { label: "Phone", key: "phoneNumber" },
+                  { label: "Actions", key: null },
                 ] as { label: string; key: SortKey | null }[]).map(({ label, key }) => (
                   <th key={label}
                     onClick={() => key && handleSort(key)}

@@ -5,14 +5,13 @@ import type {
   PlanningRecord,
 } from "./../calendar/types";
 
-const BASE =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+import { API_BASE_URL } from "@/lib/config";
 
 async function request<T>(
   path: string,
   init?: RequestInit
 ): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
     headers: {
       "Content-Type": "application/json",
     },

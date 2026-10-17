@@ -7,9 +7,9 @@ import {
   fetchAdvances,
   fetchScheduledEmpIds,
   deleteAdvance,
-  API_BASE_URL,
 } from "@/lib/reporting";
 import { payrollConfig, sumHours, sumConsommation, sumAbsences } from "@/lib/payrollConfig";
+import { API_BASE_URL } from "@/lib/config";
 
 export interface WeeklyAdvanceRow {
   empId: number | string;

@@ -105,7 +105,11 @@ export interface PlanningRecord {
 
   empId: EmployeeRecord;
 
-  // Backup employee assigned to this planning
+  // Backup employees assigned to this planning (new)
+  backupEmpIds?: EmployeeRecord[];
+
+  // Legacy single backup, kept only for old documents.
+  // Remove it after the migration has run.
   backupEmpId?: EmployeeRecord | null;
 
   taskId: number;
@@ -118,7 +122,6 @@ export interface PlanningRecord {
 
   tasks?: ShiftTask[];
 }
-
 
 // ─────────────────────────────────────────────────────────────
 // Frontend Employee
@@ -141,26 +144,35 @@ export interface Shift {
   sub: string;
 }
 
+// ─────────────────────────────────────────────────────────────
+// Backup employee reference (one entry per backup)
+// ─────────────────────────────────────────────────────────────
+
+export type BackupRef = {
+  id: string;     // employee _id
+  title: string;  // display name, e.g. "Ali Ali"
+};
 
 // ─────────────────────────────────────────────────────────────
 // Planning Grid Cell
 // ─────────────────────────────────────────────────────────────
-
 export type Cell = {
   id: string;
-
   title: string;
 
-  // Backup employee ID used by the frontend grid
+  // Backup employees for this main employee
+  backups: BackupRef[];
+
+   // Backup employee ID used by the frontend grid
   backupEmployeeId?: string | null;
 
   // Backup employee display name
   backupTitle?: string | null;
 
   planningId?: string;
-
   tasks?: ShiftTask[];
 };
+
 
 
 // ─────────────────────────────────────────────────────────────
