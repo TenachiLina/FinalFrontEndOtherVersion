@@ -121,8 +121,11 @@ export default function ClockInPageHistory() {
     )
   );
 
-
-  const [savingPunch, setSavingPunch] = useState(false);
+ 
+const [savingPunch, setSavingPunch] = useState(false);
+const [savingAddPunch, setSavingAddPunch] = useState(false);
+// A ref blocks a second click immediately, before React re-renders.
+const addPunchInFlight = useRef(false);
   const [toDate, setToDate] = useState(formatDateForInput(today));
 
   const [search, setSearch] = useState("");
@@ -635,20 +638,42 @@ export default function ClockInPageHistory() {
       // 1. CREATE THE ATTENDANCE / MACHINE PUNCH
       // ---------------------------------------------------------
 
-      const response = await fetch(
-        `${API_BASE_URL}/attendance/device-logs`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            deviceUserId: employeeNumber,
-            timestamp: timestamp.toISOString(),
-            processed: false,
-          }),
-        }
-      );
+    const employeeList = Array.isArray(data)
+      ? data
+      : Array.isArray(data?.data)
+      ? data.data
+      : [];
+
+    setEmployees(employeeList);
+  } catch (err) {
+    console.error("Error loading employees:", err);
+    setEmployees([]);
+
+    setError(
+      err instanceof Error
+        ? err.message
+        : "Impossible de récupérer les employés."
+    );
+  } finally {
+    setLoadingEmployees(false);
+  }
+};
+  // ---------------------------------------------------------
+  // ADD PUNCH
+  // ---------------------------------------------------------
+const addPunch = async () => {
+  if (!newPunch.deviceUserId || !newPunch.timestamp) {
+    alert("Veuillez remplir tous les champs.");
+    return;
+  }
+
+  // Prevent duplicate POSTs if the user clicks more than once quickly.
+  if (addPunchInFlight.current) return;
+  addPunchInFlight.current = true;
+  setSavingAddPunch(true);
+
+  try {
+    const employeeNumber = normalizeDeviceId(newPunch.deviceUserId);
 
       const result = await response.json();
 
@@ -836,7 +861,16 @@ export default function ClockInPageHistory() {
       // 7. FIND THE ASSIGNED SHIFT
       // ---------------------------------------------------------
 
-      let shift: any = null;
+    // Warn only when the employee has no planning entry for this date.
+    if (!employeePlanning) {
+      alert(
+        `Attention : l'employé ${employeeNumber} n'est pas dans le planning du ${workDate}. Son pointage sera enregistré sans calcul de retard ni d'heures supplémentaires.`
+      );
+    }
+
+    // ---------------------------------------------------------
+    // 7. FIND THE ASSIGNED SHIFT
+    // ---------------------------------------------------------
 
       if (employeePlanning) {
         const planningShiftId =
@@ -857,21 +891,21 @@ export default function ClockInPageHistory() {
         );
       }
 
-      const shiftId = String(
-        shift._id ?? shift.shift_id
-      );
+const shiftId = shift
+  ? String(shift._id ?? shift.shift_id)
+  : null;
 
-      const shiftStart = String(
-        shift.start_time ?? "00:00"
-      ).slice(0, 5);
+const shiftStart = shift
+  ? String(shift.start_time ?? "00:00").slice(0, 5)
+  : "00:00";
 
-      const shiftEnd = String(
-        shift.end_time ?? "00:00"
-      ).slice(0, 5);
+const shiftEnd = shift
+  ? String(shift.end_time ?? "00:00").slice(0, 5)
+  : "00:00";
 
-      // ---------------------------------------------------------
-      // 8. CALCULATE WORK HOURS
-      // ---------------------------------------------------------
+// L'employé peut travailler même sans planning ni shift.
+// Dans ce cas, on conservera le retard et l'overtime à 0.
+
 
       let workMinutes = 0;
 
@@ -913,66 +947,65 @@ export default function ClockInPageHistory() {
       // 9. CALCULATE DELAY
       // ---------------------------------------------------------
 
-      let lateMinutes = 0;
+   
+let lateMinutes = 0;
 
-      if (clockIn !== "—") {
-        const [inH, inM] = clockIn
-          .slice(0, 5)
-          .split(":")
-          .map(Number);
+if (shift && clockIn !== "—") {
+  const [inH, inM] = clockIn
+    .slice(0, 5)
+    .split(":")
+    .map(Number);
 
-        const [startH, startM] = shiftStart
-          .split(":")
-          .map(Number);
+  const [startH, startM] = shiftStart
+    .split(":")
+    .map(Number);
 
-        lateMinutes = Math.max(
-          0,
-          inH * 60 +
-          inM -
-          (startH * 60 + startM)
-        );
-      }
+  lateMinutes = Math.max(
+    0,
+    inH * 60 + inM - (startH * 60 + startM)
+  );
+}
+
 
       // ---------------------------------------------------------
       // 10. CALCULATE OVERTIME
       // ---------------------------------------------------------
 
-      let overtimeMinutes = 0;
+  
+let overtimeMinutes = 0;
 
-      if (
-        clockOut !== "00:00" &&
-        clockOut !== "—"
-      ) {
-        const [outH, outM] = clockOut
-          .slice(0, 5)
-          .split(":")
-          .map(Number);
+if (shift && clockOut !== "00:00" && clockOut !== "—") {
+  const [outH, outM] = clockOut
+    .slice(0, 5)
+    .split(":")
+    .map(Number);
 
-        const [startH, startM] = shiftStart
-          .split(":")
-          .map(Number);
+  const [startH, startM] = shiftStart
+    .split(":")
+    .map(Number);
 
-        const [endH, endM] = shiftEnd
-          .split(":")
-          .map(Number);
+  const [endH, endM] = shiftEnd
+    .split(":")
+    .map(Number);
 
-        let actualOut = outH * 60 + outM;
-        let expectedEnd = endH * 60 + endM;
+  let actualOut = outH * 60 + outM;
+  let expectedEnd = endH * 60 + endM;
 
-        // Overnight shift
-        if (expectedEnd < startH * 60 + startM) {
-          expectedEnd += 1440;
+  // Shift qui se termine le lendemain
+  if (expectedEnd < startH * 60 + startM) {
+    expectedEnd += 1440;
 
-          if (actualOut < startH * 60 + startM) {
-            actualOut += 1440;
-          }
-        }
+    if (actualOut < startH * 60 + startM) {
+      actualOut += 1440;
+    }
+  }
 
-        overtimeMinutes = Math.max(
-          0,
-          actualOut - expectedEnd
-        );
-      }
+  overtimeMinutes = Math.max(
+    0,
+    actualOut - expectedEnd
+  );
+}
+
 
       // ---------------------------------------------------------
       // 11. CREATE / UPDATE WORKTIME
@@ -982,11 +1015,10 @@ export default function ClockInPageHistory() {
         // Use the employee internal numeric ID for worktime.emp_id.
         emp_id: Number(employee.num ?? employee.empNumber),
 
-        // IMPORTANT:
-        // Mongo shift IDs are strings/ObjectIds.
-        shift_id: shiftId,
-
-        work_date: workDate,
+      // IMPORTANT:
+      // Mongo shift IDs are strings/ObjectIds.
+      shift_id: shiftId,
+      work_date: workDate,
 
         clock_in: clockIn,
         clock_out: clockOut,
@@ -1009,10 +1041,12 @@ export default function ClockInPageHistory() {
         worktimePayload
       );
 
-      await upsertWorktime(
-        worktimePayload,
-        null
-      );
+    // shift_id can be null for an employee who was not scheduled.
+    // The backend and WorktimePayload type must also allow null.
+    await upsertWorktime(
+      worktimePayload as any,
+      null
+    );
 
       // ---------------------------------------------------------
       // 12. RELOAD UI
@@ -1041,13 +1075,16 @@ export default function ClockInPageHistory() {
         err
       );
 
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Impossible d'ajouter le pointage."
-      );
-    }
-  };
+    setError(
+      err instanceof Error
+        ? err.message
+        : "Impossible d'ajouter le pointage."
+    );
+  } finally {
+    addPunchInFlight.current = false;
+    setSavingAddPunch(false);
+  }
+};
 
 
 
@@ -1245,21 +1282,38 @@ export default function ClockInPageHistory() {
           ? employeePlanning.shiftId?._id
           : employeePlanning.shiftId;
 
-      const shift = shifts.find(
-        (s: any) =>
-          String(s._id) === String(planningShiftId) ||
-          String(s.shift_id) === String(planningShiftId)
+    // A missing planning entry is different from a missing shift.
+    // Show the warning only when the employee is not scheduled.
+    if (!employeePlanning) {
+      alert(
+        `Attention : l'employé ${employeeNumber} n'est pas dans le planning du ${workDate}. Son pointage sera enregistré sans calcul de retard ni d'heures supplémentaires.`
       );
 
-      if (!shift) {
-        throw new Error("Shift associé au planning introuvable.");
-      }
+    const planningShiftId = employeePlanning
+      ? typeof employeePlanning.shiftId === "object"
+        ? employeePlanning.shiftId?._id
+        : employeePlanning.shiftId
+      : null;
 
-      const shiftStart = String(shift.start_time ?? "00:00").slice(0, 5);
-      const shiftEnd = String(shift.end_time ?? "00:00").slice(0, 5);
+    const shift = employeePlanning
+      ? shifts.find(
+          (s: any) =>
+            String(s._id) === String(planningShiftId) ||
+            String(s.shift_id) === String(planningShiftId)
+        )
+      : null;
 
-      // 7. Recalculate work hours, including overnight shifts.
-      let workMinutes = 0;
+    const shiftId = shift
+      ? String(shift._id ?? shift.shift_id)
+      : null;
+
+    const shiftStart = shift
+      ? String(shift.start_time ?? "00:00").slice(0, 5)
+      : "00:00";
+
+    const shiftEnd = shift
+      ? String(shift.end_time ?? "00:00").slice(0, 5)
+      : "00:00";
 
       if (clockOut !== "00:00" && clockOut !== "—") {
         const [inH, inM] = clockIn.slice(0, 5).split(":").map(Number);
@@ -1279,32 +1333,58 @@ export default function ClockInPageHistory() {
         `${String(Math.floor(workMinutes / 60)).padStart(2, "0")}:` +
         `${String(workMinutes % 60).padStart(2, "0")}`;
 
-      // 8. Recalculate delay.
-      const [inH, inM] = clockIn.slice(0, 5).split(":").map(Number);
-      const [startH, startM] = shiftStart.split(":").map(Number);
+    // 8. Recalculate delay.
+    let lateMinutes = 0;
 
-      const lateMinutes = Math.max(
-        0,
-        inH * 60 + inM - (startH * 60 + startM)
-      );
+if (shift && clockIn !== "—") {
+  const [inH, inM] = clockIn
+    .slice(0, 5)
+    .split(":")
+    .map(Number);
 
-      // 9. Recalculate overtime.
-      let overtimeMinutes = 0;
+  const [startH, startM] = shiftStart
+    .split(":")
+    .map(Number);
 
-      if (clockOut !== "00:00" && clockOut !== "—") {
-        const [outH, outM] = clockOut.slice(0, 5).split(":").map(Number);
-        const [endH, endM] = shiftEnd.split(":").map(Number);
+  lateMinutes = Math.max(
+    0,
+    inH * 60 + inM - (startH * 60 + startM)
+  );
+}
+    // 9. Recalculate overtime.
+   let overtimeMinutes = 0;
 
-        let actualOut = outH * 60 + outM;
-        let expectedEnd = endH * 60 + endM;
+if (shift && clockOut !== "00:00" && clockOut !== "—") {
+  const [outH, outM] = clockOut
+    .slice(0, 5)
+    .split(":")
+    .map(Number);
 
-        if (expectedEnd < startH * 60 + startM) {
-          expectedEnd += 1440;
+  const [startH, startM] = shiftStart
+    .split(":")
+    .map(Number);
 
-          if (actualOut < startH * 60 + startM) {
-            actualOut += 1440;
-          }
-        }
+  const [endH, endM] = shiftEnd
+    .split(":")
+    .map(Number);
+
+  let actualOut = outH * 60 + outM;
+  let expectedEnd = endH * 60 + endM;
+
+  // Gérer les shifts qui se terminent le lendemain
+  if (expectedEnd < startH * 60 + startM) {
+    expectedEnd += 1440;
+
+    if (actualOut < startH * 60 + startM) {
+      actualOut += 1440;
+    }
+  }
+
+  overtimeMinutes = Math.max(
+    0,
+    actualOut - expectedEnd
+  );
+}
 
         overtimeMinutes = Math.max(0, actualOut - expectedEnd);
       }
@@ -1312,33 +1392,29 @@ export default function ClockInPageHistory() {
       // 10. Update the worktime while preserving payroll fields.
       const existingWorktimes = await getWorktimesByDate(workDate);
 
-      const existingWorktime = existingWorktimes.find(
-        (item) =>
-          Number(item.emp_id) ===
-          Number(employee.num ?? employee.empNumber)
-      );
+    const worktimePayload = {
+      emp_id: Number(employee.num ?? employee.empNumber),
+shift_id: shiftId,
+      work_date: workDate,
+      clock_in: clockIn,
+      clock_out: clockOut,
+      work_hours: workHours,
+      late_minutes: String(lateMinutes),
+      overtime_minutes: String(overtimeMinutes),
 
-      const worktimePayload = {
-        emp_id: Number(employee.num ?? employee.empNumber),
-        shift_id: String(shift._id ?? shift.shift_id),
-        work_date: workDate,
-        clock_in: clockIn,
-        clock_out: clockOut,
-        work_hours: workHours,
-        late_minutes: String(lateMinutes),
-        overtime_minutes: String(overtimeMinutes),
+      consomation: existingWorktime?.consomation ?? 0,
+      penalty: existingWorktime?.penalty ?? 0,
+      bonus: existingWorktime?.bonus ?? 0,
+      absent: existingWorktime?.absent ?? false,
+      absent_comment: existingWorktime?.absent_comment ?? "",
+    };
 
-        consomation: existingWorktime?.consomation ?? 0,
-        penalty: existingWorktime?.penalty ?? 0,
-        bonus: existingWorktime?.bonus ?? 0,
-        absent: existingWorktime?.absent ?? false,
-        absent_comment: existingWorktime?.absent_comment ?? "",
-      };
-
-      await upsertWorktime(
-        worktimePayload,
-        existingWorktime?._id ?? null
-      );
+    // shift_id can be null for an employee who was not scheduled.
+    // The backend and WorktimePayload type must also allow null.
+    await upsertWorktime(
+      worktimePayload as any,
+      existingWorktime?._id ?? null
+    );
 
       // 11. Refresh the history.
       setEditingPunch(null);
@@ -1348,10 +1424,11 @@ export default function ClockInPageHistory() {
         `${mode === "edit" ? "Pointage modifié" : "Clock Out ajouté"} et worktime mis à jour.\n` +
         `Heures travaillées : ${workHours}\n` +
         `Retard : ${lateMinutes} min\n` +
-        `Heures supplémentaires : ${overtimeMinutes} min`
-      );
-    } catch (err) {
-      console.error("Error updating punch and worktime:", err);
+        `Heures supplémentaires : ${overtimeMinutes} min` +
+        (!employeePlanning ? "\nAttention : cet employé n'était pas planifié." : "")
+    );
+  } catch (err) {
+    console.error("Error updating punch and worktime:", err);
 
       setError(
         err instanceof Error
@@ -1934,10 +2011,9 @@ export default function ClockInPageHistory() {
               </h2>
 
               <button
-                onClick={() =>
-                  setShowAddModal(false)
-                }
-                className="text-xl text-gray-400 hover:text-gray-700"
+                onClick={() => setShowAddModal(false)}
+                disabled={savingAddPunch}
+                className="text-xl text-gray-400 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 ×
               </button>
@@ -2103,9 +2179,8 @@ export default function ClockInPageHistory() {
             <div className="mt-6 flex justify-end gap-2">
 
               <button
-                onClick={() =>
-                  setShowAddModal(false)
-                }
+                onClick={() => setShowAddModal(false)}
+                disabled={savingAddPunch}
                 className="
                   rounded-lg
                   border
@@ -2114,6 +2189,8 @@ export default function ClockInPageHistory() {
                   py-2
                   text-sm
                   text-gray-600
+                  disabled:cursor-not-allowed
+                  disabled:opacity-50
                 "
               >
                 Annuler
@@ -2121,17 +2198,29 @@ export default function ClockInPageHistory() {
 
               <button
                 onClick={addPunch}
-                className="
+                disabled={savingAddPunch}
+                aria-busy={savingAddPunch}
+                className={`
                   rounded-lg
-                  bg-[#c98573]
                   px-5
                   py-2
                   text-sm
                   font-medium
                   text-white
-                "
+                  transition-colors
+                  ${savingAddPunch
+                    ? "cursor-not-allowed bg-gray-400 opacity-70"
+                    : "bg-[#c98573] hover:bg-[#b87565]"}
+                `}
               >
-                Ajouter
+                {savingAddPunch ? (
+                  <span className="inline-flex items-center gap-2">
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                    Enregistrement...
+                  </span>
+                ) : (
+                  "Ajouter"
+                )}
               </button>
 
             </div>
