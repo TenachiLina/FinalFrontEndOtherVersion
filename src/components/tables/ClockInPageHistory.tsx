@@ -1,10 +1,9 @@
 "use client";
-import React, { useEffect, useMemo, useState, useRef } from "react";
-
+import React, { useEffect, useMemo, useState, useRef} from "react";
 import {
   upsertWorktime,
   getWorktimesByDate,
-} from "./worktime.api"; interface AttendanceLog {
+} from "./worktime.api";interface AttendanceLog {
   _id?: string;
   deviceUserId: string;
   timestamp: string;
@@ -28,7 +27,8 @@ interface GroupedAttendance {
   logs: AttendanceLog[];
 }
 
-import { API_BASE_URL } from "@/lib/config";
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
 
 const PAGE_SIZE = 15;
 
@@ -121,8 +121,11 @@ export default function ClockInPageHistory() {
     )
   );
 
-
-  const [savingPunch, setSavingPunch] = useState(false);
+ 
+const [savingPunch, setSavingPunch] = useState(false);
+const [savingAddPunch, setSavingAddPunch] = useState(false);
+// A ref blocks a second click immediately, before React re-renders.
+const addPunchInFlight = useRef(false);
   const [toDate, setToDate] = useState(formatDateForInput(today));
 
   const [search, setSearch] = useState("");
@@ -141,16 +144,16 @@ export default function ClockInPageHistory() {
 
   const [showAddModal, setShowAddModal] = useState(false);
 
-  const [newPunch, setNewPunch] = useState({
-    deviceUserId: "",
-    timestamp: "",
-    consomation: 0,
-    penalty: 0,
-    bonus: 0,
-  });
+const [newPunch, setNewPunch] = useState({
+  deviceUserId: "",
+  timestamp: "",
+  consomation: 0,
+  penalty: 0,
+  bonus: 0,
+});
 
-  const [employees, setEmployees] = useState<any[]>([]);
-  const [loadingEmployees, setLoadingEmployees] = useState(false);
+const [employees, setEmployees] = useState<any[]>([]);
+const [loadingEmployees, setLoadingEmployees] = useState(false);
 
   const [deviceStatus, setDeviceStatus] = useState<{
     connected: boolean;
@@ -159,18 +162,18 @@ export default function ClockInPageHistory() {
   } | null>(null);
 
   const [editingPunch, setEditingPunch] = useState<{
-    logId: string | null;
-    value: string;
-    mode: "edit" | "add-clock-out";
-    clockInLogId?: string;
-    deviceUserId?: string;
-    workDate?: string;
-  } | null>(null);
+  logId: string | null;
+  value: string;
+  mode: "edit" | "add-clock-out";
+  clockInLogId?: string;
+  deviceUserId?: string;
+  workDate?: string;
+} | null>(null);
 
-  const [selectedEmployee, setSelectedEmployee] = useState("");
-  const [employeeQuery, setEmployeeQuery] = useState("");
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const searchBoxRef = useRef<HTMLDivElement>(null);
+const [selectedEmployee, setSelectedEmployee] = useState("");
+const [employeeQuery, setEmployeeQuery] = useState("");
+const [showSuggestions, setShowSuggestions] = useState(false);
+const searchBoxRef = useRef<HTMLDivElement>(null);
   // ---------------------------------------------------------
   // LOAD ATTENDANCE LOGS
   // ---------------------------------------------------------
@@ -200,8 +203,8 @@ export default function ClockInPageHistory() {
       const receivedLogs = Array.isArray(data)
         ? data
         : Array.isArray(data?.data)
-          ? data.data
-          : [];
+        ? data.data
+        : [];
 
       setLogs(receivedLogs);
       setPage(1);
@@ -223,110 +226,110 @@ export default function ClockInPageHistory() {
 
   // Load initially
   useEffect(() => {
-    loadLogs();
-  }, [fromDate, toDate]);
+  loadLogs();
+}, [fromDate, toDate]);
 
   // ---------------------------------------------------------
   // GROUP LOGS BY EMPLOYEE + DATE
   // ---------------------------------------------------------
 
   // ---------------------------------------------------------
-  // GROUP LOGS BY EMPLOYEE + DATE, THEN CREATE PUNCH INTERVALS
+// GROUP LOGS BY EMPLOYEE + DATE, THEN CREATE PUNCH INTERVALS
+// ---------------------------------------------------------
+
+const groupedLogs = useMemo(() => {
+  const groups: Record<string, AttendanceLog[]> = {};
+
+  // First group all punches by employee + date
+  logs.forEach((log) => {
+    const deviceId = normalizeDeviceId(log.deviceUserId);
+
+    // Use the date contained in the machine timestamp
+    const date = log.timestamp.substring(0, 10);
+
+    const key = `${deviceId}-${date}`;
+
+    if (!groups[key]) {
+      groups[key] = [];
+    }
+
+    groups[key].push(log);
+  });
+
+  const result: GroupedAttendance[] = [];
+
+  // ---------------------------------------------------------
+  // CREATE INTERVALS
+  //
+  // Punches are paired chronologically:
+  //
+  // 08:00 → 08:07
+  // 08:07 → 12:00
+  // 12:00 → 12:10
+  // 12:10 → 16:00
+  //
+  // Each pair becomes its own table row.
   // ---------------------------------------------------------
 
-  const groupedLogs = useMemo(() => {
-    const groups: Record<string, AttendanceLog[]> = {};
-
-    // First group all punches by employee + date
-    logs.forEach((log) => {
-      const deviceId = normalizeDeviceId(log.deviceUserId);
-
-      // Use the date contained in the machine timestamp
-      const date = log.timestamp.substring(0, 10);
-
-      const key = `${deviceId}-${date}`;
-
-      if (!groups[key]) {
-        groups[key] = [];
-      }
-
-      groups[key].push(log);
-    });
-
-    const result: GroupedAttendance[] = [];
-
-    // ---------------------------------------------------------
-    // CREATE INTERVALS
-    //
-    // Punches are paired chronologically:
-    //
-    // 08:00 → 08:07
-    // 08:07 → 12:00
-    // 12:00 → 12:10
-    // 12:10 → 16:00
-    //
-    // Each pair becomes its own table row.
-    // ---------------------------------------------------------
-
-    Object.values(groups).forEach((dayLogs) => {
-      const sorted = [...dayLogs].sort(
-        (a, b) =>
-          new Date(a.timestamp).getTime() -
-          new Date(b.timestamp).getTime()
-      );
-
-      for (let i = 0; i < sorted.length; i += 2) {
-        const clockInLog = sorted[i];
-
-        if (!clockInLog) {
-          continue;
-        }
-
-        const clockOutLog = sorted[i + 1] ?? null;
-
-        result.push({
-          id:
-            clockInLog._id ??
-            `${clockInLog.deviceUserId}-${clockInLog.timestamp}-${i}`,
-
-          employeeNumber:
-            clockInLog.employeeNumber ??
-            normalizeDeviceId(clockInLog.deviceUserId),
-
-          firstName: clockInLog.firstName,
-          lastName: clockInLog.lastName,
-
-          date: clockInLog.timestamp.substring(0, 10),
-
-          // First punch of this interval
-          clockIn: clockInLog.timestamp,
-
-          // Second punch of this interval
-          // If there is no second punch, the interval is not validated.
-          clockOut: clockOutLog
-            ? clockOutLog.timestamp
-            : null,
-
-          // Only these two machine logs belong to this interval
-          logs: clockOutLog
-            ? [clockInLog, clockOutLog]
-            : [clockInLog],
-        });
-      }
-    });
-
-    // Newest intervals first
-    return result.sort(
+  Object.values(groups).forEach((dayLogs) => {
+    const sorted = [...dayLogs].sort(
       (a, b) =>
-        new Date(b.clockIn).getTime() -
-        new Date(a.clockIn).getTime()
+        new Date(a.timestamp).getTime() -
+        new Date(b.timestamp).getTime()
     );
-  }, [logs]);
+
+    for (let i = 0; i < sorted.length; i += 2) {
+      const clockInLog = sorted[i];
+
+      if (!clockInLog) {
+        continue;
+      }
+
+      const clockOutLog = sorted[i + 1] ?? null;
+
+      result.push({
+        id:
+          clockInLog._id ??
+          `${clockInLog.deviceUserId}-${clockInLog.timestamp}-${i}`,
+
+        employeeNumber:
+          clockInLog.employeeNumber ??
+          normalizeDeviceId(clockInLog.deviceUserId),
+
+        firstName: clockInLog.firstName,
+        lastName: clockInLog.lastName,
+
+        date: clockInLog.timestamp.substring(0, 10),
+
+        // First punch of this interval
+        clockIn: clockInLog.timestamp,
+
+        // Second punch of this interval
+        // If there is no second punch, the interval is not validated.
+        clockOut: clockOutLog
+          ? clockOutLog.timestamp
+          : null,
+
+        // Only these two machine logs belong to this interval
+        logs: clockOutLog
+          ? [clockInLog, clockOutLog]
+          : [clockInLog],
+      });
+    }
+  });
+
+  // Newest intervals first
+  return result.sort(
+    (a, b) =>
+      new Date(b.clockIn).getTime() -
+      new Date(a.clockIn).getTime()
+  );
+}, [logs]);
 
 
-  useEffect(() => {
-    loadEmployees();
-  }, []);
+useEffect(() => {
+  loadEmployees();
+}, []);
 
 
 
@@ -335,57 +338,58 @@ export default function ClockInPageHistory() {
   // ---------------------------------------------------------
 
   const getEmployeeLabel = (employee: any) =>
-    `${employee.empNumber} — ${employee.LastName ?? employee.lastName ?? ""} ${employee.FirstName ?? employee.firstName ?? ""
-      }`.trim();
+  `${employee.empNumber} — ${employee.LastName ?? employee.lastName ?? ""} ${
+    employee.FirstName ?? employee.firstName ?? ""
+  }`.trim();
 
-  const suggestions = useMemo(() => {
-    const q = employeeQuery.toLowerCase().trim();
+const suggestions = useMemo(() => {
+  const q = employeeQuery.toLowerCase().trim();
 
-    if (!q) return employees.slice(0, 50);
+  if (!q) return employees.slice(0, 50);
 
-    return employees
-      .filter((employee) =>
-        getEmployeeLabel(employee).toLowerCase().includes(q)
-      )
-      .slice(0, 50);
-  }, [employees, employeeQuery]);
+  return employees
+    .filter((employee) =>
+      getEmployeeLabel(employee).toLowerCase().includes(q)
+    )
+    .slice(0, 50);
+}, [employees, employeeQuery]);
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        searchBoxRef.current &&
-        !searchBoxRef.current.contains(event.target as Node)
-      ) {
-        setShowSuggestions(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const filteredLogs = useMemo(() => {
-    if (selectedEmployee) {
-      return groupedLogs.filter(
-        (log) =>
-          normalizeDeviceId(String(log.employeeNumber)) === selectedEmployee
-      );
+useEffect(() => {
+  const handleClickOutside = (event: MouseEvent) => {
+    if (
+      searchBoxRef.current &&
+      !searchBoxRef.current.contains(event.target as Node)
+    ) {
+      setShowSuggestions(false);
     }
+  };
 
-    const q = employeeQuery.toLowerCase().trim();
-    if (!q) return groupedLogs;
+  document.addEventListener("mousedown", handleClickOutside);
+  return () => document.removeEventListener("mousedown", handleClickOutside);
+}, []);
 
-    return groupedLogs.filter((log) =>
-      `${log.employeeNumber} ${log.lastName ?? ""} ${log.firstName ?? ""}`
-        .toLowerCase()
-        .includes(q)
+const filteredLogs = useMemo(() => {
+  if (selectedEmployee) {
+    return groupedLogs.filter(
+      (log) =>
+        normalizeDeviceId(String(log.employeeNumber)) === selectedEmployee
     );
-  }, [groupedLogs, selectedEmployee, employeeQuery]);
+  }
+
+  const q = employeeQuery.toLowerCase().trim();
+  if (!q) return groupedLogs;
+
+  return groupedLogs.filter((log) =>
+    `${log.employeeNumber} ${log.lastName ?? ""} ${log.firstName ?? ""}`
+      .toLowerCase()
+      .includes(q)
+  );
+}, [groupedLogs, selectedEmployee, employeeQuery]);
 
   // ---------------------------------------------------------
   // PAGINATION
   // ---------------------------------------------------------
-  const currentLogs = filteredLogs;
+const currentLogs = filteredLogs;
 
   // ---------------------------------------------------------
   // DEVICE STATUS
@@ -397,7 +401,7 @@ export default function ClockInPageHistory() {
     const checkDeviceStatus = async () => {
       try {
         const response = await fetch(
-          "${API_BASE_URL}/device/status",
+          "http://localhost:3001/device/status",
           {
             cache: "no-store",
           }
@@ -472,896 +476,946 @@ export default function ClockInPageHistory() {
   // DELETE
   // ---------------------------------------------------------
 
+ 
+const deleteSelected = async () => {
+  if (selectedLogs.size === 0) {
+    alert("Sélectionnez au moins un pointage.");
+    return;
+  }
 
-  const deleteSelected = async () => {
-    if (selectedLogs.size === 0) {
-      alert("Sélectionnez au moins un pointage.");
-      return;
-    }
+  if (!window.confirm(`Supprimer ${selectedLogs.size} pointage(s) ?`)) {
+    return;
+  }
 
-    if (!window.confirm(`Supprimer ${selectedLogs.size} pointage(s) ?`)) {
-      return;
-    }
+  try {
+    setError(null);
+    setLoading(true);
 
-    try {
-      setError(null);
-      setLoading(true);
+    const errors: string[] = [];
+    let deletedCount = 0;
 
-      const errors: string[] = [];
-      let deletedCount = 0;
+    
+for (const id of selectedLogs) {
+  const group = groupedLogs.find((log) => log.id === id);
 
+  if (!group) {
+    errors.push(`Pointage introuvable : ${id}`);
+    continue;
+  }
 
-      for (const id of selectedLogs) {
-        const group = groupedLogs.find((log) => log.id === id);
+  // A grouped row can contain a Clock In and a Clock Out.
+  for (const rawLog of group.logs) {
+    // Use the MongoDB document ID, NOT deviceLogId.
+    const rawId = rawLog._id;
 
-        if (!group) {
-          errors.push(`Pointage introuvable : ${id}`);
-          continue;
-        }
-
-        // A grouped row can contain a Clock In and a Clock Out.
-        for (const rawLog of group.logs) {
-          // Use the MongoDB document ID, NOT deviceLogId.
-          const rawId = rawLog._id;
-
-          if (!rawId) {
-            errors.push(
-              `Identifiant MongoDB manquant pour ${rawLog.deviceUserId} à ${rawLog.timestamp}`
-            );
-            continue;
-          }
-
-          try {
-            const response = await fetch(
-              `${API_BASE_URL}/attendance/device-logs/${encodeURIComponent(rawId)}`,
-              {
-                method: "DELETE",
-                cache: "no-store",
-              }
-            );
-
-            if (!response.ok) {
-              const message = await response.text();
-
-              throw new Error(
-                `HTTP ${response.status}${message ? `: ${message}` : ""}`
-              );
-            }
-
-            deletedCount++;
-          } catch (err) {
-            console.error("Failed to delete attendance log:", rawId, err);
-
-            errors.push(
-              `${rawId}: ${err instanceof Error ? err.message : "Erreur inconnue"
-              }`
-            );
-          }
-        }
-      }
-
-
-      // Always reload from the database to reflect its actual state.
-      await loadLogs();
-
-      if (errors.length > 0) {
-        setError(
-          `${deletedCount} pointage(s) supprimé(s). ` +
-          `${errors.length} suppression(s) échouée(s). ` +
-          errors.join(" | ")
-        );
-      } else {
-        setSelectedLogs(new Set());
-        alert(`${deletedCount / 2} pointage(s) supprimé(s) avec succès.`);
-      }
-    } catch (err) {
-      console.error("Deletion error:", err);
-
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Impossible de supprimer les pointages."
+    if (!rawId) {
+      errors.push(
+        `Identifiant MongoDB manquant pour ${rawLog.deviceUserId} à ${rawLog.timestamp}`
       );
-    } finally {
-      setLoading(false);
+      continue;
     }
-  };
 
-
-  const loadEmployees = async () => {
     try {
-      setLoadingEmployees(true);
-
       const response = await fetch(
-        `${API_BASE_URL}/employees`,
+        `${API_BASE_URL}/attendance/device-logs/${encodeURIComponent(rawId)}`,
         {
+          method: "DELETE",
           cache: "no-store",
         }
       );
 
       if (!response.ok) {
+        const message = await response.text();
+
         throw new Error(
-          `Impossible de récupérer les employés (${response.status})`
+          `HTTP ${response.status}${message ? `: ${message}` : ""}`
         );
       }
 
-      const data = await response.json();
-
-      const employeeList = Array.isArray(data)
-        ? data
-        : Array.isArray(data?.data)
-          ? data.data
-          : [];
-
-      setEmployees(employeeList);
+      deletedCount++;
     } catch (err) {
-      console.error("Error loading employees:", err);
-      setEmployees([]);
+      console.error("Failed to delete attendance log:", rawId, err);
 
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Impossible de récupérer les employés."
+      errors.push(
+        `${rawId}: ${
+          err instanceof Error ? err.message : "Erreur inconnue"
+        }`
       );
-    } finally {
-      setLoadingEmployees(false);
     }
-  };
+  }
+}
+
+
+    // Always reload from the database to reflect its actual state.
+    await loadLogs();
+
+    if (errors.length > 0) {
+      setError(
+        `${deletedCount} pointage(s) supprimé(s). ` +
+          `${errors.length} suppression(s) échouée(s). ` +
+          errors.join(" | ")
+      );
+    } else {
+      setSelectedLogs(new Set());
+      alert(`${deletedCount/2} pointage(s) supprimé(s) avec succès.`);
+    }
+  } catch (err) {
+    console.error("Deletion error:", err);
+
+    setError(
+      err instanceof Error
+        ? err.message
+        : "Impossible de supprimer les pointages."
+    );
+  } finally {
+    setLoading(false);
+  }
+};
+
+
+  const loadEmployees = async () => {
+  try {
+    setLoadingEmployees(true);
+
+    const response = await fetch(
+      `${API_BASE_URL}/employees`,
+      {
+        cache: "no-store",
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `Impossible de récupérer les employés (${response.status})`
+      );
+    }
+
+    const data = await response.json();
+
+    const employeeList = Array.isArray(data)
+      ? data
+      : Array.isArray(data?.data)
+      ? data.data
+      : [];
+
+    setEmployees(employeeList);
+  } catch (err) {
+    console.error("Error loading employees:", err);
+    setEmployees([]);
+
+    setError(
+      err instanceof Error
+        ? err.message
+        : "Impossible de récupérer les employés."
+    );
+  } finally {
+    setLoadingEmployees(false);
+  }
+};
   // ---------------------------------------------------------
   // ADD PUNCH
   // ---------------------------------------------------------
-  const addPunch = async () => {
-    if (!newPunch.deviceUserId || !newPunch.timestamp) {
-      alert("Veuillez remplir tous les champs.");
-      return;
-    }
+const addPunch = async () => {
+  if (!newPunch.deviceUserId || !newPunch.timestamp) {
+    alert("Veuillez remplir tous les champs.");
+    return;
+  }
 
-    try {
-      const employeeNumber = normalizeDeviceId(newPunch.deviceUserId);
+  // Prevent duplicate POSTs if the user clicks more than once quickly.
+  if (addPunchInFlight.current) return;
+  addPunchInFlight.current = true;
+  setSavingAddPunch(true);
 
-      const workDate = newPunch.timestamp.substring(0, 10);
+  try {
+    const employeeNumber = normalizeDeviceId(newPunch.deviceUserId);
 
-      // datetime-local contient l'heure locale saisie dans le formulaire.
-      // La conversion en ISO produit un timestamp UTC terminé par Z.
-      const timestamp = new Date(newPunch.timestamp);
+const workDate = newPunch.timestamp.substring(0, 10);
 
-      if (Number.isNaN(timestamp.getTime())) {
-        alert("La date et l'heure sont invalides.");
-        return;
+// datetime-local contient l'heure locale saisie dans le formulaire.
+// La conversion en ISO produit un timestamp UTC terminé par Z.
+const timestamp = new Date(newPunch.timestamp);
+
+if (Number.isNaN(timestamp.getTime())) {
+  alert("La date et l'heure sont invalides.");
+  return;
+}
+
+
+    // ---------------------------------------------------------
+    // 1. CREATE THE ATTENDANCE / MACHINE PUNCH
+    // ---------------------------------------------------------
+
+    const response = await fetch(
+      `${API_BASE_URL}/attendance/device-logs`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          deviceUserId: employeeNumber,
+          timestamp: timestamp.toISOString(),
+          processed: false,
+        }),
       }
-
-
-      // ---------------------------------------------------------
-      // 1. CREATE THE ATTENDANCE / MACHINE PUNCH
-      // ---------------------------------------------------------
-
-      const response = await fetch(
-        `${API_BASE_URL}/attendance/device-logs`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            deviceUserId: employeeNumber,
-            timestamp: timestamp.toISOString(),
-            processed: false,
-          }),
-        }
-      );
-
-      const result = await response.json();
-
-      if (!response.ok || result?.status === "error") {
-        throw new Error(
-          result?.message || "Failed to create punch"
-        );
-      }
-
-      console.log("Punch created:", result);
-
-      // ---------------------------------------------------------
-      // 2. RELOAD ALL PUNCHES FOR THIS DATE
-      // ---------------------------------------------------------
-
-      const logsResponse = await fetch(
-        `${API_BASE_URL}/attendance/device-logs` +
-        `?from=${encodeURIComponent(workDate)}` +
-        `&to=${encodeURIComponent(workDate)}`,
-        {
-          cache: "no-store",
-        }
-      );
-
-      if (!logsResponse.ok) {
-        throw new Error(
-          `Impossible de récupérer les pointages (${logsResponse.status})`
-        );
-      }
-
-      const logsData = await logsResponse.json();
-
-      const dateLogs: AttendanceLog[] = Array.isArray(logsData)
-        ? logsData
-        : Array.isArray(logsData?.data)
-          ? logsData.data
-          : [];
-
-      // ---------------------------------------------------------
-      // 3. GET ALL PUNCHES FOR THIS EMPLOYEE + DATE
-      // ---------------------------------------------------------
-
-      const employeeLogs = dateLogs
-        .filter(
-          (log) =>
-            normalizeDeviceId(log.deviceUserId) ===
-            employeeNumber &&
-            log.timestamp.substring(0, 10) === workDate
-        )
-        .sort(
-          (a, b) =>
-            new Date(a.timestamp).getTime() -
-            new Date(b.timestamp).getTime()
-        );
-
-      if (employeeLogs.length === 0) {
-        throw new Error(
-          "Le pointage a été créé mais aucun pointage employé n'a été trouvé."
-        );
-      }
-
-      // First punch = clock in
-      // Last punch = clock out
-      const clockInLog = employeeLogs[0];
-
-      const clockOutLog =
-        employeeLogs.length > 1
-          ? employeeLogs[employeeLogs.length - 1]
-          : null;
-
-      const clockIn = formatTime(clockInLog.timestamp);
-      const clockOut = clockOutLog
-        ? formatTime(clockOutLog.timestamp)
-        : "00:00";
-
-      console.log("Manual punch worktime:", {
-        employeeNumber,
-        workDate,
-        clockIn,
-        clockOut,
-      });
-
-      // ---------------------------------------------------------
-      // 4. FIND THE EMPLOYEE
-      // ---------------------------------------------------------
-
-      const employeesResponse = await fetch(
-        `${API_BASE_URL}/employees`,
-        {
-          cache: "no-store",
-        }
-      );
-
-      if (!employeesResponse.ok) {
-        throw new Error(
-          `Impossible de récupérer les employés (${employeesResponse.status})`
-        );
-      }
-
-      const employeesData = await employeesResponse.json();
-
-      const employees = Array.isArray(employeesData)
-        ? employeesData
-        : Array.isArray(employeesData?.data)
-          ? employeesData.data
-          : [];
-
-      const employee = employees.find(
-        (emp: any) =>
-          normalizeDeviceId(String(emp.empNumber)) ===
-          employeeNumber
-      );
-
-      if (!employee) {
-        throw new Error(
-          `Aucun employé trouvé avec le numéro ${employeeNumber}.`
-        );
-      }
-
-      // ---------------------------------------------------------
-      // 5. GET SHIFTS
-      // ---------------------------------------------------------
-
-      const shiftsResponse = await fetch(
-        `${API_BASE_URL}/shifts`,
-        {
-          cache: "no-store",
-        }
-      );
-
-      if (!shiftsResponse.ok) {
-        throw new Error(
-          `Impossible de récupérer les shifts (${shiftsResponse.status})`
-        );
-      }
-
-      const shiftsData = await shiftsResponse.json();
-
-      const shifts = Array.isArray(shiftsData)
-        ? shiftsData
-        : Array.isArray(shiftsData?.data)
-          ? shiftsData.data
-          : [];
-
-      // ---------------------------------------------------------
-      // 6. GET PLANNING FOR THIS EMPLOYEE + DATE
-      // ---------------------------------------------------------
-
-      const planningResponse = await fetch(
-        `${API_BASE_URL}/planning?date=${encodeURIComponent(
-          workDate
-        )}`,
-        {
-          cache: "no-store",
-        }
-      );
-
-      if (!planningResponse.ok) {
-        throw new Error(
-          `Impossible de récupérer le planning (${planningResponse.status})`
-        );
-      }
-
-      const planningData = await planningResponse.json();
-
-      const planning = Array.isArray(planningData)
-        ? planningData
-        : Array.isArray(planningData?.data)
-          ? planningData.data
-          : [];
-
-      const employeePlanning = planning.find((p: any) => {
-        const planningEmployeeId =
-          typeof p.empId === "object"
-            ? p.empId?._id
-            : p.empId;
-
-        return (
-          String(planningEmployeeId) ===
-          String(employee._id)
-        );
-      });
-
-      // ---------------------------------------------------------
-      // 7. FIND THE ASSIGNED SHIFT
-      // ---------------------------------------------------------
-
-      let shift: any = null;
-
-      if (employeePlanning) {
-        const planningShiftId =
-          typeof employeePlanning.shiftId === "object"
-            ? employeePlanning.shiftId?._id
-            : employeePlanning.shiftId;
-
-        shift = shifts.find(
-          (s: any) =>
-            String(s._id) === String(planningShiftId) ||
-            String(s.shift_id) === String(planningShiftId)
-        );
-      }
-
-      if (!shift) {
-        throw new Error(
-          `Aucun shift trouvé dans le planning pour l'employé ${employeeNumber} le ${workDate}.`
-        );
-      }
-
-      const shiftId = String(
-        shift._id ?? shift.shift_id
-      );
-
-      const shiftStart = String(
-        shift.start_time ?? "00:00"
-      ).slice(0, 5);
-
-      const shiftEnd = String(
-        shift.end_time ?? "00:00"
-      ).slice(0, 5);
-
-      // ---------------------------------------------------------
-      // 8. CALCULATE WORK HOURS
-      // ---------------------------------------------------------
-
-      let workMinutes = 0;
-
-      if (
-        clockIn !== "—" &&
-        clockOut !== "00:00" &&
-        clockOut !== "—"
-      ) {
-        const [inH, inM] = clockIn
-          .slice(0, 5)
-          .split(":")
-          .map(Number);
-
-        const [outH, outM] = clockOut
-          .slice(0, 5)
-          .split(":")
-          .map(Number);
-
-        let inMinutes = inH * 60 + inM;
-        let outMinutes = outH * 60 + outM;
-
-        if (outMinutes < inMinutes) {
-          outMinutes += 1440;
-        }
-
-        workMinutes = Math.max(
-          0,
-          outMinutes - inMinutes
-        );
-      }
-
-      const workHours =
-        `${String(Math.floor(workMinutes / 60)).padStart(
-          2,
-          "0"
-        )}:${String(workMinutes % 60).padStart(2, "0")}`;
-
-      // ---------------------------------------------------------
-      // 9. CALCULATE DELAY
-      // ---------------------------------------------------------
-
-      let lateMinutes = 0;
-
-      if (clockIn !== "—") {
-        const [inH, inM] = clockIn
-          .slice(0, 5)
-          .split(":")
-          .map(Number);
-
-        const [startH, startM] = shiftStart
-          .split(":")
-          .map(Number);
-
-        lateMinutes = Math.max(
-          0,
-          inH * 60 +
-          inM -
-          (startH * 60 + startM)
-        );
-      }
-
-      // ---------------------------------------------------------
-      // 10. CALCULATE OVERTIME
-      // ---------------------------------------------------------
-
-      let overtimeMinutes = 0;
-
-      if (
-        clockOut !== "00:00" &&
-        clockOut !== "—"
-      ) {
-        const [outH, outM] = clockOut
-          .slice(0, 5)
-          .split(":")
-          .map(Number);
-
-        const [startH, startM] = shiftStart
-          .split(":")
-          .map(Number);
-
-        const [endH, endM] = shiftEnd
-          .split(":")
-          .map(Number);
-
-        let actualOut = outH * 60 + outM;
-        let expectedEnd = endH * 60 + endM;
-
-        // Overnight shift
-        if (expectedEnd < startH * 60 + startM) {
-          expectedEnd += 1440;
-
-          if (actualOut < startH * 60 + startM) {
-            actualOut += 1440;
-          }
-        }
-
-        overtimeMinutes = Math.max(
-          0,
-          actualOut - expectedEnd
-        );
-      }
-
-      // ---------------------------------------------------------
-      // 11. CREATE / UPDATE WORKTIME
-      // ---------------------------------------------------------
-
-      const worktimePayload = {
-        // Use the employee internal numeric ID for worktime.emp_id.
-        emp_id: Number(employee.num ?? employee.empNumber),
-
-        // IMPORTANT:
-        // Mongo shift IDs are strings/ObjectIds.
-        shift_id: shiftId,
-
-        work_date: workDate,
-
-        clock_in: clockIn,
-        clock_out: clockOut,
-
-        late_minutes: String(lateMinutes),
-        overtime_minutes: String(overtimeMinutes),
-
-        work_hours: workHours,
-
-        consomation: newPunch.consomation,
-        penalty: newPunch.penalty,
-        bonus: newPunch.bonus,
-
-        absent: false,
-        absent_comment: "",
-      };
-
-      console.log(
-        "Saving manual punch to worktime:",
-        worktimePayload
-      );
-
-      await upsertWorktime(
-        worktimePayload,
-        null
-      );
-
-      // ---------------------------------------------------------
-      // 12. RELOAD UI
-      // ---------------------------------------------------------
-
-      setShowAddModal(false);
-
-      setNewPunch({
-        deviceUserId: "",
-        timestamp: "",
-        consomation: 0,
-        penalty: 0,
-        bonus: 0,
-      });
-
-      await loadLogs();
-
-      alert(
-        clockOut !== "00:00"
-          ? "Pointage ajouté et worktime mis à jour avec Clock In + Clock Out."
-          : "Pointage ajouté et worktime créé avec le Clock In."
-      );
-    } catch (err) {
-      console.error(
-        "Error adding punch:",
-        err
-      );
-
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Impossible d'ajouter le pointage."
-      );
-    }
-  };
-
-
-
-
-
-  const saveEditedPunch = async () => {
-    if (!editingPunch) return;
-
-    const { logId, value, mode } = editingPunch;
-
-    if (!value) {
-      alert("Veuillez saisir une heure.");
-      return;
-    }
-
-    // For an existing punch, use its own log.
-    // For a missing clock-out, use the existing clock-in log.
-    const rawLog =
-      mode === "edit"
-        ? logs.find((item) => item._id === logId)
-        : logs.find(
-          (item) => item._id === editingPunch.clockInLogId
-        );
-
-    if (!rawLog?._id) {
-      alert("Pointage de référence introuvable.");
-      return;
-    }
-
-    const workDate =
-      editingPunch.workDate ?? rawLog.timestamp.substring(0, 10);
-
-    const employeeNumber = normalizeDeviceId(
-      editingPunch.deviceUserId ?? rawLog.deviceUserId
     );
 
-    const timestamp = new Date(
-      `${workDate}T${value}:00`
-    ).toISOString();
-    try {
-      setSavingPunch(true);
-      setError(null);
+    const result = await response.json();
 
-      // 1. Edit an existing punch OR create the missing clock-out.
-      const response = await fetch(
-        mode === "edit"
-          ? `${API_BASE_URL}/attendance/device-logs/${encodeURIComponent(logId!)}`
-          : `${API_BASE_URL}/attendance/device-logs`,
-        {
-          method: mode === "edit" ? "PATCH" : "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(
-            mode === "edit"
-              ? { timestamp }
-              : {
-                deviceUserId: employeeNumber,
-                timestamp,
-                processed: false,
-              }
-          ),
-        }
+    if (!response.ok || result?.status === "error") {
+      throw new Error(
+        result?.message || "Failed to create punch"
       );
+    }
 
-      const result = await response.json().catch(() => ({}));
+    console.log("Punch created:", result);
 
-      if (!response.ok || result?.status === "error") {
-        throw new Error(
-          result?.message ||
-          (mode === "edit"
-            ? "Impossible de modifier le pointage."
-            : "Impossible d'ajouter le Clock Out.")
-        );
-      }
+    // ---------------------------------------------------------
+    // 2. RELOAD ALL PUNCHES FOR THIS DATE
+    // ---------------------------------------------------------
 
-      // 2. Reload raw logs for the employee and date.
-      const logsResponse = await fetch(
-        `${API_BASE_URL}/attendance/device-logs` +
+    const logsResponse = await fetch(
+      `${API_BASE_URL}/attendance/device-logs` +
         `?from=${encodeURIComponent(workDate)}` +
         `&to=${encodeURIComponent(workDate)}`,
-        { cache: "no-store" }
-      );
-
-      if (!logsResponse.ok) {
-        throw new Error("Impossible de récupérer les pointages actualisés.");
-      }
-
-      const logsData = await logsResponse.json();
-
-      const dateLogs: AttendanceLog[] = Array.isArray(logsData)
-        ? logsData
-        : Array.isArray(logsData?.data)
-          ? logsData.data
-          : [];
-
-      const employeeLogs = dateLogs
-        .filter(
-          (item) =>
-            normalizeDeviceId(item.deviceUserId) === employeeNumber &&
-            item.timestamp.substring(0, 10) === workDate
-        )
-        .sort(
-          (a, b) =>
-            new Date(a.timestamp).getTime() -
-            new Date(b.timestamp).getTime()
-        );
-
-      if (employeeLogs.length === 0) {
-        throw new Error("Aucun pointage trouvé pour recalculer le worktime.");
-      }
-
-      // 3. Calculate the day's first Clock In and last Clock Out.
-      const clockIn = formatTime(employeeLogs[0].timestamp);
-
-      const clockOut =
-        employeeLogs.length > 1
-          ? formatTime(employeeLogs[employeeLogs.length - 1].timestamp)
-          : "00:00";
-
-      // 4. Fetch the employee.
-      const employeesResponse = await fetch(`${API_BASE_URL}/employees`, {
+      {
         cache: "no-store",
-      });
-
-      if (!employeesResponse.ok) {
-        throw new Error("Impossible de récupérer les employés.");
       }
+    );
 
-      const employeesData = await employeesResponse.json();
+    if (!logsResponse.ok) {
+      throw new Error(
+        `Impossible de récupérer les pointages (${logsResponse.status})`
+      );
+    }
 
-      const employeeList = Array.isArray(employeesData)
-        ? employeesData
-        : Array.isArray(employeesData?.data)
-          ? employeesData.data
-          : [];
+    const logsData = await logsResponse.json();
 
-      const employee = employeeList.find(
-        (emp: any) =>
-          normalizeDeviceId(String(emp.empNumber)) === employeeNumber
+    const dateLogs: AttendanceLog[] = Array.isArray(logsData)
+      ? logsData
+      : Array.isArray(logsData?.data)
+      ? logsData.data
+      : [];
+
+    // ---------------------------------------------------------
+    // 3. GET ALL PUNCHES FOR THIS EMPLOYEE + DATE
+    // ---------------------------------------------------------
+
+    const employeeLogs = dateLogs
+      .filter(
+        (log) =>
+          normalizeDeviceId(log.deviceUserId) ===
+            employeeNumber &&
+          log.timestamp.substring(0, 10) === workDate
+      )
+      .sort(
+        (a, b) =>
+          new Date(a.timestamp).getTime() -
+          new Date(b.timestamp).getTime()
       );
 
-      if (!employee) {
-        throw new Error(`Employé ${employeeNumber} introuvable.`);
-      }
+    if (employeeLogs.length === 0) {
+      throw new Error(
+        "Le pointage a été créé mais aucun pointage employé n'a été trouvé."
+      );
+    }
 
-      // 5. Fetch shifts.
-      const shiftsResponse = await fetch(`${API_BASE_URL}/shifts`, {
+    // First punch = clock in
+    // Last punch = clock out
+    const clockInLog = employeeLogs[0];
+
+    const clockOutLog =
+      employeeLogs.length > 1
+        ? employeeLogs[employeeLogs.length - 1]
+        : null;
+
+    const clockIn = formatTime(clockInLog.timestamp);
+    const clockOut = clockOutLog
+      ? formatTime(clockOutLog.timestamp)
+      : "00:00";
+
+    console.log("Manual punch worktime:", {
+      employeeNumber,
+      workDate,
+      clockIn,
+      clockOut,
+    });
+
+    // ---------------------------------------------------------
+    // 4. FIND THE EMPLOYEE
+    // ---------------------------------------------------------
+
+    const employeesResponse = await fetch(
+      `${API_BASE_URL}/employees`,
+      {
         cache: "no-store",
-      });
-
-      if (!shiftsResponse.ok) {
-        throw new Error("Impossible de récupérer les shifts.");
       }
+    );
 
-      const shiftsData = await shiftsResponse.json();
-
-      const shifts = Array.isArray(shiftsData)
-        ? shiftsData
-        : Array.isArray(shiftsData?.data)
-          ? shiftsData.data
-          : [];
-
-      // 6. Fetch the employee's planning.
-      const planningResponse = await fetch(
-        `${API_BASE_URL}/planning?date=${encodeURIComponent(workDate)}`,
-        { cache: "no-store" }
+    if (!employeesResponse.ok) {
+      throw new Error(
+        `Impossible de récupérer les employés (${employeesResponse.status})`
       );
+    }
 
-      if (!planningResponse.ok) {
-        throw new Error("Impossible de récupérer le planning.");
+    const employeesData = await employeesResponse.json();
+
+    const employees = Array.isArray(employeesData)
+      ? employeesData
+      : Array.isArray(employeesData?.data)
+      ? employeesData.data
+      : [];
+
+    const employee = employees.find(
+      (emp: any) =>
+        normalizeDeviceId(String(emp.empNumber)) ===
+        employeeNumber
+    );
+
+    if (!employee) {
+      throw new Error(
+        `Aucun employé trouvé avec le numéro ${employeeNumber}.`
+      );
+    }
+
+    // ---------------------------------------------------------
+    // 5. GET SHIFTS
+    // ---------------------------------------------------------
+
+    const shiftsResponse = await fetch(
+      `${API_BASE_URL}/shifts`,
+      {
+        cache: "no-store",
       }
+    );
 
-      const planningData = await planningResponse.json();
+    if (!shiftsResponse.ok) {
+      throw new Error(
+        `Impossible de récupérer les shifts (${shiftsResponse.status})`
+      );
+    }
 
-      const planningList = Array.isArray(planningData)
-        ? planningData
-        : Array.isArray(planningData?.data)
-          ? planningData.data
-          : [];
+    const shiftsData = await shiftsResponse.json();
 
-      const employeePlanning = planningList.find((p: any) => {
-        const planningEmployeeId =
-          typeof p.empId === "object" ? p.empId?._id : p.empId;
+    const shifts = Array.isArray(shiftsData)
+      ? shiftsData
+      : Array.isArray(shiftsData?.data)
+      ? shiftsData.data
+      : [];
 
-        return String(planningEmployeeId) === String(employee._id);
-      });
+    // ---------------------------------------------------------
+    // 6. GET PLANNING FOR THIS EMPLOYEE + DATE
+    // ---------------------------------------------------------
 
-      if (!employeePlanning) {
-        throw new Error(
-          `Aucun planning trouvé pour l'employé ${employeeNumber} le ${workDate}.`
-        );
+    const planningResponse = await fetch(
+      `${API_BASE_URL}/planning?date=${encodeURIComponent(
+        workDate
+      )}`,
+      {
+        cache: "no-store",
       }
+    );
 
+    if (!planningResponse.ok) {
+      throw new Error(
+        `Impossible de récupérer le planning (${planningResponse.status})`
+      );
+    }
+
+    const planningData = await planningResponse.json();
+
+    const planning = Array.isArray(planningData)
+      ? planningData
+      : Array.isArray(planningData?.data)
+      ? planningData.data
+      : [];
+
+    const employeePlanning = planning.find((p: any) => {
+      const planningEmployeeId =
+        typeof p.empId === "object"
+          ? p.empId?._id
+          : p.empId;
+
+      return (
+        String(planningEmployeeId) ===
+        String(employee._id)
+      );
+    });
+
+    // Warn only when the employee has no planning entry for this date.
+    if (!employeePlanning) {
+      alert(
+        `Attention : l'employé ${employeeNumber} n'est pas dans le planning du ${workDate}. Son pointage sera enregistré sans calcul de retard ni d'heures supplémentaires.`
+      );
+    }
+
+    // ---------------------------------------------------------
+    // 7. FIND THE ASSIGNED SHIFT
+    // ---------------------------------------------------------
+
+    let shift: any = null;
+
+    if (employeePlanning) {
       const planningShiftId =
         typeof employeePlanning.shiftId === "object"
           ? employeePlanning.shiftId?._id
           : employeePlanning.shiftId;
 
-      const shift = shifts.find(
+      shift = shifts.find(
         (s: any) =>
           String(s._id) === String(planningShiftId) ||
           String(s.shift_id) === String(planningShiftId)
       );
+    }
 
-      if (!shift) {
-        throw new Error("Shift associé au planning introuvable.");
+const shiftId = shift
+  ? String(shift._id ?? shift.shift_id)
+  : null;
+
+const shiftStart = shift
+  ? String(shift.start_time ?? "00:00").slice(0, 5)
+  : "00:00";
+
+const shiftEnd = shift
+  ? String(shift.end_time ?? "00:00").slice(0, 5)
+  : "00:00";
+
+// L'employé peut travailler même sans planning ni shift.
+// Dans ce cas, on conservera le retard et l'overtime à 0.
+
+
+    // ---------------------------------------------------------
+    // 8. CALCULATE WORK HOURS
+    // ---------------------------------------------------------
+
+    let workMinutes = 0;
+
+    if (
+      clockIn !== "—" &&
+      clockOut !== "00:00" &&
+      clockOut !== "—"
+    ) {
+      const [inH, inM] = clockIn
+        .slice(0, 5)
+        .split(":")
+        .map(Number);
+
+      const [outH, outM] = clockOut
+        .slice(0, 5)
+        .split(":")
+        .map(Number);
+
+      let inMinutes = inH * 60 + inM;
+      let outMinutes = outH * 60 + outM;
+
+      if (outMinutes < inMinutes) {
+        outMinutes += 1440;
       }
 
-      const shiftStart = String(shift.start_time ?? "00:00").slice(0, 5);
-      const shiftEnd = String(shift.end_time ?? "00:00").slice(0, 5);
-
-      // 7. Recalculate work hours, including overnight shifts.
-      let workMinutes = 0;
-
-      if (clockOut !== "00:00" && clockOut !== "—") {
-        const [inH, inM] = clockIn.slice(0, 5).split(":").map(Number);
-        const [outH, outM] = clockOut.slice(0, 5).split(":").map(Number);
-
-        const inMinutes = inH * 60 + inM;
-        let outMinutes = outH * 60 + outM;
-
-        if (outMinutes < inMinutes) {
-          outMinutes += 1440;
-        }
-
-        workMinutes = Math.max(0, outMinutes - inMinutes);
-      }
-
-      const workHours =
-        `${String(Math.floor(workMinutes / 60)).padStart(2, "0")}:` +
-        `${String(workMinutes % 60).padStart(2, "0")}`;
-
-      // 8. Recalculate delay.
-      const [inH, inM] = clockIn.slice(0, 5).split(":").map(Number);
-      const [startH, startM] = shiftStart.split(":").map(Number);
-
-      const lateMinutes = Math.max(
+      workMinutes = Math.max(
         0,
-        inH * 60 + inM - (startH * 60 + startM)
+        outMinutes - inMinutes
+      );
+    }
+
+    const workHours =
+      `${String(Math.floor(workMinutes / 60)).padStart(
+        2,
+        "0"
+      )}:${String(workMinutes % 60).padStart(2, "0")}`;
+
+    // ---------------------------------------------------------
+    // 9. CALCULATE DELAY
+    // ---------------------------------------------------------
+
+   
+let lateMinutes = 0;
+
+if (shift && clockIn !== "—") {
+  const [inH, inM] = clockIn
+    .slice(0, 5)
+    .split(":")
+    .map(Number);
+
+  const [startH, startM] = shiftStart
+    .split(":")
+    .map(Number);
+
+  lateMinutes = Math.max(
+    0,
+    inH * 60 + inM - (startH * 60 + startM)
+  );
+}
+
+
+    // ---------------------------------------------------------
+    // 10. CALCULATE OVERTIME
+    // ---------------------------------------------------------
+
+  
+let overtimeMinutes = 0;
+
+if (shift && clockOut !== "00:00" && clockOut !== "—") {
+  const [outH, outM] = clockOut
+    .slice(0, 5)
+    .split(":")
+    .map(Number);
+
+  const [startH, startM] = shiftStart
+    .split(":")
+    .map(Number);
+
+  const [endH, endM] = shiftEnd
+    .split(":")
+    .map(Number);
+
+  let actualOut = outH * 60 + outM;
+  let expectedEnd = endH * 60 + endM;
+
+  // Shift qui se termine le lendemain
+  if (expectedEnd < startH * 60 + startM) {
+    expectedEnd += 1440;
+
+    if (actualOut < startH * 60 + startM) {
+      actualOut += 1440;
+    }
+  }
+
+  overtimeMinutes = Math.max(
+    0,
+    actualOut - expectedEnd
+  );
+}
+
+
+    // ---------------------------------------------------------
+    // 11. CREATE / UPDATE WORKTIME
+    // ---------------------------------------------------------
+
+    const worktimePayload = {
+      // Use the employee internal numeric ID for worktime.emp_id.
+      emp_id: Number(employee.num ?? employee.empNumber),
+
+      // IMPORTANT:
+      // Mongo shift IDs are strings/ObjectIds.
+      shift_id: shiftId,
+      work_date: workDate,
+
+      clock_in: clockIn,
+      clock_out: clockOut,
+
+      late_minutes: String(lateMinutes),
+      overtime_minutes: String(overtimeMinutes),
+
+      work_hours: workHours,
+
+      consomation: newPunch.consomation,
+      penalty: newPunch.penalty,
+      bonus: newPunch.bonus,
+
+      absent: false,
+      absent_comment: "",
+    };
+
+    console.log(
+      "Saving manual punch to worktime:",
+      worktimePayload
+    );
+
+    // shift_id can be null for an employee who was not scheduled.
+    // The backend and WorktimePayload type must also allow null.
+    await upsertWorktime(
+      worktimePayload as any,
+      null
+    );
+
+    // ---------------------------------------------------------
+    // 12. RELOAD UI
+    // ---------------------------------------------------------
+
+    setShowAddModal(false);
+
+    setNewPunch({
+      deviceUserId: "",
+      timestamp: "",
+      consomation: 0,
+      penalty: 0,
+      bonus: 0,
+    });
+
+    await loadLogs();
+
+    alert(
+      clockOut !== "00:00"
+        ? "Pointage ajouté et worktime mis à jour avec Clock In + Clock Out."
+        : "Pointage ajouté et worktime créé avec le Clock In."
+    );
+  } catch (err) {
+    console.error(
+      "Error adding punch:",
+      err
+    );
+
+    setError(
+      err instanceof Error
+        ? err.message
+        : "Impossible d'ajouter le pointage."
+    );
+  } finally {
+    addPunchInFlight.current = false;
+    setSavingAddPunch(false);
+  }
+};
+
+
+
+
+
+const saveEditedPunch = async () => {
+  if (!editingPunch) return;
+
+  const { logId, value, mode } = editingPunch;
+
+  if (!value) {
+    alert("Veuillez saisir une heure.");
+    return;
+  }
+
+  // For an existing punch, use its own log.
+  // For a missing clock-out, use the existing clock-in log.
+  const rawLog =
+    mode === "edit"
+      ? logs.find((item) => item._id === logId)
+      : logs.find(
+          (item) => item._id === editingPunch.clockInLogId
+        );
+
+  if (!rawLog?._id) {
+    alert("Pointage de référence introuvable.");
+    return;
+  }
+
+  const workDate =
+    editingPunch.workDate ?? rawLog.timestamp.substring(0, 10);
+
+  const employeeNumber = normalizeDeviceId(
+    editingPunch.deviceUserId ?? rawLog.deviceUserId
+  );
+
+const timestamp = new Date(
+  `${workDate}T${value}:00`
+).toISOString();
+  try {
+    setSavingPunch(true);
+    setError(null);
+
+    // 1. Edit an existing punch OR create the missing clock-out.
+    const response = await fetch(
+      mode === "edit"
+        ? `${API_BASE_URL}/attendance/device-logs/${encodeURIComponent(logId!)}`
+        : `${API_BASE_URL}/attendance/device-logs`,
+      {
+        method: mode === "edit" ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          mode === "edit"
+            ? { timestamp }
+            : {
+                deviceUserId: employeeNumber,
+                timestamp,
+                processed: false,
+              }
+        ),
+      }
+    );
+
+    const result = await response.json().catch(() => ({}));
+
+    if (!response.ok || result?.status === "error") {
+      throw new Error(
+        result?.message ||
+          (mode === "edit"
+            ? "Impossible de modifier le pointage."
+            : "Impossible d'ajouter le Clock Out.")
+      );
+    }
+
+    // 2. Reload raw logs for the employee and date.
+    const logsResponse = await fetch(
+      `${API_BASE_URL}/attendance/device-logs` +
+        `?from=${encodeURIComponent(workDate)}` +
+        `&to=${encodeURIComponent(workDate)}`,
+      { cache: "no-store" }
+    );
+
+    if (!logsResponse.ok) {
+      throw new Error("Impossible de récupérer les pointages actualisés.");
+    }
+
+    const logsData = await logsResponse.json();
+
+    const dateLogs: AttendanceLog[] = Array.isArray(logsData)
+      ? logsData
+      : Array.isArray(logsData?.data)
+      ? logsData.data
+      : [];
+
+    const employeeLogs = dateLogs
+      .filter(
+        (item) =>
+          normalizeDeviceId(item.deviceUserId) === employeeNumber &&
+          item.timestamp.substring(0, 10) === workDate
+      )
+      .sort(
+        (a, b) =>
+          new Date(a.timestamp).getTime() -
+          new Date(b.timestamp).getTime()
       );
 
-      // 9. Recalculate overtime.
-      let overtimeMinutes = 0;
+    if (employeeLogs.length === 0) {
+      throw new Error("Aucun pointage trouvé pour recalculer le worktime.");
+    }
 
-      if (clockOut !== "00:00" && clockOut !== "—") {
-        const [outH, outM] = clockOut.slice(0, 5).split(":").map(Number);
-        const [endH, endM] = shiftEnd.split(":").map(Number);
+    // 3. Calculate the day's first Clock In and last Clock Out.
+    const clockIn = formatTime(employeeLogs[0].timestamp);
 
-        let actualOut = outH * 60 + outM;
-        let expectedEnd = endH * 60 + endM;
+    const clockOut =
+      employeeLogs.length > 1
+        ? formatTime(employeeLogs[employeeLogs.length - 1].timestamp)
+        : "00:00";
 
-        if (expectedEnd < startH * 60 + startM) {
-          expectedEnd += 1440;
+    // 4. Fetch the employee.
+    const employeesResponse = await fetch(`${API_BASE_URL}/employees`, {
+      cache: "no-store",
+    });
 
-          if (actualOut < startH * 60 + startM) {
-            actualOut += 1440;
-          }
-        }
+    if (!employeesResponse.ok) {
+      throw new Error("Impossible de récupérer les employés.");
+    }
 
-        overtimeMinutes = Math.max(0, actualOut - expectedEnd);
+    const employeesData = await employeesResponse.json();
+
+    const employeeList = Array.isArray(employeesData)
+      ? employeesData
+      : Array.isArray(employeesData?.data)
+      ? employeesData.data
+      : [];
+
+    const employee = employeeList.find(
+      (emp: any) =>
+        normalizeDeviceId(String(emp.empNumber)) === employeeNumber
+    );
+
+    if (!employee) {
+      throw new Error(`Employé ${employeeNumber} introuvable.`);
+    }
+
+    // 5. Fetch shifts.
+    const shiftsResponse = await fetch(`${API_BASE_URL}/shifts`, {
+      cache: "no-store",
+    });
+
+    if (!shiftsResponse.ok) {
+      throw new Error("Impossible de récupérer les shifts.");
+    }
+
+    const shiftsData = await shiftsResponse.json();
+
+    const shifts = Array.isArray(shiftsData)
+      ? shiftsData
+      : Array.isArray(shiftsData?.data)
+      ? shiftsData.data
+      : [];
+
+    // 6. Fetch the employee's planning.
+    const planningResponse = await fetch(
+      `${API_BASE_URL}/planning?date=${encodeURIComponent(workDate)}`,
+      { cache: "no-store" }
+    );
+
+    if (!planningResponse.ok) {
+      throw new Error("Impossible de récupérer le planning.");
+    }
+
+    const planningData = await planningResponse.json();
+
+    const planningList = Array.isArray(planningData)
+      ? planningData
+      : Array.isArray(planningData?.data)
+      ? planningData.data
+      : [];
+
+    const employeePlanning = planningList.find((p: any) => {
+      const planningEmployeeId =
+        typeof p.empId === "object" ? p.empId?._id : p.empId;
+
+      return String(planningEmployeeId) === String(employee._id);
+    });
+
+    // A missing planning entry is different from a missing shift.
+    // Show the warning only when the employee is not scheduled.
+    if (!employeePlanning) {
+      alert(
+        `Attention : l'employé ${employeeNumber} n'est pas dans le planning du ${workDate}. Son pointage sera enregistré sans calcul de retard ni d'heures supplémentaires.`
+      );
+    }
+
+    const planningShiftId = employeePlanning
+      ? typeof employeePlanning.shiftId === "object"
+        ? employeePlanning.shiftId?._id
+        : employeePlanning.shiftId
+      : null;
+
+    const shift = employeePlanning
+      ? shifts.find(
+          (s: any) =>
+            String(s._id) === String(planningShiftId) ||
+            String(s.shift_id) === String(planningShiftId)
+        )
+      : null;
+
+    const shiftId = shift
+      ? String(shift._id ?? shift.shift_id)
+      : null;
+
+    const shiftStart = shift
+      ? String(shift.start_time ?? "00:00").slice(0, 5)
+      : "00:00";
+
+    const shiftEnd = shift
+      ? String(shift.end_time ?? "00:00").slice(0, 5)
+      : "00:00";
+
+    // 7. Recalculate work hours, including overnight shifts.
+    let workMinutes = 0;
+
+    if (clockOut !== "00:00" && clockOut !== "—") {
+      const [inH, inM] = clockIn.slice(0, 5).split(":").map(Number);
+      const [outH, outM] = clockOut.slice(0, 5).split(":").map(Number);
+
+      const inMinutes = inH * 60 + inM;
+      let outMinutes = outH * 60 + outM;
+
+      if (outMinutes < inMinutes) {
+        outMinutes += 1440;
       }
 
-      // 10. Update the worktime while preserving payroll fields.
-      const existingWorktimes = await getWorktimesByDate(workDate);
+      workMinutes = Math.max(0, outMinutes - inMinutes);
+    }
 
-      const existingWorktime = existingWorktimes.find(
-        (item) =>
-          Number(item.emp_id) ===
-          Number(employee.num ?? employee.empNumber)
-      );
+    const workHours =
+      `${String(Math.floor(workMinutes / 60)).padStart(2, "0")}:` +
+      `${String(workMinutes % 60).padStart(2, "0")}`;
 
-      const worktimePayload = {
-        emp_id: Number(employee.num ?? employee.empNumber),
-        shift_id: String(shift._id ?? shift.shift_id),
-        work_date: workDate,
-        clock_in: clockIn,
-        clock_out: clockOut,
-        work_hours: workHours,
-        late_minutes: String(lateMinutes),
-        overtime_minutes: String(overtimeMinutes),
+    // 8. Recalculate delay.
+    let lateMinutes = 0;
 
-        consomation: existingWorktime?.consomation ?? 0,
-        penalty: existingWorktime?.penalty ?? 0,
-        bonus: existingWorktime?.bonus ?? 0,
-        absent: existingWorktime?.absent ?? false,
-        absent_comment: existingWorktime?.absent_comment ?? "",
-      };
+if (shift && clockIn !== "—") {
+  const [inH, inM] = clockIn
+    .slice(0, 5)
+    .split(":")
+    .map(Number);
 
-      await upsertWorktime(
-        worktimePayload,
-        existingWorktime?._id ?? null
-      );
+  const [startH, startM] = shiftStart
+    .split(":")
+    .map(Number);
 
-      // 11. Refresh the history.
-      setEditingPunch(null);
-      await loadLogs();
+  lateMinutes = Math.max(
+    0,
+    inH * 60 + inM - (startH * 60 + startM)
+  );
+}
+    // 9. Recalculate overtime.
+   let overtimeMinutes = 0;
 
-      alert(
-        `${mode === "edit" ? "Pointage modifié" : "Clock Out ajouté"} et worktime mis à jour.\n` +
+if (shift && clockOut !== "00:00" && clockOut !== "—") {
+  const [outH, outM] = clockOut
+    .slice(0, 5)
+    .split(":")
+    .map(Number);
+
+  const [startH, startM] = shiftStart
+    .split(":")
+    .map(Number);
+
+  const [endH, endM] = shiftEnd
+    .split(":")
+    .map(Number);
+
+  let actualOut = outH * 60 + outM;
+  let expectedEnd = endH * 60 + endM;
+
+  // Gérer les shifts qui se terminent le lendemain
+  if (expectedEnd < startH * 60 + startM) {
+    expectedEnd += 1440;
+
+    if (actualOut < startH * 60 + startM) {
+      actualOut += 1440;
+    }
+  }
+
+  overtimeMinutes = Math.max(
+    0,
+    actualOut - expectedEnd
+  );
+}
+
+    // 10. Update the worktime while preserving payroll fields.
+    const existingWorktimes = await getWorktimesByDate(workDate);
+
+    const existingWorktime = existingWorktimes.find(
+      (item) =>
+        Number(item.emp_id) ===
+        Number(employee.num ?? employee.empNumber)
+    );
+
+    const worktimePayload = {
+      emp_id: Number(employee.num ?? employee.empNumber),
+shift_id: shiftId,
+      work_date: workDate,
+      clock_in: clockIn,
+      clock_out: clockOut,
+      work_hours: workHours,
+      late_minutes: String(lateMinutes),
+      overtime_minutes: String(overtimeMinutes),
+
+      consomation: existingWorktime?.consomation ?? 0,
+      penalty: existingWorktime?.penalty ?? 0,
+      bonus: existingWorktime?.bonus ?? 0,
+      absent: existingWorktime?.absent ?? false,
+      absent_comment: existingWorktime?.absent_comment ?? "",
+    };
+
+    // shift_id can be null for an employee who was not scheduled.
+    // The backend and WorktimePayload type must also allow null.
+    await upsertWorktime(
+      worktimePayload as any,
+      existingWorktime?._id ?? null
+    );
+
+    // 11. Refresh the history.
+    setEditingPunch(null);
+    await loadLogs();
+
+    alert(
+      `${mode === "edit" ? "Pointage modifié" : "Clock Out ajouté"} et worktime mis à jour.\n` +
         `Heures travaillées : ${workHours}\n` +
         `Retard : ${lateMinutes} min\n` +
-        `Heures supplémentaires : ${overtimeMinutes} min`
-      );
-    } catch (err) {
-      console.error("Error updating punch and worktime:", err);
+        `Heures supplémentaires : ${overtimeMinutes} min` +
+        (!employeePlanning ? "\nAttention : cet employé n'était pas planifié." : "")
+    );
+  } catch (err) {
+    console.error("Error updating punch and worktime:", err);
 
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Impossible de mettre à jour le pointage et le worktime."
-      );
-    } finally {
-      setSavingPunch(false);
-    }
-  };
+    setError(
+      err instanceof Error
+        ? err.message
+        : "Impossible de mettre à jour le pointage et le worktime."
+    );
+  } finally {
+    setSavingPunch(false);
+  }
+};
 
   // ---------------------------------------------------------
   // RENDER
@@ -1380,90 +1434,90 @@ export default function ClockInPageHistory() {
       {/* FILTER BAR */}
       <div className="mb-3 flex items-center gap-2 flex-wrap">
 
-        {/* FROM */}
-        <div>
-          <input
-            type="date"
-            value={fromDate}
-            max={toDate}
-            onChange={(e) => setFromDate(e.target.value)}
-            onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
-            className="h-9 cursor-pointer rounded-md border border-gray-300 bg-white px-3 text-sm text-gray-700 outline-none focus:border-blue-400"
-          />
-        </div>
+       {/* FROM */}
+<div>
+  <input
+    type="date"
+    value={fromDate}
+    max={toDate}
+    onChange={(e) => setFromDate(e.target.value)}
+    onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
+    className="h-9 cursor-pointer rounded-md border border-gray-300 bg-white px-3 text-sm text-gray-700 outline-none focus:border-blue-400"
+  />
+</div>
 
-        <span className="text-gray-500">→</span>
+<span className="text-gray-500">→</span>
 
-        {/* TO */}
-        <div>
-          <input
-            type="date"
-            value={toDate}
-            min={fromDate}
-            onChange={(e) => setToDate(e.target.value)}
-            onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
-            className="h-9 cursor-pointer rounded-md border border-gray-300 bg-white px-3 text-sm text-gray-700 outline-none focus:border-blue-400"
-          />
-        </div>
+{/* TO */}
+<div>
+  <input
+    type="date"
+    value={toDate}
+    min={fromDate}
+    onChange={(e) => setToDate(e.target.value)}
+    onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
+    className="h-9 cursor-pointer rounded-md border border-gray-300 bg-white px-3 text-sm text-gray-700 outline-none focus:border-blue-400"
+  />
+</div>
 
         {/* EMPLOYEE FILTER */}
-        {/* EMPLOYEE SEARCH WITH SUGGESTIONS */}
-        <div className="relative ml-2" ref={searchBoxRef}>
-          <div className="flex h-9">
-            <input
-              type="text"
-              placeholder="Rechercher un employé..."
-              value={employeeQuery}
-              onChange={(e) => {
-                setEmployeeQuery(e.target.value);
-                setSelectedEmployee("");
-                setShowSuggestions(true);
-              }}
-              onFocus={() => setShowSuggestions(true)}
-              className="w-64 rounded-l-md border border-gray-300 px-3 text-sm outline-none focus:border-blue-400"
-            />
+{/* EMPLOYEE SEARCH WITH SUGGESTIONS */}
+<div className="relative ml-2" ref={searchBoxRef}>
+  <div className="flex h-9">
+    <input
+      type="text"
+      placeholder="Rechercher un employé..."
+      value={employeeQuery}
+      onChange={(e) => {
+        setEmployeeQuery(e.target.value);
+        setSelectedEmployee("");
+        setShowSuggestions(true);
+      }}
+      onFocus={() => setShowSuggestions(true)}
+      className="w-64 rounded-l-md border border-gray-300 px-3 text-sm outline-none focus:border-blue-400"
+    />
 
-            <button
-              type="button"
-              onClick={() => {
-                setEmployeeQuery("");
-                setSelectedEmployee("");
-                setShowSuggestions(false);
-              }}
-              title="Effacer"
-              className="rounded-r-md border border-l-0 border-gray-300 bg-gray-100 px-3 text-sm text-gray-600 hover:bg-gray-200"
-            >
-              ✕
-            </button>
-          </div>
+    <button
+      type="button"
+      onClick={() => {
+        setEmployeeQuery("");
+        setSelectedEmployee("");
+        setShowSuggestions(false);
+      }}
+      title="Effacer"
+      className="rounded-r-md border border-l-0 border-gray-300 bg-gray-100 px-3 text-sm text-gray-600 hover:bg-gray-200"
+    >
+      ✕
+    </button>
+  </div>
 
-          {showSuggestions && (
-            <ul className="absolute left-0 top-10 z-30 max-h-64 w-72 overflow-auto rounded-md border border-gray-200 bg-white shadow-lg">
-              {loadingEmployees ? (
-                <li className="px-3 py-2 text-sm text-gray-400">Chargement...</li>
-              ) : suggestions.length === 0 ? (
-                <li className="px-3 py-2 text-sm text-gray-400">Aucun employé trouvé</li>
-              ) : (
-                suggestions.map((employee) => (
-                  <li
-                    key={employee._id ?? employee.empNumber}
-                    onClick={() => {
-                      setSelectedEmployee(
-                        normalizeDeviceId(String(employee.empNumber))
-                      );
-                      setEmployeeQuery(getEmployeeLabel(employee));
-                      setShowSuggestions(false);
-                    }}
-                    className="cursor-pointer px-3 py-2 text-sm text-gray-700 hover:bg-blue-50"
-                  >
-                    {getEmployeeLabel(employee)}
-                  </li>
-                ))
-              )}
-            </ul>
-          )}
-        </div>
-      </div>
+  {showSuggestions && (
+    <ul className="absolute left-0 top-10 z-30 max-h-64 w-72 overflow-auto rounded-md border border-gray-200 bg-white shadow-lg">
+      {loadingEmployees ? (
+        <li className="px-3 py-2 text-sm text-gray-400">Chargement...</li>
+      ) : suggestions.length === 0 ? (
+        <li className="px-3 py-2 text-sm text-gray-400">Aucun employé trouvé</li>
+      ) : (
+        suggestions.map((employee) => (
+          <li
+            key={employee._id ?? employee.empNumber}
+            onClick={() => {
+              setSelectedEmployee(
+                normalizeDeviceId(String(employee.empNumber))
+              );
+              setEmployeeQuery(getEmployeeLabel(employee));
+              setShowSuggestions(false);
+            }}
+            className="cursor-pointer px-3 py-2 text-sm text-gray-700 hover:bg-blue-50"
+          >
+            {getEmployeeLabel(employee)}
+          </li>
+        ))
+      )}
+    </ul>
+  )}
+</div>
+</div>
       {/* DEVICE STATUS */}
       {deviceStatus && (
         <div className="mb-3 text-xs text-gray-500">
@@ -1486,10 +1540,10 @@ export default function ClockInPageHistory() {
       <div className="mb-4 flex gap-2">
 
         <button
-          onClick={() => {
-            setShowAddModal(true);
-            loadEmployees();
-          }} className="
+onClick={() => {
+  setShowAddModal(true);
+  loadEmployees();
+}}          className="
             rounded-md
             bg-[#c98573]
             px-5
@@ -1531,7 +1585,7 @@ export default function ClockInPageHistory() {
       )}
 
       {/* TABLE */}
-      {/* TABLE */}
+           {/* TABLE */}
       <div className="overflow-hidden rounded-md border border-gray-200">
 
         <div className="max-h-[70vh] overflow-auto">
@@ -1624,9 +1678,10 @@ export default function ClockInPageHistory() {
                     <tr
                       key={log.id}
                       className={`
-                        ${index % 2 === 0
-                          ? "bg-white"
-                          : "bg-gray-50/50"
+                        ${
+                          index % 2 === 0
+                            ? "bg-white"
+                            : "bg-gray-50/50"
                         }
                         hover:bg-blue-50
                       `}
@@ -1664,172 +1719,172 @@ export default function ClockInPageHistory() {
                       </td>
 
                       {/* CLOCK IN */}
-                      <td className="border-b border-gray-100 px-4 py-2 text-sm font-medium text-gray-700">
-                        {editingPunch?.logId === log.logs[0]?._id ? (
-                          <div className="flex items-center gap-1">
+                     <td className="border-b border-gray-100 px-4 py-2 text-sm font-medium text-gray-700">
+  {editingPunch?.logId === log.logs[0]?._id ? (
+    <div className="flex items-center gap-1">
+      
+<input
+  type="time"
+  value={editingPunch?.value ?? ""}
+  disabled={savingPunch}
+  onChange={(e) =>
+    setEditingPunch((prev) =>
+      prev ? { ...prev, value: e.target.value } : prev
+    )
+  }
+  className="w-28 rounded border border-gray-300 px-2 py-1 text-xs"
+/>
 
-                            <input
-                              type="time"
-                              value={editingPunch?.value ?? ""}
-                              disabled={savingPunch}
-                              onChange={(e) =>
-                                setEditingPunch((prev) =>
-                                  prev ? { ...prev, value: e.target.value } : prev
-                                )
-                              }
-                              className="w-28 rounded border border-gray-300 px-2 py-1 text-xs"
-                            />
 
+      <button
+        onClick={saveEditedPunch}
+        disabled={savingPunch}
+        className="text-xs text-green-700 hover:underline"
+      >
+        {savingPunch ? "..." : "✓"}
+      </button>
 
-                            <button
-                              onClick={saveEditedPunch}
-                              disabled={savingPunch}
-                              className="text-xs text-green-700 hover:underline"
-                            >
-                              {savingPunch ? "..." : "✓"}
-                            </button>
+      <button
+        onClick={() => setEditingPunch(null)}
+        disabled={savingPunch}
+        className="text-xs text-red-600 hover:underline"
+      >
+        ✕
+      </button>
+    </div>
+  ) : (
+    <span
+      onDoubleClick={() => {
+        const rawLog = log.logs[0];
 
-                            <button
-                              onClick={() => setEditingPunch(null)}
-                              disabled={savingPunch}
-                              className="text-xs text-red-600 hover:underline"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        ) : (
-                          <span
-                            onDoubleClick={() => {
-                              const rawLog = log.logs[0];
+        if (!rawLog?._id) return;
 
-                              if (!rawLog?._id) return;
-
-                              setEditingPunch({
-                                logId: rawLog._id!,
-                                value: rawLog.timestamp.substring(11, 16),
-                                mode: "edit",
-                              });
-                            }}
-                            title="Double-cliquer pour modifier"
-                            className="inline-flex cursor-pointer rounded-md bg-green-100 px-2 py-1 text-xs font-medium text-green-700 hover:ring-2 hover:ring-green-300"
-                          >
-                            {formatTime(log.clockIn)}
-                          </span>
-                        )}
-                      </td>
+        setEditingPunch({
+  logId: rawLog._id!,
+  value: rawLog.timestamp.substring(11, 16),
+  mode: "edit",
+});
+      }}
+      title="Double-cliquer pour modifier"
+      className="inline-flex cursor-pointer rounded-md bg-green-100 px-2 py-1 text-xs font-medium text-green-700 hover:ring-2 hover:ring-green-300"
+    >
+      {formatTime(log.clockIn)}
+    </span>
+  )}
+</td>
 
                       {/* CLOCK OUT */}
+                     
+<td className="border-b border-gray-100 px-4 py-2 text-sm font-medium text-gray-700">
+  {editingPunch?.mode === "add-clock-out" &&
+  editingPunch.clockInLogId === log.logs[0]?._id ? (
+    <div className="flex items-center gap-1">
+      <input
+        type="time"
+        value={editingPunch.value}
+        disabled={savingPunch}
+        onChange={(e) =>
+          setEditingPunch((prev) =>
+            prev ? { ...prev, value: e.target.value } : prev
+          )
+        }
+        className="w-28 rounded border border-gray-300 px-2 py-1 text-xs"
+      />
 
-                      <td className="border-b border-gray-100 px-4 py-2 text-sm font-medium text-gray-700">
-                        {editingPunch?.mode === "add-clock-out" &&
-                          editingPunch.clockInLogId === log.logs[0]?._id ? (
-                          <div className="flex items-center gap-1">
-                            <input
-                              type="time"
-                              value={editingPunch.value}
-                              disabled={savingPunch}
-                              onChange={(e) =>
-                                setEditingPunch((prev) =>
-                                  prev ? { ...prev, value: e.target.value } : prev
-                                )
-                              }
-                              className="w-28 rounded border border-gray-300 px-2 py-1 text-xs"
-                            />
+      <button
+        onClick={saveEditedPunch}
+        disabled={savingPunch}
+        className="text-xs text-green-700 hover:underline"
+      >
+        {savingPunch ? "..." : "✓"}
+      </button>
 
-                            <button
-                              onClick={saveEditedPunch}
-                              disabled={savingPunch}
-                              className="text-xs text-green-700 hover:underline"
-                            >
-                              {savingPunch ? "..." : "✓"}
-                            </button>
+      <button
+        onClick={() => setEditingPunch(null)}
+        disabled={savingPunch}
+        className="text-xs text-red-600 hover:underline"
+      >
+        ✕
+      </button>
+    </div>
+  ) : log.clockOut && log.logs[1] ? (
+    editingPunch?.mode === "edit" &&
+    editingPunch.logId === log.logs[1]._id ? (
+      <div className="flex items-center gap-1">
+        <input
+          type="time"
+          value={editingPunch.value}
+          disabled={savingPunch}
+          onChange={(e) =>
+            setEditingPunch((prev) =>
+              prev ? { ...prev, value: e.target.value } : prev
+            )
+          }
+          className="w-28 rounded border border-gray-300 px-2 py-1 text-xs"
+        />
 
-                            <button
-                              onClick={() => setEditingPunch(null)}
-                              disabled={savingPunch}
-                              className="text-xs text-red-600 hover:underline"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        ) : log.clockOut && log.logs[1] ? (
-                          editingPunch?.mode === "edit" &&
-                            editingPunch.logId === log.logs[1]._id ? (
-                            <div className="flex items-center gap-1">
-                              <input
-                                type="time"
-                                value={editingPunch.value}
-                                disabled={savingPunch}
-                                onChange={(e) =>
-                                  setEditingPunch((prev) =>
-                                    prev ? { ...prev, value: e.target.value } : prev
-                                  )
-                                }
-                                className="w-28 rounded border border-gray-300 px-2 py-1 text-xs"
-                              />
+        <button
+          onClick={saveEditedPunch}
+          disabled={savingPunch}
+          className="text-xs text-green-700 hover:underline"
+        >
+          {savingPunch ? "..." : "✓"}
+        </button>
 
-                              <button
-                                onClick={saveEditedPunch}
-                                disabled={savingPunch}
-                                className="text-xs text-green-700 hover:underline"
-                              >
-                                {savingPunch ? "..." : "✓"}
-                              </button>
+        <button
+          onClick={() => setEditingPunch(null)}
+          disabled={savingPunch}
+          className="text-xs text-red-600 hover:underline"
+        >
+          ✕
+        </button>
+      </div>
+    ) : (
+      <span
+        onDoubleClick={() => {
+          const rawLog = log.logs[1];
+          if (!rawLog?._id) return;
 
-                              <button
-                                onClick={() => setEditingPunch(null)}
-                                disabled={savingPunch}
-                                className="text-xs text-red-600 hover:underline"
-                              >
-                                ✕
-                              </button>
-                            </div>
-                          ) : (
-                            <span
-                              onDoubleClick={() => {
-                                const rawLog = log.logs[1];
-                                if (!rawLog?._id) return;
+          setEditingPunch({
+            logId: rawLog._id,
+            value: rawLog.timestamp.substring(11, 16),
+            mode: "edit",
+          });
+        }}
+        title="Double-cliquer pour modifier"
+        className="inline-flex cursor-pointer rounded-md bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700 hover:ring-2 hover:ring-blue-300"
+      >
+        {formatTime(log.clockOut)}
+      </span>
+    )
+  ) : (
+    <span
+      onDoubleClick={() => {
+        const clockInLog = log.logs[0];
+        if (!clockInLog?._id) return;
 
-                                setEditingPunch({
-                                  logId: rawLog._id,
-                                  value: rawLog.timestamp.substring(11, 16),
-                                  mode: "edit",
-                                });
-                              }}
-                              title="Double-cliquer pour modifier"
-                              className="inline-flex cursor-pointer rounded-md bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700 hover:ring-2 hover:ring-blue-300"
-                            >
-                              {formatTime(log.clockOut)}
-                            </span>
-                          )
-                        ) : (
-                          <span
-                            onDoubleClick={() => {
-                              const clockInLog = log.logs[0];
-                              if (!clockInLog?._id) return;
+        setEditingPunch({
+          logId: null,
+          value: "",
+          mode: "add-clock-out",
+          clockInLogId: clockInLog._id,
+          deviceUserId: normalizeDeviceId(clockInLog.deviceUserId),
+          workDate: log.date,
+        });
+      }}
+      title="Double-cliquer pour ajouter un Clock Out"
+      className="inline-flex cursor-pointer rounded-md border border-dashed border-orange-300 px-2 py-1 text-xs font-medium text-orange-600 hover:bg-orange-50 hover:ring-2 hover:ring-orange-200"
+    >
+      —
+    </span>
+  )}
+</td>
 
-                              setEditingPunch({
-                                logId: null,
-                                value: "",
-                                mode: "add-clock-out",
-                                clockInLogId: clockInLog._id,
-                                deviceUserId: normalizeDeviceId(clockInLog.deviceUserId),
-                                workDate: log.date,
-                              });
-                            }}
-                            title="Double-cliquer pour ajouter un Clock Out"
-                            className="inline-flex cursor-pointer rounded-md border border-dashed border-orange-300 px-2 py-1 text-xs font-medium text-orange-600 hover:bg-orange-50 hover:ring-2 hover:ring-orange-200"
-                          >
-                            —
-                          </span>
-                        )}
-                      </td>
-
-                      {/* STATUS */}
-                      <td className="border-b border-gray-100 px-4 py-2">
-                        {!log.clockOut ? (
-                          <span
-                            className="
+ {/* STATUS */}
+<td className="border-b border-gray-100 px-4 py-2">
+  {!log.clockOut ? (
+    <span
+      className="
         inline-flex
         rounded-md
         bg-orange-100
@@ -1839,19 +1894,19 @@ export default function ClockInPageHistory() {
         font-medium
         text-orange-700
       "
-                          >
-                            Not validated
-                          </span>
-                        ) : (() => {
-                          const minutes = getMinutesBetween(
-                            log.clockIn,
-                            log.clockOut
-                          );
+    >
+      Not validated
+    </span>
+  ) : (() => {
+      const minutes = getMinutesBetween(
+        log.clockIn,
+        log.clockOut
+      );
 
-                          if (minutes !== null && minutes < 15) {
-                            return (
-                              <span
-                                className="
+      if (minutes !== null && minutes < 15) {
+        return (
+          <span
+            className="
               inline-flex
               rounded-md
               bg-yellow-100
@@ -1861,15 +1916,15 @@ export default function ClockInPageHistory() {
               font-medium
               text-yellow-700
             "
-                              >
-                                Pause
-                              </span>
-                            );
-                          }
+          >
+            Pause
+          </span>
+        );
+      }
 
-                          return (
-                            <span
-                              className="
+      return (
+        <span
+          className="
             inline-flex
             rounded-md
             bg-green-100
@@ -1879,12 +1934,12 @@ export default function ClockInPageHistory() {
             font-medium
             text-green-700
           "
-                            >
-                              Validated
-                            </span>
-                          );
-                        })()}
-                      </td>
+        >
+          Validated
+        </span>
+      );
+    })()}
+</td>
 
                     </tr>
                   );
@@ -1900,7 +1955,7 @@ export default function ClockInPageHistory() {
 
       </div>
 
-
+      
 
       {/* ADD MODAL */}
       {showAddModal && (
@@ -1934,10 +1989,9 @@ export default function ClockInPageHistory() {
               </h2>
 
               <button
-                onClick={() =>
-                  setShowAddModal(false)
-                }
-                className="text-xl text-gray-400 hover:text-gray-700"
+                onClick={() => setShowAddModal(false)}
+                disabled={savingAddPunch}
+                className="text-xl text-gray-400 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 ×
               </button>
@@ -1948,21 +2002,21 @@ export default function ClockInPageHistory() {
 
               {/* EMPLOYEE NUMBER */}
               {/* EMPLOYEE */}
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-600">
-                  Employé
-                </label>
+<div>
+  <label className="mb-1 block text-sm font-medium text-gray-600">
+    Employé
+  </label>
 
-                <select
-                  value={newPunch.deviceUserId}
-                  onChange={(e) =>
-                    setNewPunch((p) => ({
-                      ...p,
-                      deviceUserId: e.target.value,
-                    }))
-                  }
-                  disabled={loadingEmployees}
-                  className="
+  <select
+    value={newPunch.deviceUserId}
+    onChange={(e) =>
+      setNewPunch((p) => ({
+        ...p,
+        deviceUserId: e.target.value,
+      }))
+    }
+    disabled={loadingEmployees}
+    className="
       w-full
       rounded-lg
       border
@@ -1976,24 +2030,24 @@ export default function ClockInPageHistory() {
       focus:border-blue-500
       disabled:bg-gray-100
     "
-                >
-                  <option value="">
-                    {loadingEmployees
-                      ? "Chargement des employés..."
-                      : "Sélectionner un employé"}
-                  </option>
+  >
+    <option value="">
+      {loadingEmployees
+        ? "Chargement des employés..."
+        : "Sélectionner un employé"}
+    </option>
 
-                  {employees.map((employee) => (
-                    <option
-                      key={employee._id ?? employee.num ?? employee.empNumber}
-                      value={normalizeDeviceId(String(employee.empNumber))}
-                    >
-                      {employee.empNumber} — {employee.LastName ?? employee.lastName ?? ""}{" "}
-                      {employee.FirstName ?? employee.firstName ?? ""}
-                    </option>
-                  ))}
-                </select>
-              </div>
+    {employees.map((employee) => (
+      <option
+        key={employee._id ?? employee.num ?? employee.empNumber}
+        value={normalizeDeviceId(String(employee.empNumber))}
+      >
+        {employee.empNumber} — {employee.LastName ?? employee.lastName ?? ""}{" "}
+        {employee.FirstName ?? employee.firstName ?? ""}
+      </option>
+    ))}
+  </select>
+</div>
 
               {/* DATE/TIME */}
               <div>
@@ -2103,9 +2157,8 @@ export default function ClockInPageHistory() {
             <div className="mt-6 flex justify-end gap-2">
 
               <button
-                onClick={() =>
-                  setShowAddModal(false)
-                }
+                onClick={() => setShowAddModal(false)}
+                disabled={savingAddPunch}
                 className="
                   rounded-lg
                   border
@@ -2114,6 +2167,8 @@ export default function ClockInPageHistory() {
                   py-2
                   text-sm
                   text-gray-600
+                  disabled:cursor-not-allowed
+                  disabled:opacity-50
                 "
               >
                 Annuler
@@ -2121,17 +2176,29 @@ export default function ClockInPageHistory() {
 
               <button
                 onClick={addPunch}
-                className="
+                disabled={savingAddPunch}
+                aria-busy={savingAddPunch}
+                className={`
                   rounded-lg
-                  bg-[#c98573]
                   px-5
                   py-2
                   text-sm
                   font-medium
                   text-white
-                "
+                  transition-colors
+                  ${savingAddPunch
+                    ? "cursor-not-allowed bg-gray-400 opacity-70"
+                    : "bg-[#c98573] hover:bg-[#b87565]"}
+                `}
               >
-                Ajouter
+                {savingAddPunch ? (
+                  <span className="inline-flex items-center gap-2">
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                    Enregistrement...
+                  </span>
+                ) : (
+                  "Ajouter"
+                )}
               </button>
 
             </div>
