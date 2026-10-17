@@ -610,54 +610,8 @@ const addPunchInFlight = useRef(false);
       setLoadingEmployees(false);
     }
   };
-  // ---------------------------------------------------------
-  // ADD PUNCH
-  // ---------------------------------------------------------
-  const addPunch = async () => {
-    if (!newPunch.deviceUserId || !newPunch.timestamp) {
-      alert("Veuillez remplir tous les champs.");
-      return;
-    }
-
-    try {
-      const employeeNumber = normalizeDeviceId(newPunch.deviceUserId);
-
-      const workDate = newPunch.timestamp.substring(0, 10);
-
-      // datetime-local contient l'heure locale saisie dans le formulaire.
-      // La conversion en ISO produit un timestamp UTC terminé par Z.
-      const timestamp = new Date(newPunch.timestamp);
-
-      if (Number.isNaN(timestamp.getTime())) {
-        alert("La date et l'heure sont invalides.");
-        return;
-      }
 
 
-      // ---------------------------------------------------------
-      // 1. CREATE THE ATTENDANCE / MACHINE PUNCH
-      // ---------------------------------------------------------
-
-    const employeeList = Array.isArray(data)
-      ? data
-      : Array.isArray(data?.data)
-      ? data.data
-      : [];
-
-    setEmployees(employeeList);
-  } catch (err) {
-    console.error("Error loading employees:", err);
-    setEmployees([]);
-
-    setError(
-      err instanceof Error
-        ? err.message
-        : "Impossible de récupérer les employés."
-    );
-  } finally {
-    setLoadingEmployees(false);
-  }
-};
   // ---------------------------------------------------------
   // ADD PUNCH
   // ---------------------------------------------------------
