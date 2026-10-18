@@ -753,14 +753,7 @@ span.flatpickr-weekday,
 
 /* ── Smooth light/dark switch (see switchThemeSmoothly in ThemeContext) ── */
 
-/* Browsers with View Transitions: cross-fade the whole page */
-::view-transition-old(root),
-::view-transition-new(root) {
-  animation-duration: 0.4s;
-  animation-timing-function: ease-in-out;
-}
-
-/* Other browsers: fade colours while .theme-transition is on <html> */
+/* Fade colours while .theme-transition is on <html> */
 html.theme-transition,
 html.theme-transition *,
 html.theme-transition *::before,
