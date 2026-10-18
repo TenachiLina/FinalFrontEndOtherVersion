@@ -3,6 +3,7 @@ import { useModal } from "@/hooks/useModal";
 import { Cell, GridData, TaskRecord, ShiftRecord, EmployeeRecord, PlanningRecord } from "../components/calendar/types";
 import * as XLSX from 'xlsx';
 import { API_BASE_URL } from "@/lib/config";
+import { sortShifts } from "@/lib/sortShifts";
 
 const apiFetch = <T,>(path: string): Promise<T> =>
   fetch(`${API_BASE_URL}${path}`).then((r) => {
@@ -85,10 +86,12 @@ export const useViewPlanning = () => {
       apiFetch<EmployeeRecord[]>("/employees"),
     ])
       .then(([taskRecords, shiftRecords, empRecords]) => {
+        // Keep shifts ordered by start time
+        const sortedShifts = sortShifts(shiftRecords);
         setTasks(taskRecords);
-        setShifts(shiftRecords);
+        setShifts(sortedShifts);
         setEmployees(empRecords);
-        setGrid(buildEmptyGrid(taskRecords, shiftRecords));
+        setGrid(buildEmptyGrid(taskRecords, sortedShifts));
         setMetaReady(true);
       })
       .catch((e) => setMetaError(String(e)))

@@ -28,6 +28,15 @@ type ShiftForm = { startTime: string; endTime: string };
 
 const emptyForm: ShiftForm = { startTime: "", endTime: "" };
 
+// Keeps shifts ordered by start time (then end time). "HH:mm" strings are
+// zero-padded, so a plain string comparison sorts them correctly.
+const sortShifts = (list: ManagedShift[]) =>
+  [...list].sort(
+    (a, b) =>
+      a.startTime.localeCompare(b.startTime) ||
+      a.endTime.localeCompare(b.endTime)
+  );
+
 export const useShiftsManagement = () => {
   const { isOpen, openModal, closeModal } = useModal();
 
@@ -51,7 +60,7 @@ export const useShiftsManagement = () => {
     setLoading(true);
     setError(null);
     apiFetch<ManagedShift[]>(`/shifts?status=${targetView}`)
-      .then(setShifts)
+      .then((data) => setShifts(sortShifts(data)))
       .catch((e) => setError(String(e)))
       .finally(() => setLoading(false));
   }, []);
@@ -98,11 +107,7 @@ export const useShiftsManagement = () => {
       setFormError("Start time and end time are required.");
       return;
     }
-    // if (form.startTime > form.endTime) {
-    //   setFormError("Start time must be before end time.");
-    //   return;
-    // }
-    
+
     if (form.endTime === form.startTime) {
       setFormError("Start time and end time can't be the same.");
       return;
@@ -121,13 +126,15 @@ export const useShiftsManagement = () => {
           method: "POST",
           body: JSON.stringify(payload),
         });
-        if (view === "active") setShifts((prev) => [...prev, created]);
+        if (view === "active") setShifts((prev) => sortShifts([...prev, created]));
       } else if (editingShift) {
         const updated = await apiFetch<ManagedShift>(`/shifts/${editingShift._id}`, {
           method: "PUT",
           body: JSON.stringify(payload),
         });
-        setShifts((prev) => prev.map((s) => (s._id === updated._id ? updated : s)));
+        setShifts((prev) =>
+          sortShifts(prev.map((s) => (s._id === updated._id ? updated : s)))
+        );
       }
       closeShiftModal();
     } catch (e) {
