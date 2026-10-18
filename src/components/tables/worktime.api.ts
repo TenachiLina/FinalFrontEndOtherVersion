@@ -8,8 +8,7 @@ import { API_BASE_URL } from "@/lib/config";
 export interface WorktimePayload {
   worktime_id?: number;
   emp_id: number;
-  shift_id: string;
-  work_date: string;
+shift_id?: string | null;  work_date: string;
 
   clock_in?: string;
   clock_out?: string;
@@ -30,10 +29,10 @@ export interface WorktimePayload {
   backup_emp_id?: number | null;
 }
 
-export interface WorktimeRecord
-  extends WorktimePayload {
+export interface WorktimeRecord extends WorktimePayload {
   _id: string;
   worktime_id: number;
+  shift_id?: string | null;
   //backup
   backup_emp_id?: number | null;
 }

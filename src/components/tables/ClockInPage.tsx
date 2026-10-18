@@ -656,30 +656,179 @@ const getAttendanceRows = (
 
   return (
     <>
-      {/* Manual Time Edit Modal */}
-      {manualInput.employee !== null && (
-        <>
-          <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm" onClick={() => setManualInput({ employee: null, type: null, value: "" })} />
-          <div className="fixed z-50 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-white/[0.1] shadow-xl p-6 w-72" style={{ top: "50%", left: "50%", transform: "translate(-50%,-50%)" }}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-medium text-gray-800 dark:text-white">
-                Edit {manualInput.type === "clockIn" ? "Clock-In" : "Clock-Out"} Time
-              </h3>
-              <button onClick={() => setManualInput({ employee: null, type: null, value: "" })} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"><CloseIcon /></button>
-            </div>
-            <input
-              type="time"
-              value={manualInput.value}
-              onChange={(e) => setManualInput((p) => ({ ...p, value: e.target.value }))}
-              className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 dark:border-white/[0.1] dark:bg-white/[0.05] dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-            />
-            <div className="flex gap-2 mt-4">
-              <button onClick={saveManualTime} className="flex-1 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors">Save</button>
-              <button onClick={() => setManualInput({ employee: null, type: null, value: "" })} className="flex-1 rounded-lg border border-gray-200 dark:border-white/[0.1] px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/[0.05] transition-colors">Cancel</button>
-            </div>
-          </div>
-        </>
-      )}
+      
+{/* Manual Time Edit Modal */}
+{manualInput.employee !== null && (
+  <>
+    <div
+      className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm"
+      onClick={() =>
+        setManualInput({
+          employee: null,
+          type: null,
+          value: "",
+        })
+      }
+    />
+
+    <div
+      className="fixed z-50 bg-white dark:bg-gray-900 rounded-xl
+      border border-gray-200 dark:border-white/[0.1]
+      shadow-xl p-6 w-[320px] max-w-[90vw]"
+      style={{
+        top: "50%",
+        left: "50%",
+        transform: "translate(-50%, -50%)",
+      }}
+    >
+      <div className="flex items-center justify-between mb-5">
+        <h3 className="text-base font-medium text-gray-800 dark:text-white">
+          Edit{" "}
+          {manualInput.type === "clockIn"
+            ? "Clock-In"
+            : "Clock-Out"}{" "}
+          Time
+        </h3>
+
+        <button
+          type="button"
+          onClick={() =>
+            setManualInput({
+              employee: null,
+              type: null,
+              value: "",
+            })
+          }
+          className="text-gray-400 hover:text-gray-600
+          dark:hover:text-gray-200 p-2"
+        >
+          <CloseIcon />
+        </button>
+      </div>
+
+      {/* Hour and minute selectors */}
+      <div className="flex items-center gap-3">
+        <div className="flex-1">
+          <label
+            htmlFor="edit-hour"
+            className="block text-sm text-gray-500
+            dark:text-gray-400 mb-2"
+          >
+            Hour
+          </label>
+
+          <select
+            id="edit-hour"
+            value={manualInput.value.split(":")[0] || "00"}
+            onChange={(e) => {
+              const minute =
+                manualInput.value.split(":")[1] || "00";
+
+              setManualInput((p) => ({
+                ...p,
+                value: `${e.target.value}:${minute}`,
+              }));
+            }}
+            className="w-full h-14 rounded-lg border
+            border-gray-200 bg-gray-50 px-3 text-xl
+            text-gray-800 dark:border-white/[0.1]
+            dark:bg-white/[0.05] dark:text-white"
+          >
+            {Array.from({ length: 24 }, (_, i) => {
+              const hour = String(i).padStart(2, "0");
+
+              return (
+                <option key={hour} value={hour}>
+                  {hour}
+                </option>
+              );
+            })}
+          </select>
+        </div>
+
+        <span className="text-2xl font-semibold mt-6
+        text-gray-700 dark:text-white">
+          :
+        </span>
+
+        <div className="flex-1">
+          <label
+            htmlFor="edit-minute"
+            className="block text-sm text-gray-500
+            dark:text-gray-400 mb-2"
+          >
+            Minute
+          </label>
+
+          <select
+            id="edit-minute"
+            value={manualInput.value.split(":")[1] || "00"}
+            onChange={(e) => {
+              const hour =
+                manualInput.value.split(":")[0] || "00";
+
+              setManualInput((p) => ({
+                ...p,
+                value: `${hour}:${e.target.value}`,
+              }));
+            }}
+            className="w-full h-14 rounded-lg border
+            border-gray-200 bg-gray-50 px-3 text-xl
+            text-gray-800 dark:border-white/[0.1]
+            dark:bg-white/[0.05] dark:text-white"
+          >
+            {Array.from({ length: 60 }, (_, i) => {
+              const minute = String(i).padStart(2, "0");
+
+              return (
+                <option key={minute} value={minute}>
+                  {minute}
+                </option>
+              );
+            })}
+          </select>
+        </div>
+      </div>
+
+      <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
+        Select the hour and minute. No keyboard required.
+      </p>
+
+      {/* Actions */}
+      <div className="flex gap-3 mt-6">
+        <button
+          type="button"
+          onClick={saveManualTime}
+          className="flex-1 rounded-lg bg-blue-600
+          px-3 py-3 text-sm font-medium text-white
+          hover:bg-blue-700 active:bg-blue-800"
+        >
+          Save
+        </button>
+
+        <button
+          type="button"
+          onClick={() =>
+            setManualInput({
+              employee: null,
+              type: null,
+              value: "",
+            })
+          }
+          className="flex-1 rounded-lg border
+          border-gray-200 dark:border-white/[0.1]
+          px-3 py-3 text-sm font-medium
+          text-gray-600 dark:text-gray-300"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  </>
+)}
+
+
+            
 
       {absenceModal && (
         <>
