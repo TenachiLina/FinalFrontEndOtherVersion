@@ -3,7 +3,8 @@ import { ThemeToggleButton } from "@/components/common/ThemeToggleButton";
 import NotificationDropdown from "@/components/header/NotificationDropdown";
 import UserDropdown from "@/components/header/UserDropdown";
 import { useSidebar } from "@/context/SidebarContext";
-import Image from "next/image";
+import { useAuth } from "@/context/AuthContext";
+import { DEFAULT_BRAND } from "@/lib/branding";
 import Link from "next/link";
 import React, { useState ,useEffect,useRef} from "react";
 import { usePathname } from "next/navigation";
@@ -12,6 +13,9 @@ const AppHeader: React.FC = () => {
   const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false);
 
   const { isMobileOpen, toggleSidebar, toggleMobileSidebar } = useSidebar();
+  const { company } = useAuth();
+  const brandName = company?.name ?? DEFAULT_BRAND.name;
+  const brandLogo = company?.branding?.logo || DEFAULT_BRAND.logo;
 
   const pathname = usePathname();
   const pageTitles: Record<string, string> = {
@@ -104,21 +108,11 @@ const AppHeader: React.FC = () => {
             {/* Cross Icon */}
           </button>
 
-          <Link href="/" className="lg:hidden">
-            <Image
-              width={154}
-              height={32}
-              className="dark:hidden"
-              src="./images/logo/logo.svg"
-              alt="Logo"
-            />
-            <Image
-              width={154}
-              height={32}
-              className="hidden dark:block"
-              src="./images/logo/logo-dark.svg"
-              alt="Logo"
-            />
+          {/* Small screens: the company's logo and name (the sidebar is hidden) */}
+          <Link href="/" className="flex min-w-0 items-center gap-2 lg:hidden">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className="h-8 w-8 shrink-0 rounded-lg object-contain" src={brandLogo} alt={`${brandName} logo`} />
+            <span className="truncate text-lg font-bold text-gray-800 dark:text-white">{brandName}</span>
           </Link>
 
           <button

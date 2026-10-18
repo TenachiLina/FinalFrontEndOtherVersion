@@ -75,7 +75,8 @@ export default function AdminLayout({
           </div>
         )}
         {/* Page Content */}
-        <div className="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6">{children}</div>
+        {/* Fills the width next to the sidebar (no centred max width, which left a gap on wide screens) */}
+        <div className="p-4 md:p-6">{children}</div>
       </div>
     </div>
   );
