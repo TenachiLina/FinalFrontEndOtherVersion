@@ -10,6 +10,8 @@ import {
 } from "@/lib/reporting";
 import { payrollConfig, sumHours, sumConsommation, sumAbsences } from "@/lib/payrollConfig";
 import { API_BASE_URL } from "@/lib/config";
+import { ensureOk, friendlyError, optionalData } from "@/lib/errors";
+import { toast } from "@/lib/notify";
 
 export interface WeeklyAdvanceRow {
   empId: number | string;
@@ -44,8 +46,8 @@ export function useWeeklyAdvancesList(initialRange?: DateRange) {
 
       const [worktimeRows, advanceRecords, scheduled] = await Promise.all([
         fetchWorktimeRows(r),
-        fetchAdvances(emps, undefined, r).catch(() => [] as AdvanceRecord[]),
-        fetchScheduledEmpIds(r).catch(() => new Set<string>()),
+        fetchAdvances(emps, undefined, r).catch(optionalData([] as AdvanceRecord[], "Advances")),
+        fetchScheduledEmpIds(r).catch(optionalData(new Set<string>(), "The planning")),
       ]);
 
       setRows(worktimeRows);
@@ -54,7 +56,7 @@ export function useWeeklyAdvancesList(initialRange?: DateRange) {
       setRangeState(r);
     } catch (err) {
       console.error("Error loading weekly advances:", err);
-      setError("Failed to load weekly advances.");
+      setError(friendlyError(err, "Couldn't load the weekly advances"));
     } finally {
       setLoading(false);
     }
@@ -128,12 +130,13 @@ export function useWeeklyAdvancesList(initialRange?: DateRange) {
           reason: `Weekly advance (${range.start} to ${range.end})`,
         }),
       });
-      if (!res.ok) throw new Error("Failed to create advance"); // the modal catches this and shows an error
+      await ensureOk(res); // the modal catches this and shows the message
       const created = await res.json();
       setAdvances((prev) => [
         ...prev,
         { id: created._id, empId, employee: undefined, amount, date, reason: "Weekly advance" },
       ]);
+      toast.success("Advance given.");
     },
     [range]
   );
@@ -146,8 +149,8 @@ export function useWeeklyAdvancesList(initialRange?: DateRange) {
     try {
       await deleteAdvance(advanceId);
     } catch (err) {
-      console.error("Error revoking advance:", err);
       setAdvances(previous);
+      toast.error(friendlyError(err, "Couldn't remove the advance"));
     }
   }, [advances]);
 

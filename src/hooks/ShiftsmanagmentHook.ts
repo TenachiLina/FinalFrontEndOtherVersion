@@ -2,6 +2,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { useModal } from "@/hooks/useModal";
 import { API_BASE_URL } from "@/lib/config";
+import { ensureOk, friendlyError } from "@/lib/errors";
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
@@ -61,7 +62,7 @@ export const useShiftsManagement = () => {
     setError(null);
     apiFetch<ManagedShift[]>(`/shifts?status=${targetView}`)
       .then((data) => setShifts(sortShifts(data)))
-      .catch((e) => setError(String(e)))
+      .catch((e) => setError(friendlyError(e, "Couldn't load the shifts")))
       .finally(() => setLoading(false));
   }, []);
 
@@ -138,7 +139,7 @@ export const useShiftsManagement = () => {
       }
       closeShiftModal();
     } catch (e) {
-      setFormError("Could not save this shift. " + String(e));
+      setFormError(friendlyError(e, "Couldn't save this shift"));
     } finally {
       setSaving(false);
     }
@@ -150,7 +151,7 @@ export const useShiftsManagement = () => {
       await apiFetch(`/shifts/${shift._id}/archive`, { method: "PATCH" });
       setShifts((prev) => prev.filter((s) => s._id !== shift._id));
     } catch (e) {
-      setError("Could not archive this shift. " + String(e));
+      setError(friendlyError(e, "Couldn't archive this shift"));
     }
   }, []);
 
@@ -159,7 +160,7 @@ export const useShiftsManagement = () => {
       await apiFetch(`/shifts/${shift._id}/restore`, { method: "PATCH" });
       setShifts((prev) => prev.filter((s) => s._id !== shift._id));
     } catch (e) {
-      setError("Could not restore this shift. " + String(e));
+      setError(friendlyError(e, "Couldn't restore this shift"));
     }
   }, []);
 

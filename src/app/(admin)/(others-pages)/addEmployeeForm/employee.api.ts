@@ -1,6 +1,7 @@
 // employee.api.ts
 // Place this in src/components/ or alongside your form component.
 import { API_BASE_URL } from "@/lib/config";
+import { ensureOk } from "@/lib/errors";
 
 export interface EmployeePayload {
   empNumber: number;
@@ -21,10 +22,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     headers: { "Content-Type": "application/json" },
     ...init,
   });
-  if (!res.ok) {
-    const text = await res.text().catch(() => res.statusText);
-    throw new Error(`[employees] ${res.status} ${text}`);
-  }
+  await ensureOk(res);
   return res.json() as Promise<T>;
 }
 

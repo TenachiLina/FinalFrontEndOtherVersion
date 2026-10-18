@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import { Modal } from "../ui/modal";
 
 import { currency } from "@/lib/payrollConfig";
+import { friendlyError } from "@/lib/errors";
 interface BonusModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -43,8 +44,8 @@ const BonusModal: React.FC<BonusModalProps> = ({ isOpen, onClose, employeeName, 
     try {
       await onConfirm(Number(n.toFixed(2)), date, reason.trim());
       onClose();
-    } catch {
-      setError("Failed to save the prime. Please try again.");
+    } catch (err) {
+      setError(friendlyError(err, "Couldn't save the prime"));
       setSaving(false);
     }
   };

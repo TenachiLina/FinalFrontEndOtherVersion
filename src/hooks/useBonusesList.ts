@@ -3,6 +3,8 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { Employee, DateRange } from "@/components/reporting/types";
 import { getThisMonthRange, fetchEmployees } from "@/lib/reporting";
 import { BonusRecord, fetchBonuses, createBonus } from "@/lib/bonuses";
+import { friendlyError } from "@/lib/errors";
+import { toast } from "@/lib/notify";
 
 export interface BonusEmployeeRow {
   empId: number | string;
@@ -32,7 +34,7 @@ export function useBonusesList() {
       setRange(r);
     } catch (err) {
       console.error("Error loading primes:", err);
-      setError("Failed to load primes.");
+      setError(friendlyError(err, "Couldn't load the primes"));
     } finally {
       setLoading(false);
     }
@@ -73,6 +75,7 @@ export function useBonusesList() {
       if (created.date >= range.start && created.date <= range.end) {
         setBonuses((prev) => [created, ...prev]);
       }
+      toast.success("Prime given.");
     },
     [range]
   );

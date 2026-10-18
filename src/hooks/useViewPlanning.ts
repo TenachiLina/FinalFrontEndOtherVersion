@@ -3,6 +3,8 @@ import { useModal } from "@/hooks/useModal";
 import { Cell, GridData, TaskRecord, ShiftRecord, EmployeeRecord, PlanningRecord } from "../components/calendar/types";
 import * as XLSX from 'xlsx';
 import { API_BASE_URL } from "@/lib/config";
+import { friendlyError } from "@/lib/errors";
+import { toast } from "@/lib/notify";
 import { downloadFile } from "@/lib/auth";
 import { sortShifts } from "@/lib/sortShifts";
 
@@ -95,7 +97,7 @@ export const useViewPlanning = () => {
         setGrid(buildEmptyGrid(taskRecords, sortedShifts));
         setMetaReady(true);
       })
-      .catch((e) => setMetaError(String(e)))
+      .catch((e) => setMetaError(friendlyError(e, "Couldn't load employees, shifts and posts")))
       .finally(() => setLoadingMeta(false));
   }, []);
 
@@ -148,7 +150,7 @@ export const useViewPlanning = () => {
       setGrid(newGrid);
     } catch (err) {
       console.error("Error fetching planning:", err);
-      setError(err instanceof Error ? err.message : "Unknown error");
+      setError(friendlyError(err, "Couldn't load the planning"));
     } finally {
       setLoading(false);
     }
@@ -174,7 +176,7 @@ export const useViewPlanning = () => {
   const runExport = (url: string, baseName: string, format: "excel" | "pdf") => {
     const ext = format === "excel" ? "xlsx" : "pdf";
     downloadFile(url, `${baseName}.${ext}`).catch((err) =>
-      alert(err instanceof Error ? err.message : "Export failed")
+      toast.error(friendlyError(err, "Couldn't export the planning"))
     );
   };
 

@@ -1,5 +1,8 @@
 "use client";
 import React, { useEffect, useMemo, useState, useRef} from "react";
+import { ensureOk, friendlyError } from "@/lib/errors";
+import { confirmDialog, toast } from "@/lib/notify";
+import LoadError from "@/components/ui/feedback/LoadError";
 import {
   upsertWorktime,
   getWorktimesByDate,
@@ -192,11 +195,7 @@ const searchBoxRef = useRef<HTMLDivElement>(null);
         cache: "no-store",
       });
 
-      if (!response.ok) {
-        throw new Error(
-          `Failed to load attendance logs (${response.status})`
-        );
-      }
+      await ensureOk(response);
 
       const data = await response.json();
 
@@ -212,11 +211,7 @@ const searchBoxRef = useRef<HTMLDivElement>(null);
     } catch (err) {
       console.error(err);
 
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Failed to load attendance logs"
-      );
+      setError(friendlyError(err, "Couldn't load the clock-in records"));
 
       setLogs([]);
     } finally {
@@ -479,11 +474,17 @@ const currentLogs = filteredLogs;
  
 const deleteSelected = async () => {
   if (selectedLogs.size === 0) {
-    alert("Sélectionnez au moins un pointage.");
+    toast.warning("Select at least one clock-in record to delete.");
     return;
   }
 
-  if (!window.confirm(`Supprimer ${selectedLogs.size} pointage(s) ?`)) {
+  const confirmed = await confirmDialog({
+    title: `Delete ${selectedLogs.size} clock-in record${selectedLogs.size === 1 ? "" : "s"}?`,
+    message: "Their clock-in and clock-out times will be removed. This can't be undone.",
+    confirmLabel: "Delete",
+    danger: true,
+  });
+  if (!confirmed) {
     return;
   }
 
@@ -499,7 +500,7 @@ for (const id of selectedLogs) {
   const group = groupedLogs.find((log) => log.id === id);
 
   if (!group) {
-    errors.push(`Pointage introuvable : ${id}`);
+    errors.push(`Record ${id} was not found`);
     continue;
   }
 
@@ -509,9 +510,7 @@ for (const id of selectedLogs) {
     const rawId = rawLog._id;
 
     if (!rawId) {
-      errors.push(
-        `Identifiant MongoDB manquant pour ${rawLog.deviceUserId} à ${rawLog.timestamp}`
-      );
+      errors.push(`A record for ${rawLog.deviceUserId} at ${rawLog.timestamp} has no ID`);
       continue;
     }
 
@@ -524,23 +523,13 @@ for (const id of selectedLogs) {
         }
       );
 
-      if (!response.ok) {
-        const message = await response.text();
-
-        throw new Error(
-          `HTTP ${response.status}${message ? `: ${message}` : ""}`
-        );
-      }
+      await ensureOk(response);
 
       deletedCount++;
     } catch (err) {
       console.error("Failed to delete attendance log:", rawId, err);
 
-      errors.push(
-        `${rawId}: ${
-          err instanceof Error ? err.message : "Erreur inconnue"
-        }`
-      );
+      errors.push(friendlyError(err));
     }
   }
 }
@@ -550,23 +539,17 @@ for (const id of selectedLogs) {
     await loadLogs();
 
     if (errors.length > 0) {
-      setError(
-        `${deletedCount} pointage(s) supprimé(s). ` +
-          `${errors.length} suppression(s) échouée(s). ` +
-          errors.join(" | ")
+      toast.error(
+        `${deletedCount} record(s) deleted, ${errors.length} couldn't be deleted. ${errors[0]}`
       );
     } else {
       setSelectedLogs(new Set());
-      alert(`${deletedCount/2} pointage(s) supprimé(s) avec succès.`);
+      toast.success(`${selectedLogs.size} clock-in record${selectedLogs.size === 1 ? "" : "s"} deleted.`);
     }
   } catch (err) {
     console.error("Deletion error:", err);
 
-    setError(
-      err instanceof Error
-        ? err.message
-        : "Impossible de supprimer les pointages."
-    );
+    toast.error(friendlyError(err, "Couldn't delete the records"));
   } finally {
     setLoading(false);
   }
@@ -584,11 +567,7 @@ for (const id of selectedLogs) {
       }
     );
 
-    if (!response.ok) {
-      throw new Error(
-        `Impossible de récupérer les employés (${response.status})`
-      );
-    }
+    await ensureOk(response);
 
     const data = await response.json();
 
@@ -603,11 +582,7 @@ for (const id of selectedLogs) {
     console.error("Error loading employees:", err);
     setEmployees([]);
 
-    setError(
-      err instanceof Error
-        ? err.message
-        : "Impossible de récupérer les employés."
-    );
+    setError(friendlyError(err, "Couldn't load the employees"));
   } finally {
     setLoadingEmployees(false);
   }
@@ -617,7 +592,7 @@ for (const id of selectedLogs) {
   // ---------------------------------------------------------
 const addPunch = async () => {
   if (!newPunch.deviceUserId || !newPunch.timestamp) {
-    alert("Veuillez remplir tous les champs.");
+    toast.warning("Choose an employee and enter the date and time.");
     return;
   }
 
@@ -636,7 +611,7 @@ const workDate = newPunch.timestamp.substring(0, 10);
 const timestamp = new Date(newPunch.timestamp);
 
 if (Number.isNaN(timestamp.getTime())) {
-  alert("La date et l'heure sont invalides.");
+  toast.warning("The date and time aren't valid.");
   return;
 }
 
@@ -664,7 +639,7 @@ if (Number.isNaN(timestamp.getTime())) {
 
     if (!response.ok || result?.status === "error") {
       throw new Error(
-        result?.message || "Failed to create punch"
+        result?.message || "The clock-in couldn't be saved"
       );
     }
 
@@ -683,11 +658,7 @@ if (Number.isNaN(timestamp.getTime())) {
       }
     );
 
-    if (!logsResponse.ok) {
-      throw new Error(
-        `Impossible de récupérer les pointages (${logsResponse.status})`
-      );
-    }
+    await ensureOk(logsResponse);
 
     const logsData = await logsResponse.json();
 
@@ -716,7 +687,7 @@ if (Number.isNaN(timestamp.getTime())) {
 
     if (employeeLogs.length === 0) {
       throw new Error(
-        "Le pointage a été créé mais aucun pointage employé n'a été trouvé."
+        "The clock-in was saved, but no records were found for this employee."
       );
     }
 
@@ -752,11 +723,7 @@ if (Number.isNaN(timestamp.getTime())) {
       }
     );
 
-    if (!employeesResponse.ok) {
-      throw new Error(
-        `Impossible de récupérer les employés (${employeesResponse.status})`
-      );
-    }
+    await ensureOk(employeesResponse);
 
     const employeesData = await employeesResponse.json();
 
@@ -774,7 +741,7 @@ if (Number.isNaN(timestamp.getTime())) {
 
     if (!employee) {
       throw new Error(
-        `Aucun employé trouvé avec le numéro ${employeeNumber}.`
+        `No employee has the number ${employeeNumber}.`
       );
     }
 
@@ -789,11 +756,7 @@ if (Number.isNaN(timestamp.getTime())) {
       }
     );
 
-    if (!shiftsResponse.ok) {
-      throw new Error(
-        `Impossible de récupérer les shifts (${shiftsResponse.status})`
-      );
-    }
+    await ensureOk(shiftsResponse);
 
     const shiftsData = await shiftsResponse.json();
 
@@ -816,11 +779,7 @@ if (Number.isNaN(timestamp.getTime())) {
       }
     );
 
-    if (!planningResponse.ok) {
-      throw new Error(
-        `Impossible de récupérer le planning (${planningResponse.status})`
-      );
-    }
+    await ensureOk(planningResponse);
 
     const planningData = await planningResponse.json();
 
@@ -844,8 +803,8 @@ if (Number.isNaN(timestamp.getTime())) {
 
     // Warn only when the employee has no planning entry for this date.
     if (!employeePlanning) {
-      alert(
-        `Attention : l'employé ${employeeNumber} n'est pas dans le planning du ${workDate}. Son pointage sera enregistré sans calcul de retard ni d'heures supplémentaires.`
+      toast.warning(
+        `Employee ${employeeNumber} isn't in the planning on ${workDate}. The clock-in is saved, but lateness and overtime can't be calculated.`
       );
     }
 
@@ -1045,10 +1004,10 @@ if (shift && clockOut !== "00:00" && clockOut !== "—") {
 
     await loadLogs();
 
-    alert(
+    toast.success(
       clockOut !== "00:00"
-        ? "Pointage ajouté et worktime mis à jour avec Clock In + Clock Out."
-        : "Pointage ajouté et worktime créé avec le Clock In."
+        ? "Clock-in added. Worked hours updated with the clock-in and clock-out."
+        : "Clock-in added. Worked hours will be calculated after the clock-out."
     );
   } catch (err) {
     console.error(
@@ -1056,11 +1015,7 @@ if (shift && clockOut !== "00:00" && clockOut !== "—") {
       err
     );
 
-    setError(
-      err instanceof Error
-        ? err.message
-        : "Impossible d'ajouter le pointage."
-    );
+    toast.error(friendlyError(err, "Couldn't add the clock-in"));
   } finally {
     addPunchInFlight.current = false;
     setSavingAddPunch(false);
@@ -1077,7 +1032,7 @@ const saveEditedPunch = async () => {
   const { logId, value, mode } = editingPunch;
 
   if (!value) {
-    alert("Veuillez saisir une heure.");
+    toast.warning("Enter a time.");
     return;
   }
 
@@ -1091,7 +1046,7 @@ const saveEditedPunch = async () => {
         );
 
   if (!rawLog?._id) {
-    alert("Pointage de référence introuvable.");
+    toast.error("This clock-in record no longer exists. Refresh the page and try again.");
     return;
   }
 
@@ -1135,8 +1090,8 @@ const timestamp = new Date(
       throw new Error(
         result?.message ||
           (mode === "edit"
-            ? "Impossible de modifier le pointage."
-            : "Impossible d'ajouter le Clock Out.")
+            ? "The clock-in couldn't be changed"
+            : "The clock-out couldn't be added")
       );
     }
 
@@ -1148,9 +1103,7 @@ const timestamp = new Date(
       { cache: "no-store" }
     );
 
-    if (!logsResponse.ok) {
-      throw new Error("Impossible de récupérer les pointages actualisés.");
-    }
+    await ensureOk(logsResponse);
 
     const logsData = await logsResponse.json();
 
@@ -1173,7 +1126,7 @@ const timestamp = new Date(
       );
 
     if (employeeLogs.length === 0) {
-      throw new Error("Aucun pointage trouvé pour recalculer le worktime.");
+      throw new Error("No records were found to recalculate the worked hours.");
     }
 
     // 3. Calculate the day's first Clock In and last Clock Out.
@@ -1189,9 +1142,7 @@ const timestamp = new Date(
       cache: "no-store",
     });
 
-    if (!employeesResponse.ok) {
-      throw new Error("Impossible de récupérer les employés.");
-    }
+    await ensureOk(employeesResponse);
 
     const employeesData = await employeesResponse.json();
 
@@ -1207,7 +1158,7 @@ const timestamp = new Date(
     );
 
     if (!employee) {
-      throw new Error(`Employé ${employeeNumber} introuvable.`);
+      throw new Error(`No employee has the number ${employeeNumber}.`);
     }
 
     // 5. Fetch shifts.
@@ -1215,9 +1166,7 @@ const timestamp = new Date(
       cache: "no-store",
     });
 
-    if (!shiftsResponse.ok) {
-      throw new Error("Impossible de récupérer les shifts.");
-    }
+    await ensureOk(shiftsResponse);
 
     const shiftsData = await shiftsResponse.json();
 
@@ -1233,9 +1182,7 @@ const timestamp = new Date(
       { cache: "no-store" }
     );
 
-    if (!planningResponse.ok) {
-      throw new Error("Impossible de récupérer le planning.");
-    }
+    await ensureOk(planningResponse);
 
     const planningData = await planningResponse.json();
 
@@ -1255,8 +1202,8 @@ const timestamp = new Date(
     // A missing planning entry is different from a missing shift.
     // Show the warning only when the employee is not scheduled.
     if (!employeePlanning) {
-      alert(
-        `Attention : l'employé ${employeeNumber} n'est pas dans le planning du ${workDate}. Son pointage sera enregistré sans calcul de retard ni d'heures supplémentaires.`
+      toast.warning(
+        `Employee ${employeeNumber} isn't in the planning on ${workDate}. The clock-in is saved, but lateness and overtime can't be calculated.`
       );
     }
 
@@ -1397,21 +1344,15 @@ shift_id: shiftId,
     setEditingPunch(null);
     await loadLogs();
 
-    alert(
-      `${mode === "edit" ? "Pointage modifié" : "Clock Out ajouté"} et worktime mis à jour.\n` +
-        `Heures travaillées : ${workHours}\n` +
-        `Retard : ${lateMinutes} min\n` +
-        `Heures supplémentaires : ${overtimeMinutes} min` +
-        (!employeePlanning ? "\nAttention : cet employé n'était pas planifié." : "")
+    toast.success(
+      `Worked ${workHours}, late ${lateMinutes} min, overtime ${overtimeMinutes} min.` +
+        (!employeePlanning ? " This employee wasn't in the planning." : ""),
+      mode === "edit" ? "Clock-in updated" : "Clock-out added"
     );
   } catch (err) {
     console.error("Error updating punch and worktime:", err);
 
-    setError(
-      err instanceof Error
-        ? err.message
-        : "Impossible de mettre à jour le pointage et le worktime."
-    );
+    toast.error(friendlyError(err, "Couldn't update the clock-in"));
   } finally {
     setSavingPunch(false);
   }
@@ -1579,9 +1520,16 @@ onClick={() => {
 
       {/* ERROR */}
       {error && (
-        <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
-        </div>
+        <LoadError
+          className="mb-4"
+          title="Something didn't load"
+          message={error}
+          onRetry={() => {
+            setError(null);
+            loadLogs();
+            loadEmployees();
+          }}
+        />
       )}
 
       {/* TABLE */}

@@ -241,7 +241,7 @@ export function installAuthFetch() {
           /* storage unavailable */
         }
         const company = slug ? `company=${encodeURIComponent(slug)}&` : "";
-        window.location.href = `/signin?${company}next=${next}`;
+        window.location.href = `/signin?${company}expired=1&next=${next}`;
       }
     }
     return res;

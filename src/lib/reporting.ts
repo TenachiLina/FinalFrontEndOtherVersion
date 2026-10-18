@@ -10,6 +10,7 @@ import {
 
 // ⚠️ Adjust to match your real API base / env var if different.
 import { API_BASE_URL } from "@/lib/config";
+import { ensureOk } from "@/lib/errors";
 
 // ─────────────────────────────────────────────────────────────────────────
 // Time / date helpers (ported from old ReportingContent.jsx)
@@ -206,7 +207,7 @@ export function getCalendarMonthRange(year: number, monthIndex: number): DateRan
 
 export async function fetchEmployees(): Promise<Employee[]> {
   const res = await fetch(`${API_BASE_URL}/employees`);
-  if (!res.ok) throw new Error("Failed to fetch employees");
+  await ensureOk(res);
   const data = await res.json();
   return (data as EmployeeRaw[]).map(normalizeEmployee);
 }
@@ -221,7 +222,7 @@ export async function fetchWorktimeRows(
   }
 
   const res = await fetch(`${API_BASE_URL}/worktime?${params.toString()}`);
-  if (!res.ok) throw new Error("Failed to fetch worktime report.");
+  await ensureOk(res);
 
   const data = await res.json();
   const list: WorktimeRowRaw[] = Array.isArray(data) ? data : data.rows || [];
@@ -248,23 +249,8 @@ export async function fetchAdvances(
     empId !== undefined && empId !== null
       ? `${API_BASE_URL}/advances/employee/${empId}${qs}`
       : `${API_BASE_URL}/advances${qs}`;
- console.log("Fetching advances from URL:", url);
- const res = await fetch(url);
-
-if (!res.ok) {
-  const errorText = await res.text();
-
-  console.error("ADVANCES API ERROR:", {
-    url,
-    status: res.status,
-    statusText: res.statusText,
-    response: errorText,
-  });
-
-  throw new Error(
-    `Failed to fetch advances: ${res.status} ${res.statusText}`
-  );
-}
+  const res = await fetch(url);
+  await ensureOk(res);
 
   const data = await res.json();
   const list: AdvanceRecordRaw[] = Array.isArray(data) ? data : data.rows || [];
@@ -274,7 +260,7 @@ if (!res.ok) {
 /** Delete a specific advance by its own record id (NOT the employee id). */
 export async function deleteAdvance(advanceId: string): Promise<void> {
   const res = await fetch(`${API_BASE_URL}/advances/${advanceId}`, { method: "DELETE" });
-  if (!res.ok) throw new Error("Failed to delete advance.");
+  await ensureOk(res);
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -299,7 +285,7 @@ interface PlanningRecordRaw {
  */
 export async function fetchScheduledEmpIds(range: DateRange): Promise<Set<string>> {
   const res = await fetch(`${API_BASE_URL}/planning`);
-  if (!res.ok) throw new Error("Failed to fetch planning.");
+  await ensureOk(res);
 
   const data = await res.json();
   const list: PlanningRecordRaw[] = Array.isArray(data) ? data : [];

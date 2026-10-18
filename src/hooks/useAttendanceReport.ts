@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Employee, WorktimeRow, DateRange, FilterMode } from "@/components/reporting/types";
 import { getLastWeekRange, fetchEmployees, fetchWorktimeRows, toLocalDateString } from "@/lib/reporting";
+import { friendlyError } from "@/lib/errors";
 
 export interface AttendanceRow extends WorktimeRow {
   employeeName: string;
@@ -59,7 +60,7 @@ export function useAttendanceReport() {
       setAppliedRange(range);
     } catch (err) {
       console.error(err);
-      setError("Failed to load attendance data.");
+      setError(friendlyError(err, "Couldn't load the attendance"));
       setRawRows([]);
     } finally {
       setLoading(false);

@@ -9,6 +9,7 @@ import React, {
 } from "react";
 
 import { API_BASE_URL } from "@/lib/config";
+import { confirmDialog, toast } from "@/lib/notify";
 import Badge from "../ui/badge/Badge";
 
 import {
@@ -28,6 +29,7 @@ import type {
   PlanningRecord,
   EmployeeRecord,
 } from "./../calendar/types";
+import { friendlyError } from "@/lib/errors";
 
 /* ============================================================================
    FACE RECOGNITION API
@@ -1728,7 +1730,7 @@ const [deviceEntries, setDeviceEntries] =
       .catch((e) => {
         if (!cancelled) {
           setApiError(
-            String(e)
+            friendlyError(e, "Couldn't load today's data")
           );
         }
       })
@@ -1966,9 +1968,7 @@ const [deviceEntries, setDeviceEntries] =
         } catch (e) {
           if (!cancelled) {
             setApiError(
-              `Face-recognition attendance: ${String(
-                e
-              )}`
+              friendlyError(e, "Couldn't load the face-recognition clock-ins")
             );
           }
         } finally {
@@ -2205,9 +2205,7 @@ const [deviceEntries, setDeviceEntries] =
                 );
               } catch (e) {
                 setApiError(
-                  `Save failed for employee ${empNum}: ${String(
-                    e
-                  )}`
+                  friendlyError(e, `Couldn't save the times for employee ${empNum}`)
                 );
 
                 setEntries(
@@ -2706,9 +2704,7 @@ const [deviceEntries, setDeviceEntries] =
              */
             if (!cancelled) {
               setApiError(
-                `Machine attendance save failed for employee ${emp.empNumber}: ${String(
-                  error
-                )}`
+                friendlyError(error, `Couldn't save the machine clock-in for employee ${emp.empNumber}`)
               );
 
               setEntries(
@@ -2854,8 +2850,8 @@ const [deviceEntries, setDeviceEntries] =
           /^\d{2}:\d{2}$/
         )
       ) {
-        alert(
-          "Use HH:MM format"
+        toast.warning(
+          "Enter the time as HH:MM, for example 08:30."
         );
 
         return;
@@ -2991,12 +2987,14 @@ const confirmAbsence = () => {
   -------------------------------------------------------------------------- */
 
   const clearAllData =
-    () => {
-      if (
-        !window.confirm(
-          `Reset all clock-in/out data for ${operationalDate}?`
-        )
-      ) {
+    async () => {
+      const ok = await confirmDialog({
+        title: `Reset clock-ins for ${operationalDate}?`,
+        message: "All clock-in and clock-out times shown for this day will be cleared.",
+        confirmLabel: "Reset",
+        danger: true,
+      });
+      if (!ok) {
         return;
       }
 

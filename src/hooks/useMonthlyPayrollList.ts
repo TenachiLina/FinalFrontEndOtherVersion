@@ -3,6 +3,7 @@ import { Employee, WorktimeRow, DateRange, AdvanceRecord } from "@/components/re
 import { getThisMonthRange, fetchEmployees, fetchWorktimeRows, fetchAdvances, fetchScheduledEmpIds } from "@/lib/reporting";
 import { payrollConfig, sumHours, sumConsommation, sumPenalties, sumAbsences } from "@/lib/payrollConfig";
 import { fetchBonuses, BonusRecord } from "@/lib/bonuses";
+import { friendlyError, optionalData } from "@/lib/errors";
 
 export interface MonthlyPayrollRow {
   empId: number | string;
@@ -41,9 +42,9 @@ export function useMonthlyPayrollList(initialRange?: DateRange) {
 
       const [worktimeRows, advanceRecords, bonusRecords, scheduled] = await Promise.all([
         fetchWorktimeRows(r),
-        fetchAdvances(emps, undefined, r).catch(() => [] as AdvanceRecord[]),
-        fetchBonuses(r).catch(() => [] as BonusRecord[]),
-        fetchScheduledEmpIds(r).catch(() => new Set<string>()),
+        fetchAdvances(emps, undefined, r).catch(optionalData([] as AdvanceRecord[], "Advances")),
+        fetchBonuses(r).catch(optionalData([] as BonusRecord[], "Primes")),
+        fetchScheduledEmpIds(r).catch(optionalData(new Set<string>(), "The planning")),
       ]);
 
       setRows(worktimeRows);
@@ -53,7 +54,7 @@ export function useMonthlyPayrollList(initialRange?: DateRange) {
       setRangeState(r);
     } catch (err) {
       console.error("Error loading monthly payroll:", err);
-      setError("Failed to load monthly payroll.");
+      setError(friendlyError(err, "Couldn't load the monthly payroll"));
     } finally {
       setLoading(false);
     }

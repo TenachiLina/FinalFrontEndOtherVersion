@@ -12,7 +12,7 @@ type ThemeContextType = {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-const FADE_MS = 400;
+const FADE_MS = 200;
 
 /**
  * Runs `apply` (which flips the dark class) with a smooth transition: colours

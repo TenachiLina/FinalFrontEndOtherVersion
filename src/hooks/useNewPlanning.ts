@@ -4,6 +4,8 @@ import { useModal } from "@/hooks/useModal";
 import { Cell, EmployeeRecord, GridData, PlanningRecord, Post, Shift, ShiftRecord, TaskRecord, ShiftTask, BackupRef } from "../components/calendar/types";
 import * as XLSX from 'xlsx';
 import { API_BASE_URL } from "@/lib/config";
+import { ensureOk, friendlyError } from "@/lib/errors";
+import { toast } from "@/lib/notify";
 import { sortShifts } from "@/lib/sortShifts";
 
 
@@ -12,7 +14,7 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
     headers: { "Content-Type": "application/json" }, ...init,
   });
-  if (!res.ok) throw new Error(`${res.status} ${await res.text().catch(() => "")}`);
+  await ensureOk(res);
   return res.json();
 }
 
@@ -185,7 +187,7 @@ export const useShiftGrid = () => {
         setEmployees(empRecords);
         setGrid(buildEmptyGrid(mappedPosts, mappedShifts));
       })
-      .catch((e) => setMetaError(String(e)))
+      .catch((e) => setMetaError(friendlyError(e, "Couldn't load employees, shifts and posts")))
       .finally(() => setLoadingMeta(false));
   }, []);
   // ── Load the saved planning of the selected day ───────────────────────────
@@ -255,7 +257,7 @@ export const useShiftGrid = () => {
         if (signal?.cancelled) return;
         console.error("Error loading planning:", err);
         setGrid(buildEmptyGrid(posts, shifts));
-        if (opts?.notifyOnError) alert("Failed to import planning.");
+        if (opts?.notifyOnError) toast.error(friendlyError(err, "Couldn't import the planning"));
       } finally {
         if (!signal?.cancelled) setLoadingGrid(false);
       }
@@ -330,7 +332,7 @@ export const useShiftGrid = () => {
     );
 
     if (already) {
-      alert("This employee is already assigned to this cell.");
+      toast.warning("This employee is already in this slot.");
       return;
     }
 
@@ -477,7 +479,7 @@ export const useShiftGrid = () => {
     );
 
     if (already) {
-      alert("This employee is already assigned to this cell.");
+      toast.warning("This employee is already in this slot.");
       return;
     }
 
@@ -596,29 +598,28 @@ export const useShiftGrid = () => {
         });
       });
     });
-    if (entries.length === 0) { alert("No employees planned for this day."); return; }
+    if (entries.length === 0) { toast.warning("Add at least one employee to this day before saving."); return; }
     try {
       const res = await fetch(`${API_BASE_URL}/planning/bulk`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ entries, planDate }),
       });
-      if (!res.ok) throw new Error("Failed to save");
-      alert("Planning saved!");
+      await ensureOk(res);
+      toast.success("Planning saved.");
     } catch (err) {
-      console.error(err);
-      alert("Error saving planning.");
+      toast.error(friendlyError(err, "Couldn't save the planning"));
     }
   }, [grid, currentDate, posts, shifts]);
 
   const handleCopyMonth = useCallback(async () => {
     if (!copySourceMonth || !copyDestinationMonth) {
-      alert("Please select both source and destination months.");
+      toast.warning("Choose both the month to copy from and the month to copy to.");
       return;
     }
 
     if (copySourceMonth === copyDestinationMonth) {
-      alert("Source and destination months must be different.");
+      toast.warning("Choose two different months.");
       return;
     }
 
@@ -636,30 +637,18 @@ export const useShiftGrid = () => {
         }),
       });
 
-      if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(errorText || "Failed to copy month.");
-      }
+      await ensureOk(res);
 
       const result = await res.json();
 
-      alert(
-        result.message ||
-        "Planning copied successfully."
-      );
+      toast.success(result.message || "Planning copied.");
 
       setIsCopyMonthModalOpen(false);
       setCopySourceMonth("");
       setCopyDestinationMonth("");
 
     } catch (error) {
-      console.error("Error copying month:", error);
-
-      alert(
-        error instanceof Error
-          ? error.message
-          : "Error copying planning."
-      );
+      toast.error(friendlyError(error, "Couldn't copy the planning"));
     } finally {
       setIsCopyingMonth(false);
     }
@@ -707,7 +696,7 @@ export const useShiftGrid = () => {
     });
 
     if (entries.length === 0) {
-      alert("No employees planned for this day.");
+      toast.warning("There is no one planned on this day to copy.");
       return;
     }
 
@@ -758,24 +747,16 @@ export const useShiftGrid = () => {
       ) as PromiseRejectedResult[];
 
       if (failures.length > 0) {
-        console.error(
-          "Duplication failures:",
-          failures.map((f) => f.reason.message)
-        );
-
-        alert(
-          `Some dates failed: ${failures
-            .map((f) => f.reason.message)
-            .join("; ")}`
+        console.error("Duplication failures:", failures.map((f) => f.reason));
+        toast.error(
+          `Copied to ${targetDates.length - failures.length} of ${targetDates.length} ${weekdayName}s. ` +
+            friendlyError(failures[0].reason)
         );
       } else {
-        alert(
-          `Planning duplicated to ${targetDates.length} ${weekdayName}s!`
-        );
+        toast.success(`Planning copied to ${targetDates.length} ${weekdayName}s.`);
       }
     } catch (err) {
-      console.error(err);
-      alert("Error duplicating planning.");
+      toast.error(friendlyError(err, "Couldn't copy the planning"));
     }
   }, [grid, currentDate, posts, shifts]);
 
@@ -804,7 +785,7 @@ export const useShiftGrid = () => {
     });
 
     if (entries.length === 0) {
-      alert("No employees planned for this day.");
+      toast.warning("There is no one planned on this day to copy.");
       return;
     }
 
@@ -868,26 +849,19 @@ export const useShiftGrid = () => {
       ) as PromiseRejectedResult[];
 
       if (failures.length > 0) {
-        console.error(
-          "Save to weekdays failures:",
-          failures.map((f) => f.reason?.message ?? f.reason)
+        console.error("Save to weekdays failures:", failures.map((f) => f.reason));
+        toast.error(
+          `Saved to ${targetDates.length - failures.length} of ${targetDates.length} ${weekdayName}s. ` +
+            friendlyError(failures[0].reason)
         );
-
-        alert(
-          `Some dates failed: ${failures
-            .map((f) => f.reason?.message ?? f.reason)
-            .join("; ")}`
-        );
-
         return;
       }
 
-      alert(
+      toast.success(
         `Planning saved to ${targetDates.length} ${weekdayName}(s), starting from the selected day.`
       );
     } catch (err) {
-      console.error("Error saving to next weekdays:", err);
-      alert("Error saving planning to the next weekdays.");
+      toast.error(friendlyError(err, "Couldn't save the planning to the next weeks"));
     }
   }, [grid, currentDate, posts, shifts]);
 
@@ -921,12 +895,12 @@ export const useShiftGrid = () => {
       // =========================================================
 
       if (posts.length === 0) {
-        alert("No posts/tasks are available.");
+        toast.warning("Add at least one post before importing a planning.");
         return;
       }
 
       if (shifts.length === 0) {
-        alert("No shifts are available.");
+        toast.warning("Add at least one shift before importing a planning.");
         return;
       }
 
@@ -1045,7 +1019,7 @@ export const useShiftGrid = () => {
         ) as unknown as string[][];
 
         if (rows.length < 2) {
-          alert("The Excel file is empty or invalid.");
+          toast.error("This Excel file is empty or can't be read.");
           return;
         }
 
@@ -1056,8 +1030,8 @@ export const useShiftGrid = () => {
             .trim()
             .toLowerCase() !== "hour"
         ) {
-          alert(
-            "Invalid planning file. The first column must be 'Hour'."
+          toast.error(
+            "This isn't a planning file: the first column must be called 'Hour'."
           );
           return;
         }
@@ -1394,9 +1368,7 @@ export const useShiftGrid = () => {
       // =========================================================
 
       else {
-        alert(
-          "Please select an Excel (.xlsx/.xls) or PDF (.pdf) file."
-        );
+        toast.error("Choose an Excel (.xlsx, .xls) or PDF (.pdf) file.");
 
         return;
       }
@@ -1407,9 +1379,9 @@ export const useShiftGrid = () => {
 
       if (notFound.length > 0) {
 
-        alert(
-          `These employees were not found and were skipped:\n\n` +
-          [...new Set(notFound)].join("\n")
+        toast.warning(
+          `Imported, but these employees weren't found and were skipped: ` +
+            [...new Set(notFound)].join(", ")
         );
       }
 
@@ -1421,14 +1393,7 @@ export const useShiftGrid = () => {
 
     } catch (error) {
 
-      console.error(
-        "Error importing planning:",
-        error
-      );
-
-      alert(
-        "Failed to import the planning file."
-      );
+      toast.error(friendlyError(error, "Couldn't import the planning file"));
 
     } finally {
 

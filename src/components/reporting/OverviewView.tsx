@@ -249,6 +249,7 @@ import SimpleRangePicker from "./SimpleRangePicker";
 import { useReportingOverview } from "@/hooks/useReportingOverview";
 
 import { currency } from "@/lib/payrollConfig";
+import LoadError from "@/components/ui/feedback/LoadError";
 const ReactApexChart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
 const fmtDA = (n: number) => `${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency()}`;
@@ -327,9 +328,7 @@ const OverviewView: React.FC = () => {
       <SimpleRangePicker range={range} onApply={setRange} />
 
       {error && (
-        <div className="rounded-lg bg-red-50 px-4 py-2 text-sm text-red-600 dark:bg-red-500/10 dark:text-red-400">
-          {error}
-        </div>
+        <LoadError title="Couldn't load the overview" message={error} onRetry={() => setRange(range)} />
       )}
       {loading && <div className="text-sm text-gray-500 dark:text-gray-400">Loading overview…</div>}
 

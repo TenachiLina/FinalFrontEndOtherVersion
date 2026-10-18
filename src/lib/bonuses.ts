@@ -1,6 +1,7 @@
 // → save as: lib/bonuses.ts
 import { DateRange } from "@/components/reporting/types";
 import { API_BASE_URL } from "@/lib/config";
+import { ensureOk } from "@/lib/errors";
 
 export interface BonusRecord {
   id: string;
@@ -35,7 +36,7 @@ export async function fetchBonuses(range?: DateRange): Promise<BonusRecord[]> {
   const qs = params.toString() ? `?${params}` : "";
 
   const res = await fetch(`${API_BASE_URL}/bonuses${qs}`);
-  if (!res.ok) throw new Error(`Failed to fetch bonuses: ${res.status}`);
+  await ensureOk(res);
   const data = await res.json();
   const list: BonusRaw[] = Array.isArray(data) ? data : data.rows || [];
   return list.map(normalizeBonus);
@@ -57,11 +58,11 @@ export async function createBonus(input: {
       reason: input.reason,
     }),
   });
-  if (!res.ok) throw new Error("Failed to create bonus");
+  await ensureOk(res);
   return normalizeBonus(await res.json());
 }
 
 export async function deleteBonus(id: string): Promise<void> {
   const res = await fetch(`${API_BASE_URL}/bonuses/${id}`, { method: "DELETE" });
-  if (!res.ok) throw new Error("Failed to delete bonus");
+  await ensureOk(res);
 }

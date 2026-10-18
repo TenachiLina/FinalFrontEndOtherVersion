@@ -8,6 +8,7 @@ import { AdvanceRecord, DateRange } from "@/components/reporting/types";
 import { getThisMonthRange } from "@/lib/reporting";
 
 import { currency } from "@/lib/payrollConfig";
+import LoadError from "@/components/ui/feedback/LoadError";
 const TABLE_HEADERS = ["Employee", "Amount", "Date", "Reason", ""];
 
 const AdvancesView: React.FC = () => {
@@ -58,9 +59,7 @@ const AdvancesView: React.FC = () => {
       </div>
 
       {error && (
-        <div className="rounded-lg bg-red-50 px-4 py-2 text-sm text-red-600 dark:bg-red-500/10 dark:text-red-400">
-          {error}
-        </div>
+        <LoadError title="Couldn't load the advances" message={error} onRetry={() => window.location.reload()} />
       )}
       {loading && <div className="text-sm text-gray-500 dark:text-gray-400">Loading…</div>}
 

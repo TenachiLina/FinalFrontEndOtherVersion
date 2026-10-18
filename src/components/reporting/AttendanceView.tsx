@@ -5,6 +5,7 @@ import SimpleRangePicker from "./SimpleRangePicker";
 import { useAttendanceReport, AttendanceRow } from "@/hooks/useAttendanceReport";
 import { DateRange } from "@/components/reporting/types";
 import { getThisWeekRange } from "@/lib/reporting";
+import LoadError from "@/components/ui/feedback/LoadError";
 
 const TABLE_HEADERS = ["Employee", "Date", "Late (min)", "Absent", "Comment"];
 
@@ -61,9 +62,7 @@ const AttendanceView: React.FC = () => {
       </label>
 
       {error && (
-        <div className="rounded-lg bg-red-50 px-4 py-2 text-sm text-red-600 dark:bg-red-500/10 dark:text-red-400">
-          {error}
-        </div>
+        <LoadError title="Couldn't load the attendance" message={error} onRetry={() => fetchReport()} />
       )}
       {loading && <div className="text-sm text-gray-500 dark:text-gray-400">Loading…</div>}
 

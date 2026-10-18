@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { Employee, WorktimeRow, DateRange } from "@/components/reporting/types";
+import { AdvanceRecord, Employee, WorktimeRow, DateRange } from "@/components/reporting/types";
 import {
   getThisWeekRange,
   getThisMonthRange,
@@ -18,6 +18,8 @@ import {
 } from "@/lib/payrollConfig";
 import { fetchBonuses, BonusRecord } from "@/lib/bonuses";
 import { API_BASE_URL } from "@/lib/config";
+import { ensureOk, friendlyError, optionalData } from "@/lib/errors";
+import { toast } from "@/lib/notify";
 
 // Ranges to open on (e.g. the week / month selected on the list page the user came from).
 export interface EmployeeReportInitialRanges {
@@ -70,7 +72,7 @@ export function useEmployeeReport(empId: number | string, initial?: EmployeeRepo
       } catch (err) {
         if (reqId !== weekReq.current) return;
         console.error(err);
-        setWeekError("Failed to load weekly data.");
+        setWeekError(friendlyError(err, "Couldn't load this week"));
         setWeekRows([]);
       } finally {
         if (reqId === weekReq.current) setLoadingWeek(false);
@@ -130,11 +132,12 @@ export function useEmployeeReport(empId: number | string, initial?: EmployeeRepo
           reason: `Weekly advance (${weekRange.start} to ${weekRange.end})`,
         }),
       });
-      if (!res.ok) throw new Error("Failed to create advance");
+      await ensureOk(res);
       const created = await res.json();
       setExistingAdvance({ id: created._id });
+      toast.success("Advance given.");
     } catch (err) {
-      console.error("Error giving advance:", err);
+      toast.error(friendlyError(err, "Couldn't give the advance"));
     }
   }, [empId, weekRange, weekAdvanceOffer]);
 
@@ -171,8 +174,8 @@ export function useEmployeeReport(empId: number | string, initial?: EmployeeRepo
       try {
         const [rows, advanceRecords, bonusRecords] = await Promise.all([
           fetchWorktimeRows(range, empId),
-          fetchAdvances([employee].filter(Boolean) as Employee[], empId, range).catch(() => []),
-          fetchBonuses(range).catch(() => [] as BonusRecord[]),
+          fetchAdvances([employee].filter(Boolean) as Employee[], empId, range).catch(optionalData([] as AdvanceRecord[], "Advances")),
+          fetchBonuses(range).catch(optionalData([] as BonusRecord[], "Primes")),
         ]);
         if (reqId !== monthReq.current) return; // outdated response → ignore
 
@@ -186,7 +189,7 @@ export function useEmployeeReport(empId: number | string, initial?: EmployeeRepo
       } catch (err) {
         if (reqId !== monthReq.current) return;
         console.error(err);
-        setMonthError("Failed to load monthly data.");
+        setMonthError(friendlyError(err, "Couldn't load this month"));
         setMonthRows([]);
       } finally {
         if (reqId === monthReq.current) setLoadingMonth(false);

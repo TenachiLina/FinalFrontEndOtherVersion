@@ -2,6 +2,8 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { API_BASE_URL } from "@/lib/config";
+import { friendlyError } from "@/lib/errors";
+import { confirmDialog, toast } from "@/lib/notify";
 import { AuthUser, Role } from "@/lib/auth";
 import { useAuth } from "@/context/AuthContext";
 import { Modal } from "@/components/ui/modal";
@@ -69,7 +71,7 @@ export default function UsersView() {
       await action();
       await load();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Something went wrong");
+      toast.error(friendlyError(err, "Couldn't update the user"));
     }
   };
 
@@ -97,11 +99,11 @@ export default function UsersView() {
         method: "POST",
         body: JSON.stringify({ password: newPassword }),
       });
-      alert(`Password updated for ${resetFor.name}.`);
+      toast.success(`Password updated for ${resetFor.name}.`);
       setResetFor(null);
       setNewPassword("");
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Could not reset password");
+      toast.error(friendlyError(err, "Couldn't reset the password"));
     }
   };
 
@@ -191,10 +193,13 @@ export default function UsersView() {
                         <button
                           type="button"
                           className="text-error-500 hover:underline"
-                          onClick={() => {
-                            if (confirm(`Delete ${u.name}? This cannot be undone.`)) {
-                              run(() => api(`/users/${u._id}`, { method: "DELETE" }));
-                            }
+                          onClick={async () => {
+                            const ok = await confirmDialog({
+                              title: `Delete ${u.name}?`,
+                              message: "They will no longer be able to sign in. This can't be undone.",
+                              danger: true,
+                            });
+                            if (ok) run(() => api(`/users/${u._id}`, { method: "DELETE" }));
                           }}
                         >
                           Delete

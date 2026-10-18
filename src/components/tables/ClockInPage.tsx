@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { API_BASE_URL } from "@/lib/config";
+import { confirmDialog, toast } from "@/lib/notify";
 import Badge from "../ui/badge/Badge";
 import {
   getWorktimesByDate,
@@ -19,6 +20,7 @@ import type {
   AttendanceEmployee,
   AttendanceRow,
 } from "./../calendar/types";
+import { friendlyError } from "@/lib/errors";
 // ─── Types ────────────────────────────────────────────────────────────────────
 type ShiftStatus = "present" | "absent" | "pending";
 type Employee = AttendanceEmployee;
@@ -236,7 +238,7 @@ export default function AttendancePage({
           setCurrentTab(mappedShifts[0].shift_id);
         }
       })
-      .catch((e) => setApiError(String(e)))
+      .catch((e) => setApiError(friendlyError(e, "Couldn't load today's data")))
       .finally(() => setLoading(false));
 }, [selectedDate]);
   // ── Load existing worktime records for the date ───────────────────────────
@@ -272,7 +274,7 @@ export default function AttendancePage({
         return next;
       });
     })
-    .catch((e) => setApiError(String(e)));
+    .catch((e) => setApiError(friendlyError(e, "Couldn't load today's data")));
 }, [selectedDate]);
 
 
@@ -367,7 +369,7 @@ useEffect(() => {
         const saved = await upsertWorktime(payload, updatedEntry.workTimeId ?? null);
         setEntries((prev) => ({ ...prev, [k]: { ...prev[k], workTimeId: saved._id, _saving: false } }));
       } catch (e) {
-        setApiError(`Save failed for employee ${empNum}: ${e}`);
+        setApiError(friendlyError(e, `Couldn't save the times for employee ${empNum}`));
         setEntries((prev) => ({ ...prev, [k]: { ...prev[k], _saving: false, _dirty: true } }));
       }
     }, 800);
@@ -393,7 +395,7 @@ useEffect(() => {
   const saveManualTime = () => {
     const { employee, type, value } = manualInput;
     if (!employee || !type) return;
-    if (!value.match(/^\d{2}:\d{2}$/)) { alert("Use HH:MM format"); return; }
+    if (!value.match(/^\d{2}:\d{2}$/)) { toast.warning("Enter the time as HH:MM, for example 08:30."); return; }
     updateEntry(employee, { [type]: value });
     setManualInput({ employee: null, type: null, value: "" });
   };
@@ -539,8 +541,14 @@ useEffect(() => {
   };
 
 
-  const clearAllData = () => {
-    if (!window.confirm("Reset all clock-in/out data for today?")) return;
+  const clearAllData = async () => {
+    const ok = await confirmDialog({
+      title: "Reset today's clock-ins?",
+      message: "All clock-in and clock-out times entered on this page today will be cleared.",
+      confirmLabel: "Reset",
+      danger: true,
+    });
+    if (!ok) return;
     setEntries((prev) => {
       const reset: Record<string, EmployeeTimeEntry> = {};
       Object.keys(prev).forEach((k) => {

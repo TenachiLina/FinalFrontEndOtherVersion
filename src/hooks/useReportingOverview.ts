@@ -229,9 +229,9 @@
 //       const prev = previousRange(r);
 //       const [cur, curAdv, prv, prvAdv] = await Promise.all([
 //         fetchWorktimeRows(r),
-//         fetchAdvances(emps, undefined, r).catch(() => [] as AdvanceRecord[]),
+//         fetchAdvances(emps, undefined, r).catch(optionalData([] as AdvanceRecord[], "Advances")),
 //         fetchWorktimeRows(prev),
-//         fetchAdvances(emps, undefined, prev).catch(() => [] as AdvanceRecord[]),
+//         fetchAdvances(emps, undefined, prev).catch(optionalData([] as AdvanceRecord[], "Advances")),
 //       ]);
 //       setEmployees(emps);
 //       setRows(cur);
@@ -241,7 +241,7 @@
 //       setRangeState(r);
 //     } catch (err) {
 //       console.error("Error loading overview:", err);
-//       setError("Failed to load the overview.");
+//       setError(friendlyError(err, "Couldn't load the overview"));
 //     } finally {
 //       setLoading(false);
 //     }
@@ -273,6 +273,7 @@ import {
 } from "@/lib/reporting";
 import { payrollConfig, sumHours, sumConsommation } from "@/lib/payrollConfig";
 import { fetchBonuses, BonusRecord } from "@/lib/bonuses";
+import { friendlyError, optionalData } from "@/lib/errors";
 
 // ─────────────────────────────────────────────────────────────────────────
 // Types
@@ -505,11 +506,11 @@ export function useReportingOverview() {
       const prev = previousRange(r);
       const [cur, curAdv, prv, prvAdv, curBon, prvBon] = await Promise.all([
         fetchWorktimeRows(r),
-        fetchAdvances(emps, undefined, r).catch(() => [] as AdvanceRecord[]),
+        fetchAdvances(emps, undefined, r).catch(optionalData([] as AdvanceRecord[], "Advances")),
         fetchWorktimeRows(prev),
-        fetchAdvances(emps, undefined, prev).catch(() => [] as AdvanceRecord[]),
-        fetchBonuses(r).catch(() => [] as BonusRecord[]),
-        fetchBonuses(prev).catch(() => [] as BonusRecord[]),
+        fetchAdvances(emps, undefined, prev).catch(optionalData([] as AdvanceRecord[], "Advances")),
+        fetchBonuses(r).catch(optionalData([] as BonusRecord[], "Primes")),
+        fetchBonuses(prev).catch(optionalData([] as BonusRecord[], "Primes")),
       ]);
       setEmployees(emps);
       setRows(cur);

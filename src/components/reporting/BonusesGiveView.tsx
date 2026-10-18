@@ -5,6 +5,7 @@ import BonusModal from "./BonusModal";
 import { useBonusesList, BonusEmployeeRow } from "@/hooks/useBonusesList";
 
 import { currency } from "@/lib/payrollConfig";
+import LoadError from "@/components/ui/feedback/LoadError";
 const EMPLOYEE_HEADERS = ["Employee", "Primes This Month", "Total This Month", "Action"];
 
 const BonusesGiveView: React.FC = () => {
@@ -46,7 +47,7 @@ const BonusesGiveView: React.FC = () => {
       </div>
 
       {error && (
-        <div className="rounded-lg bg-red-50 px-4 py-2 text-sm text-red-600 dark:bg-red-500/10 dark:text-red-400">{error}</div>
+        <LoadError title="Couldn't load the primes" message={error} onRetry={() => window.location.reload()} />
       )}
       {loading && <div className="text-sm text-gray-500 dark:text-gray-400">Loading…</div>}
 

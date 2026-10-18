@@ -759,11 +759,23 @@ html.theme-transition *,
 html.theme-transition *::before,
 html.theme-transition *::after {
   transition:
-    background-color 0.4s ease,
-    border-color 0.4s ease,
-    color 0.4s ease,
-    fill 0.4s ease,
-    stroke 0.4s ease,
-    box-shadow 0.4s ease !important;
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    fill 0.2s ease,
+    stroke 0.2s ease,
+    box-shadow 0.2s ease !important;
   transition-delay: 0s !important;
+}
+
+/* Toast messages slide in (components/ui/feedback/FeedbackHost.tsx) */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

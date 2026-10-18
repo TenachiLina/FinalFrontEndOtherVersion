@@ -2,6 +2,8 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { API_BASE_URL } from "@/lib/config";
+import { friendlyError } from "@/lib/errors";
+import { confirmDialog, toast } from "@/lib/notify";
 import { Feature, FEATURE_LABELS } from "@/lib/auth";
 import { Branding, DEFAULT_BRAND } from "@/lib/branding";
 import { useAuth } from "@/context/AuthContext";
@@ -210,13 +212,22 @@ export default function CompaniesView() {
     typeof window === "undefined" ? "" : `${window.location.origin}/signin?company=${encodeURIComponent(slug)}`;
 
   const toggleActive = async (c: CompanyRow) => {
-    const verb = c.active ? "Suspend" : "Reactivate";
-    if (c.active && !confirm(`Suspend ${c.name}? Its users will not be able to log in.`)) return;
+    if (
+      c.active &&
+      !(await confirmDialog({
+        title: `Suspend ${c.name}?`,
+        message: "Its users won't be able to sign in and its clocking machines will be refused until you reactivate it. No data is deleted.",
+        confirmLabel: "Suspend",
+        danger: true,
+      }))
+    )
+      return;
     try {
       await api(`/companies/${c._id}`, { method: "PATCH", body: JSON.stringify({ active: !c.active }) });
       await load();
+      toast.success(c.active ? `${c.name} suspended.` : `${c.name} reactivated.`);
     } catch (err) {
-      alert(err instanceof Error ? err.message : `${verb} failed`);
+      toast.error(friendlyError(err, c.active ? "Couldn't suspend the company" : "Couldn't reactivate the company"));
     }
   };
 

@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { Employee, AdvanceRecord } from "@/components/reporting/types";
 import { fetchEmployees, fetchAdvances, deleteAdvance } from "@/lib/reporting";
+import { friendlyError } from "@/lib/errors";
+import { toast } from "@/lib/notify";
 
 export function useAdvancesReport() {
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -19,7 +21,7 @@ export function useAdvancesReport() {
       setAdvances(records);
     } catch (err) {
       console.error("Error loading advances:", err);
-      setError("Failed to load advances.");
+      setError(friendlyError(err, "Couldn't load the advances"));
     } finally {
       setLoading(false);
     }
@@ -41,8 +43,9 @@ export function useAdvancesReport() {
       try {
         await deleteAdvance(advanceId);
         setAdvances((prev) => prev.filter((a) => a.id !== advanceId));
+        toast.success("Advance removed.");
       } catch (err) {
-        console.error("Error revoking advance:", err);
+        toast.error(friendlyError(err, "Couldn't remove the advance"));
       }
     },
     []

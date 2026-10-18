@@ -2,6 +2,29 @@
 import React, { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createEmployee } from "./employee.api";
+import { friendlyError } from "@/lib/errors";
+import { toast } from "@/lib/notify";
+
+type Field = "empNumber" | "firstName" | "lastName" | "baseSalary" | "phoneNumber" | "personalImage";
+type FieldErrors = Partial<Record<Field, string>>;
+
+const MAX_PHOTO_BYTES = 500 * 1024;
+
+function validate(form: Record<Field | "address", string>): FieldErrors {
+  const errors: FieldErrors = {};
+  const num = Number(form.empNumber);
+  if (!form.empNumber.trim()) errors.empNumber = "Enter the employee number.";
+  else if (!Number.isInteger(num) || num <= 0) errors.empNumber = "Use a whole number above 0, e.g. 101.";
+  if (!form.firstName.trim()) errors.firstName = "Enter the first name.";
+  if (!form.lastName.trim()) errors.lastName = "Enter the last name.";
+  const salary = Number(form.baseSalary);
+  if (!form.baseSalary.trim()) errors.baseSalary = "Enter the base salary (0 if none).";
+  else if (!Number.isFinite(salary) || salary < 0) errors.baseSalary = "Use a number of 0 or more.";
+  if (form.phoneNumber.trim() && !/^\+?[\d\s-]{6,20}$/.test(form.phoneNumber.trim())) {
+    errors.phoneNumber = "Use digits only, e.g. 0555123456.";
+  }
+  return errors;
+}
 
 // ─── Style helpers ────────────────────────────────────────────────────────────
 const inp =
@@ -22,16 +45,40 @@ export default function EmployeeDataForm() {
     personalImage: "",
   });
   const [saving, setSaving] = useState(false);
-const [error, setError] = useState<string | null>(null);
-const [success, setSuccess] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
-  const set = (field: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
+  const set = (field: Field | "address") => (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
+    // Clear a field's message as soon as it is edited
+    if (fieldErrors[field as Field]) setFieldErrors((prev) => ({ ...prev, [field]: undefined }));
+  };
+
+  // Red outline and message under a field that needs fixing
+  const inpFor = (field: Field) =>
+    fieldErrors[field] ? `${inp} border-error-400 focus:ring-error-500/30 dark:border-error-500` : inp;
+  const FieldError = ({ field }: { field: Field }) =>
+    fieldErrors[field] ? (
+      <p id={`${field}-error`} className="mt-1 text-xs text-error-500">
+        {fieldErrors[field]}
+      </p>
+    ) : null;
 
   // Convert image to base64 for storage (optional — remove if you handle uploads separately)
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setFieldErrors((prev) => ({ ...prev, personalImage: "Choose an image file (JPG, PNG…)." }));
+      e.target.value = "";
+      return;
+    }
+    if (file.size > MAX_PHOTO_BYTES) {
+      setFieldErrors((prev) => ({ ...prev, personalImage: "This photo is too large. Use one under 500 KB." }));
+      e.target.value = "";
+      return;
+    }
+    setFieldErrors((prev) => ({ ...prev, personalImage: undefined }));
     const reader = new FileReader();
     reader.onload = () =>
       setForm((prev) => ({ ...prev, personalImage: reader.result as string }));
@@ -42,7 +89,14 @@ const [success, setSuccess] = useState<string | null>(null);
   e.preventDefault();
 
   setError(null);
-  setSuccess(null);
+  const errors = validate(form);
+  setFieldErrors(errors);
+  if (Object.values(errors).some(Boolean)) {
+    // Bring the first problem into view
+    const first = (Object.keys(errors) as Field[]).find((k) => errors[k]);
+    document.querySelector<HTMLElement>(`[name="${first}"]`)?.focus();
+    return;
+  }
   setSaving(true);
 
   try {
@@ -56,7 +110,7 @@ const [success, setSuccess] = useState<string | null>(null);
       personalImage: form.personalImage || undefined,
     });
 
-    setSuccess("Employee saved successfully!");
+    toast.success(`${form.firstName} ${form.lastName} was added.`);
 
     // Optional: clear the form after save
     setForm({
@@ -74,11 +128,13 @@ const [success, setSuccess] = useState<string | null>(null);
     }
 
   } catch (err) {
-    setError(
-      err instanceof Error
-        ? err.message
-        : "Error saving employee."
-    );
+    const message = friendlyError(err);
+    // A duplicate number belongs next to the number field
+    if (/employee number/i.test(message)) {
+      setFieldErrors((prev) => ({ ...prev, empNumber: "Another employee already has this number." }));
+    } else {
+      setError(friendlyError(err, "Couldn't save the employee"));
+    }
   } finally {
     setSaving(false);
   }
@@ -98,6 +154,7 @@ const [success, setSuccess] = useState<string | null>(null);
       <div className="max-w-2xl mx-auto px-4 py-8">
         <form
           onSubmit={handleSave}
+          noValidate
           className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-white/[0.06] overflow-hidden"
         >
           {/* Header */}
@@ -107,30 +164,29 @@ const [success, setSuccess] = useState<string | null>(null);
 
           {/* Error banner */}
           {error && (
-            <div className="mx-8 mt-4 rounded-lg border border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-800 px-4 py-2 text-sm text-red-700 dark:text-red-300">
+            <div role="alert" className="mx-8 mt-4 rounded-lg border border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-800 px-4 py-2 text-sm text-red-700 dark:text-red-300">
               ⚠ {error}
             </div>
           )}
-          {success && (
-  <div className="mx-8 mt-4 rounded-lg border border-green-200 bg-green-50 dark:bg-green-900/20 dark:border-green-800 px-4 py-2 text-sm text-green-700 dark:text-green-300">
-    ✓ {success}
-  </div>
-)}
 
           {/* Fields */}
           <div className="px-8 py-6 space-y-5">
 
             {/* Employee Number */}
             <div>
-              <label className={lbl}>Employee Number:</label>
+              <label className={lbl} htmlFor="empNumber">Employee Number: *</label>
               <input
+                id="empNumber"
+                name="empNumber"
                 type="number"
-                className={inp}
+                className={inpFor("empNumber")}
                 placeholder="e.g. 101"
                 value={form.empNumber}
                 onChange={set("empNumber")}
-                required
+                aria-invalid={!!fieldErrors.empNumber}
+                aria-describedby={fieldErrors.empNumber ? "empNumber-error" : undefined}
               />
+              <FieldError field="empNumber" />
             </div>
 
             {/* Personal Image */}
@@ -141,8 +197,10 @@ const [success, setSuccess] = useState<string | null>(null);
                 type="file"
                 accept="image/*"
                 onChange={handleImageChange}
+                aria-invalid={!!fieldErrors.personalImage}
                 className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gray-100 dark:file:bg-white/[0.08] file:text-gray-700 dark:file:text-gray-200 hover:file:bg-gray-200 dark:hover:file:bg-white/[0.12] transition-colors"
               />
+              <FieldError field="personalImage" />
               {form.personalImage && (
                 <img
                   src={form.personalImage}
@@ -154,41 +212,53 @@ const [success, setSuccess] = useState<string | null>(null);
 
             {/* First Name */}
             <div>
-              <label className={lbl}>First Name:</label>
+              <label className={lbl} htmlFor="firstName">First Name: *</label>
               <input
+                id="firstName"
+                name="firstName"
                 type="text"
-                className={inp}
+                className={inpFor("firstName")}
                 placeholder="e.g. Amina"
                 value={form.firstName}
                 onChange={set("firstName")}
-                required
+                aria-invalid={!!fieldErrors.firstName}
+                aria-describedby={fieldErrors.firstName ? "firstName-error" : undefined}
               />
+              <FieldError field="firstName" />
             </div>
 
             {/* Last Name */}
             <div>
-              <label className={lbl}>Last Name:</label>
+              <label className={lbl} htmlFor="lastName">Last Name: *</label>
               <input
+                id="lastName"
+                name="lastName"
                 type="text"
-                className={inp}
+                className={inpFor("lastName")}
                 placeholder="e.g. Bouzenada"
                 value={form.lastName}
                 onChange={set("lastName")}
-                required
+                aria-invalid={!!fieldErrors.lastName}
+                aria-describedby={fieldErrors.lastName ? "lastName-error" : undefined}
               />
+              <FieldError field="lastName" />
             </div>
 
             {/* Base Salary */}
             <div>
-              <label className={lbl}>Base Salary:</label>
+              <label className={lbl} htmlFor="baseSalary">Base Salary: *</label>
               <input
+                id="baseSalary"
+                name="baseSalary"
                 type="number"
-                className={inp}
+                className={inpFor("baseSalary")}
                 placeholder="e.g. 50000"
                 value={form.baseSalary}
                 onChange={set("baseSalary")}
-                required
+                aria-invalid={!!fieldErrors.baseSalary}
+                aria-describedby={fieldErrors.baseSalary ? "baseSalary-error" : undefined}
               />
+              <FieldError field="baseSalary" />
             </div>
 
             {/* Address */}
@@ -205,14 +275,19 @@ const [success, setSuccess] = useState<string | null>(null);
 
             {/* Phone */}
             <div>
-              <label className={lbl}>Phone:</label>
+              <label className={lbl} htmlFor="phoneNumber">Phone:</label>
               <input
+                id="phoneNumber"
+                name="phoneNumber"
                 type="tel"
-                className={inp}
+                className={inpFor("phoneNumber")}
                 placeholder="e.g. 0555123456"
                 value={form.phoneNumber}
                 onChange={set("phoneNumber")}
+                aria-invalid={!!fieldErrors.phoneNumber}
+                aria-describedby={fieldErrors.phoneNumber ? "phoneNumber-error" : undefined}
               />
+              <FieldError field="phoneNumber" />
             </div>
           </div>
 

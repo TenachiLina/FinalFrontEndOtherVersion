@@ -8,6 +8,7 @@ import { useMonthlyPayrollList, MonthlyPayrollRow } from "@/hooks/useMonthlyPayr
 import { readRange, rangeQuery } from "@/lib/rangeParams";
 
 import { currency } from "@/lib/payrollConfig";
+import LoadError from "@/components/ui/feedback/LoadError";
 const sumBy = (rows: MonthlyPayrollRow[], pick: (r: MonthlyPayrollRow) => unknown): number =>
   rows.reduce((acc, r) => acc + (Number(pick(r)) || 0), 0);
 
@@ -70,9 +71,7 @@ const MonthlyPayrollContent: React.FC = () => {
       </div>
 
       {error && (
-        <div className="rounded-lg bg-red-50 px-4 py-2 text-sm text-red-600 dark:bg-red-500/10 dark:text-red-400">
-          {error}
-        </div>
+        <LoadError title="Couldn't load the payroll" message={error} onRetry={() => setRange(range)} />
       )}
       {loading && <div className="text-sm text-gray-500 dark:text-gray-400">Loading…</div>}
 

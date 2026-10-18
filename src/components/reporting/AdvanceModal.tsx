@@ -4,6 +4,7 @@ import { Modal } from "../ui/modal";
 import { DateRange } from "./types";
 
 import { currency } from "@/lib/payrollConfig";
+import { friendlyError } from "@/lib/errors";
 interface AdvanceModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -62,8 +63,8 @@ const AdvanceModal: React.FC<AdvanceModalProps> = ({ isOpen, onClose, employeeNa
     try {
       await onConfirm(Number(numericAmount.toFixed(2)), date);
       onClose();
-    } catch {
-      setError("Failed to save the advance. Please try again.");
+    } catch (err) {
+      setError(friendlyError(err, "Couldn't save the advance"));
       setSaving(false);
     }
   };

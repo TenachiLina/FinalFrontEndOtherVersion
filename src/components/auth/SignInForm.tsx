@@ -6,6 +6,7 @@ import { EyeCloseIcon, EyeIcon } from "@/icons";
 import { useAuth } from "@/context/AuthContext";
 import { AuthUser, CompanyInfo, canOpen, homePathFor } from "@/lib/auth";
 import { displayBrand, useSignInBrand } from "@/lib/branding";
+import { friendlyError } from "@/lib/errors";
 import { useRouter, useSearchParams } from "next/navigation";
 import React, { useEffect, useState } from "react";
 
@@ -29,6 +30,7 @@ export default function SignInForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get("next");
+  const expired = searchParams.get("expired") === "1";
   const { brand, ready } = useSignInBrand();
   const b = displayBrand(brand);
 
@@ -36,6 +38,7 @@ export default function SignInForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
   const [submitting, setSubmitting] = useState(false);
 
   // Already signed in: skip the form.
@@ -45,17 +48,19 @@ export default function SignInForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim() || !password) {
-      setError("Enter your email and password.");
-      return;
-    }
+    const errors: { email?: string; password?: string } = {};
+    if (!email.trim()) errors.email = "Enter your email.";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) errors.email = "This doesn't look like an email address.";
+    if (!password) errors.password = "Enter your password.";
+    setFieldErrors(errors);
+    if (errors.email || errors.password) return;
     setError(null);
     setSubmitting(true);
     try {
       const signedIn = await login(email.trim(), password);
       router.replace(destinationFor(signedIn.user, signedIn.company, next));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not sign in");
+      setError(friendlyError(err));
       setSubmitting(false);
     }
   };
@@ -87,7 +92,12 @@ export default function SignInForm() {
                     name="email"
                     placeholder="you@example.com"
                     type="email"
-                    onChange={(e) => setEmail(e.target.value)}
+                    error={!!fieldErrors.email}
+                    hint={fieldErrors.email}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      if (fieldErrors.email) setFieldErrors({ ...fieldErrors, email: undefined });
+                    }}
                   />
                 </div>
                 <div>
@@ -100,7 +110,11 @@ export default function SignInForm() {
                       name="password"
                       type={showPassword ? "text" : "password"}
                       placeholder="Enter your password"
-                      onChange={(e) => setPassword(e.target.value)}
+                      error={!!fieldErrors.password}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        if (fieldErrors.password) setFieldErrors({ ...fieldErrors, password: undefined });
+                      }}
                     />
                     <span
                       onClick={() => setShowPassword(!showPassword)}
@@ -113,7 +127,18 @@ export default function SignInForm() {
                       )}
                     </span>
                   </div>
+                  {fieldErrors.password && (
+                    <p className="mt-1.5 text-xs text-error-500">{fieldErrors.password}</p>
+                  )}
                 </div>
+                {expired && !error && (
+                  <p
+                    role="status"
+                    className="rounded-lg bg-warning-50 px-4 py-3 text-sm text-warning-700 dark:bg-warning-500/15 dark:text-warning-400"
+                  >
+                    Your session expired. Please sign in again.
+                  </p>
+                )}
                 {error && (
                   <p
                     role="alert"

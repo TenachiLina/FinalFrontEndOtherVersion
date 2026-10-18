@@ -3,6 +3,8 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { Employee, DateRange } from "@/components/reporting/types";
 import { getThisMonthRange, fetchEmployees } from "@/lib/reporting";
 import { BonusRecord, fetchBonuses, deleteBonus } from "@/lib/bonuses";
+import { friendlyError } from "@/lib/errors";
+import { toast } from "@/lib/notify";
 
 export interface BonusHistoryRow extends BonusRecord {
   employeeName: string;
@@ -26,7 +28,7 @@ export function useBonusesHistory() {
       setRangeState(r);
     } catch (err) {
       console.error("Error loading primes history:", err);
-      setError("Failed to load the primes history.");
+      setError(friendlyError(err, "Couldn't load the primes history"));
     } finally {
       setLoading(false);
     }
@@ -54,9 +56,10 @@ export function useBonusesHistory() {
       setBonuses((prev) => prev.filter((b) => b.id !== id));
       try {
         await deleteBonus(id);
+        toast.success("Prime removed.");
       } catch (err) {
-        console.error("Error revoking bonus:", err);
         setBonuses(previous);
+        toast.error(friendlyError(err, "Couldn't remove the prime"));
       }
     },
     [bonuses]

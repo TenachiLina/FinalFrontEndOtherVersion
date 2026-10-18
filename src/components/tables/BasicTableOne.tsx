@@ -3,6 +3,8 @@ import React, { useState, useMemo, useEffect } from "react";
 import Image from "next/image";
 import Badge from "../ui/badge/Badge";
 import { API_BASE_URL } from "@/lib/config";
+import { ensureOk, friendlyError } from "@/lib/errors";
+import { confirmDialog, toast } from "@/lib/notify";
 import { currency } from "@/lib/payrollConfig";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -27,7 +29,7 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
     headers: { "Content-Type": "application/json" }, ...init,
   });
-  if (!res.ok) throw new Error(`${res.status} ${await res.text().catch(() => "")}`);
+  await ensureOk(res);
   return res.json();
 }
 
@@ -95,7 +97,7 @@ export default function BasicTableOne() {
     setLoading(true);
     getEmployees()
       .then(setData)
-      .catch((e) => setApiError(String(e)))
+      .catch((e) => setApiError(friendlyError(e, "Couldn't load the employees")))
       .finally(() => setLoading(false));
   }, []);
 
@@ -159,7 +161,7 @@ export default function BasicTableOne() {
 
   const handleSave = async () => {
     if (!form.firstName.trim() || !form.lastName.trim()) {
-      alert("First name and last name are required.");
+      toast.warning("Enter the employee's first and last name.");
       return;
     }
     setSaving(true);
@@ -184,20 +186,28 @@ export default function BasicTableOne() {
       }
       setShowForm(false);
       setForm(emptyForm());
+      toast.success(isEditing ? "Employee updated." : "Employee added.");
     } catch (e) {
-      setApiError(String(e));
+      setApiError(friendlyError(e, "Couldn't save the employee"));
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm("Delete this employee?")) return;
+    const emp = data.find((e) => e._id === id);
+    const ok = await confirmDialog({
+      title: `Delete ${emp ? `${emp.firstName} ${emp.lastName}` : "this employee"}?`,
+      message: "This removes the employee from the app. This can't be undone.",
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await deleteEmployee(id);
       setData((prev) => prev.filter((e) => e._id !== id));
+      toast.success("Employee deleted.");
     } catch (e) {
-      alert(`Delete failed: ${e}`);
+      toast.error(friendlyError(e, "Couldn't delete the employee"));
     }
   };
 

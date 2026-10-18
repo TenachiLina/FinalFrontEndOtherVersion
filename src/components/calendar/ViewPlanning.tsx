@@ -5,6 +5,7 @@ import { useViewPlanning } from "@/hooks/useViewPlanning";
 import Button from "../ui/button/Button";
 import { ArrowDownTrayIcon, ArrowTopRightOnSquareIcon, ArrowUturnLeftIcon, TableCellsIcon } from "@heroicons/react/24/outline";
 import Tooltip from "@/components/common/Tooltip";
+import LoadError from "@/components/ui/feedback/LoadError";
 
 const ViewCalender: React.FC = () => {
   //table mode view
@@ -624,7 +625,7 @@ const ViewCalender: React.FC = () => {
           </div>
       </div>
       {loading && <div className="text-center text-gray-500 mt-4">Loading planning data...</div>}
-      {error && <div className="text-center text-red-500 mt-4">Error: {error}</div>}
+      {error && <LoadError className="mt-4" title="Couldn't load the planning" message={error} onRetry={() => window.location.reload()} />}
     </>
   );
 };
