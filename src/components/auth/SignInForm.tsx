@@ -5,6 +5,7 @@ import Button from "@/components/ui/button/Button";
 import { EyeCloseIcon, EyeIcon } from "@/icons";
 import { useAuth } from "@/context/AuthContext";
 import { AuthUser, CompanyInfo, canOpen, homePathFor } from "@/lib/auth";
+import { displayBrand, useSignInBrand } from "@/lib/branding";
 import { useRouter, useSearchParams } from "next/navigation";
 import React, { useEffect, useState } from "react";
 
@@ -28,6 +29,8 @@ export default function SignInForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get("next");
+  const { brand, ready } = useSignInBrand();
+  const b = displayBrand(brand);
 
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
@@ -61,9 +64,12 @@ export default function SignInForm() {
     <div className="flex flex-col flex-1 lg:w-1/2 w-full">
       <div className="flex flex-col justify-center flex-1 w-full max-w-md mx-auto">
         <div>
-          <div className="mb-5 sm:mb-8">
+          <div className={`mb-5 sm:mb-8 transition-opacity ${ready ? "opacity-100" : "opacity-0"}`}>
+            {/* The side panel is hidden on small screens, so show the logo here too */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={b.logo} alt={`${b.name} logo`} className="mb-6 h-14 max-w-[180px] object-contain lg:hidden" />
             <h1 className="mb-2 font-semibold text-gray-800 text-title-sm dark:text-white/90 sm:text-title-md">
-              Sign In
+              Sign in to {b.name}
             </h1>
             <p className="text-sm text-gray-500 dark:text-gray-400">
               Enter your email and password to sign in.

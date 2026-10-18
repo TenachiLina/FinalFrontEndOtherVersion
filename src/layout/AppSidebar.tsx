@@ -1,11 +1,11 @@
 "use client";
 import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useSidebar } from "../context/SidebarContext";
 import { useAuth } from "../context/AuthContext";
 import { AuthUser, CompanyInfo, canOpen } from "../lib/auth";
+import { DEFAULT_BRAND } from "../lib/branding";
 import {
   BoxCubeIcon,
   CalenderIcon,
@@ -190,6 +190,8 @@ const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const pathname = usePathname();
   const { user, company } = useAuth();
+  const brandName = company?.name ?? DEFAULT_BRAND.name;
+  const brandLogo = company?.branding?.logo || DEFAULT_BRAND.logo;
   const visibleNavItems = useMemo(
     () => visibleItems(navItems, user, company),
     [user, company]
@@ -451,33 +453,25 @@ const AppSidebar: React.FC = () => {
           }`}
       >
         <Link href="/">
+          {/* The company's own logo and name once inside a company (see Companies > Edit) */}
           {isExpanded || isHovered || isMobileOpen ? (
             <div className="flex items-center gap-4">
-              <Image
-                className="dark:hidden rounded-lg"
-                src="/images/logo/King.png"
-                alt="Logo"
-                width={40}
-                height={40}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                className="h-10 w-10 rounded-lg object-contain"
+                src={brandLogo}
+                alt={`${brandName} logo`}
               />
-              <Image
-                className="hidden dark:block rounded-lg"
-                src="/images/logo/King.png"
-                alt="Logo"
-                width={40}
-                height={40}
-              />
-              <span className="text-xl font-bold text-gray-800 dark:text-white">
-                Nexo InOuty
+              <span className="text-xl font-bold text-gray-800 dark:text-white truncate max-w-[180px]">
+                {brandName}
               </span>
             </div>
           ) : (
-            <Image
-              className="rounded-lg"
-              src="/images/logo/King.png"
-              alt="Logo"
-              width={32}
-              height={32}
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              className="h-8 w-8 rounded-lg object-contain"
+              src={brandLogo}
+              alt={`${brandName} logo`}
             />
           )}
         </Link>

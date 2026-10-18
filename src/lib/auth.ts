@@ -30,6 +30,8 @@ export interface CompanySettings {
 export interface CompanyInfo {
   id: string;
   name: string;
+  slug: string | null;
+  branding: { logo?: string; title?: string; subtitle?: string; color?: string };
   active: boolean;
   features: Feature[];
   settings: CompanySettings;
@@ -232,7 +234,14 @@ export function installAuthFetch() {
         const next = encodeURIComponent(
           window.location.pathname + window.location.search
         );
-        window.location.href = `/signin?next=${next}`;
+        let slug: string | null = null;
+        try {
+          slug = localStorage.getItem("last_company_slug");
+        } catch {
+          /* storage unavailable */
+        }
+        const company = slug ? `company=${encodeURIComponent(slug)}&` : "";
+        window.location.href = `/signin?${company}next=${next}`;
       }
     }
     return res;

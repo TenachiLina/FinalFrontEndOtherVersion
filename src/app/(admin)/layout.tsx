@@ -8,6 +8,7 @@ import React, { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { canOpen, homePathFor } from "@/lib/auth";
+import { getRememberedSlug } from "@/lib/branding";
 
 export default function AdminLayout({
   children,
@@ -25,7 +26,9 @@ export default function AdminLayout({
   useEffect(() => {
     if (loading) return;
     if (!user) {
-      router.replace(`/signin?next=${encodeURIComponent(pathname)}`);
+      const slug = getRememberedSlug();
+      const company = slug ? `company=${encodeURIComponent(slug)}&` : "";
+      router.replace(`/signin?${company}next=${encodeURIComponent(pathname)}`);
     } else if (forbidden) {
       router.replace(homePathFor(user, company));
     }

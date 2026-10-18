@@ -21,6 +21,7 @@ import {
   setActingCompanyId,
 } from "@/lib/auth";
 import { applyCompanySettings } from "@/lib/payrollConfig";
+import { getRememberedSlug, rememberCompanySlug, signInPathFor } from "@/lib/branding";
 
 // Install before any component fetches data.
 installAuthFetch();
@@ -63,6 +64,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     (u: AuthUser | null, c: CompanyInfo | null) => {
       if (u) saveIdentity(u, c);
       if (c) applyCompanySettings(c.settings);
+      // A super admin opening companies shouldn't change this browser's sign-in look.
+      if (c && u?.role !== "superadmin") rememberCompanySlug(c.slug);
       setUser(u);
       setCompanyState(c);
     },
@@ -127,7 +130,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(() => {
     clearSession();
     setIdentity(null, null);
-    window.location.href = "/signin";
+    window.location.href = signInPathFor(getRememberedSlug());
   }, [setIdentity]);
 
   const switchCompany = useCallback((companyId: string | null) => {

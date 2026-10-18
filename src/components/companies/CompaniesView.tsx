@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { API_BASE_URL } from "@/lib/config";
 import { Feature, FEATURE_LABELS } from "@/lib/auth";
+import { Branding, DEFAULT_BRAND } from "@/lib/branding";
 import { useAuth } from "@/context/AuthContext";
 import { Modal } from "@/components/ui/modal";
 import Button from "@/components/ui/button/Button";
@@ -13,7 +14,20 @@ interface CompanyRow {
   active: boolean;
   features: Feature[];
   devices: { serial: string; name?: string }[];
+  slug?: string;
+  branding?: Branding;
   createdAt?: string;
+}
+
+const MAX_LOGO_BYTES = 300 * 1024;
+
+function readAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
 }
 
 const ALL_FEATURES = Object.keys(FEATURE_LABELS) as Feature[];
@@ -106,6 +120,8 @@ export default function CompaniesView() {
   const [editing, setEditing] = useState<CompanyRow | null>(null);
   const [editFeatures, setEditFeatures] = useState<Feature[]>([]);
   const [editDevices, setEditDevices] = useState("");
+  const [editSlug, setEditSlug] = useState("");
+  const [editBranding, setEditBranding] = useState<Branding>({});
   const [editError, setEditError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -151,6 +167,8 @@ export default function CompaniesView() {
     setEditing(c);
     setEditFeatures(c.features);
     setEditDevices(formatDevices(c.devices));
+    setEditSlug(c.slug ?? "");
+    setEditBranding({ ...(c.branding ?? {}) });
     setEditError(null);
   };
 
@@ -160,7 +178,12 @@ export default function CompaniesView() {
     try {
       await api(`/companies/${editing._id}`, {
         method: "PATCH",
-        body: JSON.stringify({ features: editFeatures, devices: parseDevices(editDevices) }),
+        body: JSON.stringify({
+          features: editFeatures,
+          devices: parseDevices(editDevices),
+          ...(editSlug.trim() ? { slug: editSlug.trim() } : {}),
+          branding: editBranding,
+        }),
       });
       setEditing(null);
       await load();
@@ -168,6 +191,23 @@ export default function CompaniesView() {
       setEditError(err instanceof Error ? err.message : "Could not save");
     }
   };
+
+  const handleLogo = async (file: File | undefined) => {
+    if (!file) return;
+    if (!["image/png", "image/jpeg", "image/webp", "image/svg+xml"].includes(file.type)) {
+      setEditError("Logo must be a PNG, JPEG, WebP or SVG image.");
+      return;
+    }
+    if (file.size > MAX_LOGO_BYTES) {
+      setEditError("Logo must be under 300 KB.");
+      return;
+    }
+    setEditError(null);
+    setEditBranding({ ...editBranding, logo: await readAsDataUrl(file) });
+  };
+
+  const signInLink = (slug: string) =>
+    typeof window === "undefined" ? "" : `${window.location.origin}/signin?company=${encodeURIComponent(slug)}`;
 
   const toggleActive = async (c: CompanyRow) => {
     const verb = c.active ? "Suspend" : "Reactivate";
@@ -221,7 +261,18 @@ export default function CompaniesView() {
             )}
             {companies.map((c) => (
               <tr key={c._id}>
-                <td className="px-4 py-3 font-medium">{c.name}</td>
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-2 font-medium">
+                    {c.branding?.logo && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={c.branding.logo} alt="" className="h-6 w-6 rounded object-contain" />
+                    )}
+                    {c.name}
+                  </div>
+                  {c.slug && (
+                    <div className="text-xs text-gray-500 dark:text-gray-400">/signin?company={c.slug}</div>
+                  )}
+                </td>
                 <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">
                   {c.features.length === ALL_FEATURES.length
                     ? "All"
@@ -300,8 +351,8 @@ export default function CompaniesView() {
         </form>
       </Modal>
 
-      <Modal isOpen={!!editing} onClose={() => setEditing(null)} className="max-w-[520px] p-6">
-        <form onSubmit={handleEdit} className="space-y-4">
+      <Modal isOpen={!!editing} onClose={() => setEditing(null)} className="max-w-[640px] p-6">
+        <form onSubmit={handleEdit} className="max-h-[85vh] space-y-4 overflow-y-auto pr-1">
           <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">{editing?.name}</h3>
           <div>
             <span className={labelClass}>Features</span>
@@ -311,6 +362,80 @@ export default function CompaniesView() {
             <label className={labelClass} htmlFor="edit-devices">ZKTeco device serials (one per line)</label>
             <textarea id="edit-devices" rows={3} className={`${inputClass} h-auto`} value={editDevices} onChange={(e) => setEditDevices(e.target.value)} />
           </div>
+
+          <fieldset className="space-y-4 rounded-lg border border-gray-200 p-4 dark:border-gray-800">
+            <legend className="px-1 text-sm font-medium text-gray-700 dark:text-gray-300">Sign-in page &amp; logo</legend>
+            <div>
+              <label className={labelClass} htmlFor="edit-slug">Sign-in link name</label>
+              <input
+                id="edit-slug"
+                className={inputClass}
+                placeholder="e.g. pizza-roma"
+                value={editSlug}
+                onChange={(e) => setEditSlug(e.target.value.toLowerCase())}
+              />
+              {editSlug && (
+                <p className="mt-1 break-all text-xs text-gray-500 dark:text-gray-400">
+                  Staff sign in at <span className="font-medium">{signInLink(editSlug)}</span>
+                </p>
+              )}
+            </div>
+            <div>
+              <span className={labelClass}>Logo (PNG, JPEG, WebP or SVG, under 300 KB)</span>
+              <div className="flex flex-wrap items-center gap-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={editBranding.logo || DEFAULT_BRAND.logo}
+                  alt="Logo preview"
+                  className="h-14 w-14 rounded-lg border border-gray-200 object-contain dark:border-gray-800"
+                />
+                <input
+                  type="file"
+                  aria-label="Upload logo"
+                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                  className="text-sm text-gray-600 dark:text-gray-400"
+                  onChange={(e) => handleLogo(e.target.files?.[0])}
+                />
+                {editBranding.logo && (
+                  <button type="button" className="text-sm text-error-500 hover:underline" onClick={() => setEditBranding({ ...editBranding, logo: undefined })}>
+                    Remove
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_auto]">
+              <div>
+                <label className={labelClass} htmlFor="edit-title">Title</label>
+                <input id="edit-title" className={inputClass} placeholder={editing?.name} value={editBranding.title ?? ""} onChange={(e) => setEditBranding({ ...editBranding, title: e.target.value })} />
+              </div>
+              <div>
+                <label className={labelClass} htmlFor="edit-color">Colour</label>
+                <input
+                  id="edit-color"
+                  type="color"
+                  className="h-11 w-16 cursor-pointer rounded-lg border border-gray-300 bg-transparent p-1 dark:border-gray-700"
+                  value={editBranding.color || DEFAULT_BRAND.color}
+                  onChange={(e) => setEditBranding({ ...editBranding, color: e.target.value })}
+                />
+              </div>
+            </div>
+            <div>
+              <label className={labelClass} htmlFor="edit-subtitle">Welcome text</label>
+              <input id="edit-subtitle" className={inputClass} placeholder="e.g. Welcome back! Sign in to see your planning." value={editBranding.subtitle ?? ""} onChange={(e) => setEditBranding({ ...editBranding, subtitle: e.target.value })} />
+            </div>
+            <div>
+              <span className={labelClass}>Preview</span>
+              <div
+                className="flex flex-col items-center rounded-xl px-6 py-8 text-center"
+                style={{ backgroundColor: editBranding.color || DEFAULT_BRAND.color }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={editBranding.logo || DEFAULT_BRAND.logo} alt="" className="mb-3 max-h-16 max-w-[160px] object-contain" />
+                <div className="text-lg font-semibold text-white">{editBranding.title || editing?.name}</div>
+                {editBranding.subtitle && <div className="mt-1 text-sm text-white/70">{editBranding.subtitle}</div>}
+              </div>
+            </div>
+          </fieldset>
           {editError && <p role="alert" className="text-sm text-error-500">{editError}</p>}
           <div className="flex justify-end gap-3">
             <button type="button" className={cancelClass} onClick={() => setEditing(null)}>Cancel</button>
