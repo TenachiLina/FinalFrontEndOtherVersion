@@ -3,6 +3,7 @@ import { useModal } from "@/hooks/useModal";
 import { Cell, GridData, TaskRecord, ShiftRecord, EmployeeRecord, PlanningRecord } from "../components/calendar/types";
 import * as XLSX from 'xlsx';
 import { API_BASE_URL } from "@/lib/config";
+import { downloadFile } from "@/lib/auth";
 import { sortShifts } from "@/lib/sortShifts";
 
 const apiFetch = <T,>(path: string): Promise<T> =>
@@ -169,37 +170,52 @@ export const useViewPlanning = () => {
     setIsListModalOpen(true);
   }, []);
   
+  // Exports go through fetch so the login token is sent; a plain link would get a 401.
+  const runExport = (url: string, baseName: string, format: "excel" | "pdf") => {
+    const ext = format === "excel" ? "xlsx" : "pdf";
+    downloadFile(url, `${baseName}.${ext}`).catch((err) =>
+      alert(err instanceof Error ? err.message : "Export failed")
+    );
+  };
+
   const handleExport = (format: "excel" | "pdf") => {
     const date = new Date(currentDate);
     const year = date.getFullYear();
     const month = date.getMonth() + 1;
     const day = date.getDate();
 
-    window.location.href =
+    runExport(
       `${API_BASE_URL}/planning/export-current-day` +
-      `?year=${year}` +
-      `&month=${month}` +
-      `&day=${day}` +
-      `&format=${format}`;
+        `?year=${year}` +
+        `&month=${month}` +
+        `&day=${day}` +
+        `&format=${format}`,
+      `planning-${year}-${month}-${day}`,
+      format
+    );
   };
   const handleWeeklyExport = (format: "excel" | "pdf") => {
     const date = new Date(currentDate);
     const year = date.getFullYear();
     const month = date.getMonth(); // JavaScript months are 0-based
-    console.log("📅 Month sent is: ", month);
-      window.location.href =
-        `${API_BASE_URL}/planning/export-first-week?year=${year}&month=${month}&format=${format}`;
+    runExport(
+      `${API_BASE_URL}/planning/export-first-week?year=${year}&month=${month}&format=${format}`,
+      `planning-week-${year}-${month + 1}`,
+      format
+    );
   };
 
   const handleWeeklyExportManager = (format: "excel" | "pdf") => {
     const date = new Date(currentDate);
     const year = date.getFullYear();
     const month = date.getMonth(); // JavaScript months are 0-based
-    console.log("📅 Month sent is: ", month);
-      window.location.href =
-        `${API_BASE_URL}/planning/export-first-week-manager?year=${year}&month=${month}&format=${format}`;
+    runExport(
+      `${API_BASE_URL}/planning/export-first-week-manager?year=${year}&month=${month}&format=${format}`,
+      `planning-week-manager-${year}-${month + 1}`,
+      format
+    );
   };
-  
+
 
   return {
     tasks, shifts, employees,

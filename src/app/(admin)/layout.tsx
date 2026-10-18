@@ -4,7 +4,10 @@ import { useSidebar } from "@/context/SidebarContext";
 import AppHeader from "@/layout/AppHeader";
 import AppSidebar from "@/layout/AppSidebar";
 import Backdrop from "@/layout/Backdrop";
-import React from "react";
+import React, { useEffect } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
+import { homePathFor, isAdminOnlyPath } from "@/lib/auth";
 
 export default function AdminLayout({
   children,
@@ -12,6 +15,28 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const { isExpanded, isHovered, isMobileOpen } = useSidebar();
+  const { user, loading } = useAuth();
+  const pathname = usePathname();
+  const router = useRouter();
+  const forbidden = !!user && user.role !== "admin" && isAdminOnlyPath(pathname);
+
+  // Every page in this layout requires a login; admin-only pages also need the admin role.
+  useEffect(() => {
+    if (loading) return;
+    if (!user) {
+      router.replace(`/signin?next=${encodeURIComponent(pathname)}`);
+    } else if (forbidden) {
+      router.replace(homePathFor(user.role));
+    }
+  }, [loading, user, forbidden, pathname, router]);
+
+  if (loading || !user || forbidden) {
+    return (
+      <div className="flex min-h-screen items-center justify-center text-sm text-gray-500 dark:text-gray-400">
+        Loading…
+      </div>
+    );
+  }
 
   // Dynamic class for main content margin based on sidebar state
   const mainContentMargin = isMobileOpen

@@ -1,9 +1,10 @@
 "use client";
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useSidebar } from "../context/SidebarContext";
+import { useAuth } from "../context/AuthContext";
 import {
   BoxCubeIcon,
   CalenderIcon,
@@ -28,6 +29,7 @@ type NavItem = {
   icon: React.ReactNode;
   path?: string;
   subItems?: (SubLink | SubGroup)[];
+  adminOnly?: boolean;
 };
 
 const navItems: NavItem[] = [
@@ -35,6 +37,7 @@ const navItems: NavItem[] = [
   {
     icon: <PieChartIcon />,
     name: "Reporting",
+    adminOnly: true,
     subItems: [
       { name: "Overview", path: "/", pro: false },
       { name: "Weekly Advances", path: "/reporting/weekly-advances", pro: false },
@@ -102,6 +105,7 @@ const navItems: NavItem[] = [
   // },
   {
     name: "Employees Management",
+    adminOnly: true,
     icon: <TableIcon />,
     subItems: [
       { name: "Add Employee", path: "/addEmployeeForm", pro: false },
@@ -117,6 +121,12 @@ const navItems: NavItem[] = [
   //     { name: "404 Error", path: "/error-404", pro: false },
   //   ],
   // },
+  {
+    icon: <UserCircleIcon />,
+    name: "Users",
+    path: "/users",
+    adminOnly: true,
+  },
 ];
 
 const othersItems: NavItem[] = [
@@ -153,6 +163,11 @@ const othersItems: NavItem[] = [
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const pathname = usePathname();
+  const { user } = useAuth();
+  const visibleNavItems = useMemo(
+    () => navItems.filter((item) => !item.adminOnly || user?.role === "admin"),
+    [user]
+  );
 
   const renderMenuItems = (
     navItems: NavItem[],
@@ -333,7 +348,7 @@ const AppSidebar: React.FC = () => {
   useEffect(() => {
     let submenuMatched = false;
     ["main", "others"].forEach((menuType) => {
-      const items = menuType === "main" ? navItems : othersItems;
+      const items = menuType === "main" ? visibleNavItems : othersItems;
       items.forEach((nav, index) => {
         if (nav.subItems) {
           nav.subItems.forEach((subItem) => {
@@ -362,7 +377,7 @@ const AppSidebar: React.FC = () => {
     if (!submenuMatched) {
       setOpenSubmenu(null);
     }
-  }, [pathname, isActive]);
+  }, [pathname, isActive, visibleNavItems]);
 
   // Re-measure the open dropdown whenever it (or a nested group inside it) opens/closes,
   // so the parent is tall enough to show the nested links.
@@ -457,7 +472,7 @@ const AppSidebar: React.FC = () => {
                   <HorizontaLDots />
                 )}
               </h2>
-              {renderMenuItems(navItems, "main")}
+              {renderMenuItems(visibleNavItems, "main")}
             </div>
 
             {/* <div className="">
