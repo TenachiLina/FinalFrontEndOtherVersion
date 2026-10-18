@@ -1,40 +1,139 @@
 import { API_BASE_URL } from "@/lib/config";
 
-export type Role = "admin" | "manager";
+export type Role = "superadmin" | "admin" | "manager";
+
+export type Feature =
+  | "planning"
+  | "clockin"
+  | "faceRecognition"
+  | "reporting"
+  | "advances"
+  | "bonuses";
+
+export const FEATURE_LABELS: Record<Feature, string> = {
+  planning: "Planning & shifts",
+  clockin: "Clock in / out",
+  faceRecognition: "Face-recognition clock-in",
+  reporting: "Reporting & payroll",
+  advances: "Advances",
+  bonuses: "Bonuses (primes)",
+};
+
+export interface CompanySettings {
+  currency: string;
+  utcOffset: string;
+  hoursPerDay: number;
+  workingDaysPerMonth: number;
+  weeklyAdvanceRatio: number;
+}
+
+export interface CompanyInfo {
+  id: string;
+  name: string;
+  active: boolean;
+  features: Feature[];
+  settings: CompanySettings;
+}
 
 export interface AuthUser {
   id: string;
   email: string;
   name: string;
   role: Role;
+  companyId: string | null;
 }
 
 const TOKEN_KEY = "auth_token";
 const USER_KEY = "auth_user";
+const COMPANY_KEY = "auth_company";
+// The company a super admin is currently working inside.
+const ACTING_COMPANY_KEY = "acting_company_id";
 
-// Pages only admins can open. Managers get planning and clock-in.
+// ── Access rules: which pages need which role / feature ─────────────────────
+
+// Pages only company admins can open. Managers get planning and clock-in.
 const ADMIN_ONLY_PREFIXES = [
   "/reporting",
   "/addEmployeeForm",
   "/add-employee",
   "/basic-tables",
   "/users",
+  "/company-settings",
 ];
+
+// Pages a super admin can open without choosing a company.
+const NO_COMPANY_PATHS = ["/companies", "/account"];
+
+// Page prefix → feature it needs. The first match wins.
+const PATH_FEATURES: [string, Feature][] = [
+  ["/reporting/weekly-advances", "advances"],
+  ["/reporting/advances", "advances"],
+  ["/reporting/bonuses", "bonuses"],
+  ["/reporting", "reporting"],
+  ["/calendar", "planning"],
+  ["/clockinfacerecognitionpage", "faceRecognition"],
+  ["/clockinpagehistory", "clockin"],
+  ["/clockinpage", "clockin"],
+];
+
+function matches(pathname: string, prefix: string) {
+  return pathname === prefix || pathname.startsWith(`${prefix}/`);
+}
 
 export function isAdminOnlyPath(pathname: string): boolean {
   if (pathname === "/") return true; // the Overview report
-  return ADMIN_ONLY_PREFIXES.some(
-    (p) => pathname === p || pathname.startsWith(`${p}/`)
-  );
+  return ADMIN_ONLY_PREFIXES.some((p) => matches(pathname, p));
 }
 
-export function homePathFor(role: Role): string {
-  return role === "admin" ? "/" : "/calendar/ViewPlanning";
+export function featureForPath(pathname: string): Feature | null {
+  if (pathname === "/") return "reporting";
+  return PATH_FEATURES.find(([p]) => matches(pathname, p))?.[1] ?? null;
 }
+
+export function isSuperAdminOnlyPath(pathname: string): boolean {
+  return matches(pathname, "/companies");
+}
+
+/** Whether this user may open this page in the current company. */
+export function canOpen(
+  pathname: string,
+  user: AuthUser,
+  company: CompanyInfo | null
+): boolean {
+  if (isSuperAdminOnlyPath(pathname)) return user.role === "superadmin";
+  if (!company) {
+    return NO_COMPANY_PATHS.some((p) => matches(pathname, p));
+  }
+  if (user.role === "manager" && isAdminOnlyPath(pathname)) return false;
+  const feature = featureForPath(pathname);
+  if (feature && !company.features.includes(feature)) return false;
+  // Face recognition is a kind of clock-in.
+  if (feature === "faceRecognition" && !company.features.includes("clockin")) {
+    return false;
+  }
+  return true;
+}
+
+export function homePathFor(user: AuthUser, company: CompanyInfo | null): string {
+  if (!company) return user.role === "superadmin" ? "/companies" : "/account";
+  const candidates = ["/", "/calendar/ViewPlanning", "/clockinpage", "/basic-tables"];
+  return candidates.find((p) => canOpen(p, user, company)) ?? "/account";
+}
+
+// ── Session storage ──────────────────────────────────────────────────────────
 
 function storage(): Storage | null {
   try {
     return typeof window === "undefined" ? null : window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+function readJson<T>(key: string): T | null {
+  try {
+    const raw = storage()?.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : null;
   } catch {
     return null;
   }
@@ -45,27 +144,45 @@ export function getToken(): string | null {
 }
 
 export function getStoredUser(): AuthUser | null {
-  try {
-    const raw = storage()?.getItem(USER_KEY);
-    return raw ? (JSON.parse(raw) as AuthUser) : null;
-  } catch {
-    return null;
-  }
+  return readJson<AuthUser>(USER_KEY);
 }
 
-export function saveSession(token: string, user: AuthUser) {
+export function getStoredCompany(): CompanyInfo | null {
+  return readJson<CompanyInfo>(COMPANY_KEY);
+}
+
+export function saveSession(
+  token: string,
+  user: AuthUser,
+  company: CompanyInfo | null
+) {
   storage()?.setItem(TOKEN_KEY, token);
-  storage()?.setItem(USER_KEY, JSON.stringify(user));
+  saveIdentity(user, company);
 }
 
-export function saveUser(user: AuthUser) {
+export function saveIdentity(user: AuthUser, company: CompanyInfo | null) {
   storage()?.setItem(USER_KEY, JSON.stringify(user));
+  if (company) storage()?.setItem(COMPANY_KEY, JSON.stringify(company));
+  else storage()?.removeItem(COMPANY_KEY);
+}
+
+export function getActingCompanyId(): string | null {
+  return storage()?.getItem(ACTING_COMPANY_KEY) ?? null;
+}
+
+export function setActingCompanyId(companyId: string | null) {
+  if (companyId) storage()?.setItem(ACTING_COMPANY_KEY, companyId);
+  else storage()?.removeItem(ACTING_COMPANY_KEY);
 }
 
 export function clearSession() {
   storage()?.removeItem(TOKEN_KEY);
   storage()?.removeItem(USER_KEY);
+  storage()?.removeItem(COMPANY_KEY);
+  storage()?.removeItem(ACTING_COMPANY_KEY);
 }
+
+// ── Authenticated fetch ─────────────────────────────────────────────────────
 
 // Some components still call the backend on localhost:3001 directly.
 const API_ORIGINS = [API_BASE_URL, "http://localhost:3001"].filter(Boolean);
@@ -77,8 +194,9 @@ function isApiUrl(url: string): boolean {
 let installed = false;
 
 /**
- * Wraps window.fetch so every request to the backend carries the login token,
- * and a 401 (expired or revoked session) sends the user back to the sign-in page.
+ * Wraps window.fetch so every request to the backend carries the login token
+ * (and, for a super admin, the company they are working in), and a 401
+ * (expired or revoked session) sends the user back to the sign-in page.
  * This covers all existing fetch() calls without changing each of them.
  */
 export function installAuthFetch() {
@@ -101,6 +219,10 @@ export function installAuthFetch() {
     );
     if (token && !headers.has("Authorization")) {
       headers.set("Authorization", `Bearer ${token}`);
+    }
+    const acting = getActingCompanyId();
+    if (acting && getStoredUser()?.role === "superadmin" && !headers.has("X-Company-Id")) {
+      headers.set("X-Company-Id", acting);
     }
 
     const res = await originalFetch(input, { ...init, headers });

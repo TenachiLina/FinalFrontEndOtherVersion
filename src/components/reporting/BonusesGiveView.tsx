@@ -4,6 +4,7 @@ import { Table, TableHeader, TableBody, TableRow, TableCell } from "../ui/table"
 import BonusModal from "./BonusModal";
 import { useBonusesList, BonusEmployeeRow } from "@/hooks/useBonusesList";
 
+import { currency } from "@/lib/payrollConfig";
 const EMPLOYEE_HEADERS = ["Employee", "Primes This Month", "Total This Month", "Action"];
 
 const BonusesGiveView: React.FC = () => {
@@ -40,7 +41,7 @@ const BonusesGiveView: React.FC = () => {
         />
         <div className="ml-auto rounded-xl border border-green-200 bg-green-50 px-4 py-2 text-right dark:border-green-900 dark:bg-green-500/10">
           <div className="text-xs text-gray-500 dark:text-gray-400">Total Primes (this month)</div>
-          <div className="text-sm font-bold text-green-600 dark:text-green-400">{totalGiven.toFixed(2)} DA</div>
+          <div className="text-sm font-bold text-green-600 dark:text-green-400">{totalGiven.toFixed(2)} {currency()}</div>
         </div>
       </div>
 
@@ -72,7 +73,7 @@ const BonusesGiveView: React.FC = () => {
                       {r.count || "—"}
                     </TableCell>
                     <TableCell className={`p-3 text-sm ${r.total ? "font-semibold text-green-600 dark:text-green-400" : "text-gray-400"}`}>
-                      {r.total ? `${r.total.toFixed(2)} DA` : "—"}
+                      {r.total ? `${r.total.toFixed(2)} ${currency()}` : "—"}
                     </TableCell>
                     <TableCell className="p-3">
                       <button onClick={() => setSelected(r)} className="text-sm font-medium text-brand-500 hover:text-brand-600">
@@ -84,7 +85,7 @@ const BonusesGiveView: React.FC = () => {
                 <TableRow key="totals" className="border-t-2 border-gray-300 bg-gray-100 dark:border-gray-700 dark:bg-gray-800">
                   <TableCell className="p-3 text-sm font-bold uppercase text-gray-800 dark:text-white">Total</TableCell>
                   <TableCell className="p-3 text-sm font-bold text-gray-800 dark:text-white">{totalCount}</TableCell>
-                  <TableCell className="p-3 text-sm font-bold text-green-600 dark:text-green-400">{totalGiven.toFixed(2)} DA</TableCell>
+                  <TableCell className="p-3 text-sm font-bold text-green-600 dark:text-green-400">{totalGiven.toFixed(2)} {currency()}</TableCell>
                   <TableCell className="p-3">{null}</TableCell>
                 </TableRow>
               </>

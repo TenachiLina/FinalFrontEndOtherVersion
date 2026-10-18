@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { Modal } from "../ui/modal";
 
+import { currency } from "@/lib/payrollConfig";
 interface BonusModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -59,7 +60,7 @@ const BonusModal: React.FC<BonusModalProps> = ({ isOpen, onClose, employeeName, 
 
       <div className="flex flex-col gap-4">
         <div>
-          <label className={labelCls}>Amount (DA)</label>
+          <label className={labelCls}>Amount ({currency()})</label>
           <input type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} className={inputCls} autoFocus />
         </div>
         <div>

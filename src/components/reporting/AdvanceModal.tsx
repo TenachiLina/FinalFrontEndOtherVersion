@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import { Modal } from "../ui/modal";
 import { DateRange } from "./types";
 
+import { currency } from "@/lib/payrollConfig";
 interface AdvanceModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -74,12 +75,12 @@ const AdvanceModal: React.FC<AdvanceModalProps> = ({ isOpen, onClose, employeeNa
     <Modal isOpen={isOpen} onClose={onClose} className="m-4 max-w-[460px] p-6">
       <h3 className="mb-1 text-lg font-semibold text-gray-800 dark:text-white">Give Advance</h3>
       <p className="mb-5 text-sm text-gray-500 dark:text-gray-400">
-        {employeeName} — suggested advance: <span className="font-semibold">{offer.toFixed(2)} DA</span>
+        {employeeName} — suggested advance: <span className="font-semibold">{offer.toFixed(2)} {currency()}</span>
       </p>
 
       <div className="flex flex-col gap-4">
         <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Amount (DA)</label>
+          <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Amount ({currency()})</label>
           <input
             type="number"
             min="0"
@@ -90,7 +91,7 @@ const AdvanceModal: React.FC<AdvanceModalProps> = ({ isOpen, onClose, employeeNa
           />
           {exceedsOffer && (
             <p className="mt-1 text-xs text-amber-600">
-              This is higher than the suggested advance ({offer.toFixed(2)} DA).
+              This is higher than the suggested advance ({offer.toFixed(2)} {currency()}).
             </p>
           )}
         </div>

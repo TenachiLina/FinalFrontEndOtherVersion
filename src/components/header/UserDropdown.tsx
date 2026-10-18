@@ -6,7 +6,7 @@ import { DropdownItem } from "../ui/dropdown/DropdownItem";
 
 export default function UserDropdown() {
   const [isOpen, setIsOpen] = useState(false);
-  const { user, logout } = useAuth();
+  const { user, company, logout } = useAuth();
   const initials = (user?.name ?? "?")
     .split(/\s+/)
     .map((w) => w[0])
@@ -67,8 +67,13 @@ function toggleDropdown(e: React.MouseEvent<HTMLButtonElement, MouseEvent>) {
             {user?.email}
           </span>
           <span className="mt-1 inline-block rounded-full bg-gray-100 px-2 py-0.5 text-theme-xs capitalize text-gray-600 dark:bg-white/5 dark:text-gray-400">
-            {user?.role}
+            {user?.role === "superadmin" ? "Super admin" : user?.role}
           </span>
+          {company && (
+            <span className="mt-1 block text-theme-xs text-gray-500 dark:text-gray-400">
+              {company.name}
+            </span>
+          )}
         </div>
 
         <ul className="flex flex-col gap-1 pt-4 pb-3 border-b border-gray-200 dark:border-gray-800">

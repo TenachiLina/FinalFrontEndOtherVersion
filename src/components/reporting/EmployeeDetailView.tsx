@@ -10,6 +10,7 @@ import { toLocalDateString } from "@/lib/reporting";
 import { readRange, rangeQuery } from "@/lib/rangeParams";
 import DateInput from "./DateInput";
 
+import { currency } from "@/lib/payrollConfig";
 interface EmployeeDetailViewProps {
   empId: string;
 }
@@ -145,7 +146,7 @@ const WeeklyAdvanceTab: React.FC<{ week: ReturnType<typeof useEmployeeReport>["w
       <div className="rounded-2xl border border-brand-200 bg-gradient-to-br from-brand-50 to-white p-6 dark:border-brand-900 dark:from-brand-500/10 dark:to-transparent">
         <div className="text-sm text-gray-500 dark:text-gray-400">Advance Offer This Week</div>
         <div className="mt-1 text-3xl font-bold text-brand-600 dark:text-brand-400">
-          {week.advanceOffer.toFixed(2)} DA
+          {week.advanceOffer.toFixed(2)} {currency()}
         </div>
         <div className="mt-1 text-xs text-gray-400">
           (hours × hourly rate − consommation) / 2
@@ -176,7 +177,7 @@ const WeeklyAdvanceTab: React.FC<{ week: ReturnType<typeof useEmployeeReport>["w
       {/* Supporting numbers */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <SummaryCard label="Hours This Week" value={`${week.hours.toFixed(2)} h`} />
-        <SummaryCard label="Consommation" value={`${week.consommation.toFixed(2)} DA`} />
+        <SummaryCard label="Consommation" value={`${week.consommation.toFixed(2)} ${currency()}`} />
       </div>
 
       {/* Day-by-day context */}
@@ -209,7 +210,7 @@ const MonthlyPayrollTab: React.FC<{ month: ReturnType<typeof useEmployeeReport>[
       <div className="rounded-2xl border border-green-200 bg-gradient-to-br from-green-50 to-white p-6 dark:border-green-900 dark:from-green-500/10 dark:to-transparent">
         <div className="text-sm text-gray-500 dark:text-gray-400">Net Payout (Take-Home)</div>
         <div className="mt-1 text-3xl font-bold text-green-600 dark:text-green-400">
-          {month.payout.net.toFixed(2)} DA
+          {month.payout.net.toFixed(2)} {currency()}
         </div>
         <div className="mt-1 text-xs text-gray-400">
           brut − penalties − consommation − advances given this month + primes
@@ -218,12 +219,12 @@ const MonthlyPayrollTab: React.FC<{ month: ReturnType<typeof useEmployeeReport>[
 
       {/* Breakdown */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <SummaryCard label="Brut Salary" value={`${month.payout.brut.toFixed(2)} DA`} />
+        <SummaryCard label="Brut Salary" value={`${month.payout.brut.toFixed(2)} ${currency()}`} />
         <SummaryCard label="Total Hours" value={`${month.hours.toFixed(2)} h`} />
-        <SummaryCard label="Penalties" value={`${month.penalties.toFixed(2)} DA`} negative />
-        <SummaryCard label="Consommation" value={`${month.consommation.toFixed(2)} DA`} negative />
-        <SummaryCard label="Advances Deducted" value={`${month.advancesTotal.toFixed(2)} DA`} negative />
-        <SummaryCard label="Primes" value={`${month.bonusesTotal.toFixed(2)} DA`} />
+        <SummaryCard label="Penalties" value={`${month.penalties.toFixed(2)} ${currency()}`} negative />
+        <SummaryCard label="Consommation" value={`${month.consommation.toFixed(2)} ${currency()}`} negative />
+        <SummaryCard label="Advances Deducted" value={`${month.advancesTotal.toFixed(2)} ${currency()}`} negative />
+        <SummaryCard label="Primes" value={`${month.bonusesTotal.toFixed(2)} ${currency()}`} />
         <SummaryCard label="Absences" value={`${month.absences}`} />
         <SummaryCard label="Late Minutes" value={`${month.lateMinutes} min`} />
       </div>
@@ -236,7 +237,7 @@ const MonthlyPayrollTab: React.FC<{ month: ReturnType<typeof useEmployeeReport>[
             {month.advancesList.map((a, idx) => (
               <li key={idx} className="flex items-center justify-between text-sm">
                 <span className="text-gray-500 dark:text-gray-400">{a.date}</span>
-                <span className="font-medium text-gray-800 dark:text-white">{a.amount.toFixed(2)} DA</span>
+                <span className="font-medium text-gray-800 dark:text-white">{a.amount.toFixed(2)} {currency()}</span>
               </li>
             ))}
           </ul>

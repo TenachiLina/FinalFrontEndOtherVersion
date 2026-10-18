@@ -4,6 +4,7 @@ import { Table, TableHeader, TableBody, TableRow, TableCell } from "../ui/table"
 import SimpleRangePicker from "./SimpleRangePicker";
 import { useBonusesHistory, BonusHistoryRow } from "@/hooks/useBonusesHistory";
 
+import { currency } from "@/lib/payrollConfig";
 const HEADERS = ["Employee", "Amount", "Date", "Reason", ""];
 
 const BonusesHistoryView: React.FC = () => {
@@ -29,7 +30,7 @@ const BonusesHistoryView: React.FC = () => {
 
         <div className="ml-auto rounded-xl border border-green-200 bg-green-50 px-4 py-2 text-right dark:border-green-900 dark:bg-green-500/10">
           <div className="text-xs text-gray-500 dark:text-gray-400">Total Primes</div>
-          <div className="text-sm font-bold text-green-600 dark:text-green-400">{total.toFixed(2)} DA</div>
+          <div className="text-sm font-bold text-green-600 dark:text-green-400">{total.toFixed(2)} {currency()}</div>
         </div>
       </div>
 
@@ -55,7 +56,7 @@ const BonusesHistoryView: React.FC = () => {
                 {rows.map((b: BonusHistoryRow) => (
                   <TableRow key={b.id}>
                     <TableCell className="p-3 text-sm font-medium text-gray-800 dark:text-white">{b.employeeName}</TableCell>
-                    <TableCell className="p-3 text-sm font-semibold text-green-600 dark:text-green-400">{b.amount.toFixed(2)} DA</TableCell>
+                    <TableCell className="p-3 text-sm font-semibold text-green-600 dark:text-green-400">{b.amount.toFixed(2)} {currency()}</TableCell>
                     <TableCell className="p-3 text-sm text-gray-600 dark:text-gray-400">{b.date}</TableCell>
                     <TableCell className="p-3 text-sm text-gray-500 dark:text-gray-400">{b.reason || "—"}</TableCell>
                     <TableCell className="p-3 text-right">
@@ -67,7 +68,7 @@ const BonusesHistoryView: React.FC = () => {
                 ))}
                 <TableRow key="totals" className="border-t-2 border-gray-300 bg-gray-100 dark:border-gray-700 dark:bg-gray-800">
                   <TableCell className="p-3 text-sm font-bold uppercase text-gray-800 dark:text-white">Total ({rows.length})</TableCell>
-                  <TableCell className="p-3 text-sm font-bold text-green-600 dark:text-green-400">{total.toFixed(2)} DA</TableCell>
+                  <TableCell className="p-3 text-sm font-bold text-green-600 dark:text-green-400">{total.toFixed(2)} {currency()}</TableCell>
                   <TableCell className="p-3">{null}</TableCell>
                   <TableCell className="p-3">{null}</TableCell>
                   <TableCell className="p-3">{null}</TableCell>

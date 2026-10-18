@@ -7,7 +7,7 @@ import Backdrop from "@/layout/Backdrop";
 import React, { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { homePathFor, isAdminOnlyPath } from "@/lib/auth";
+import { canOpen, homePathFor } from "@/lib/auth";
 
 export default function AdminLayout({
   children,
@@ -15,20 +15,21 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const { isExpanded, isHovered, isMobileOpen } = useSidebar();
-  const { user, loading } = useAuth();
+  const { user, company, loading, switchCompany } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
-  const forbidden = !!user && user.role !== "admin" && isAdminOnlyPath(pathname);
+  const forbidden = !!user && !canOpen(pathname, user, company);
 
-  // Every page in this layout requires a login; admin-only pages also need the admin role.
+  // Every page in this layout requires a login. Pages also need the right role
+  // and the company's matching feature (see canOpen in lib/auth.ts).
   useEffect(() => {
     if (loading) return;
     if (!user) {
       router.replace(`/signin?next=${encodeURIComponent(pathname)}`);
     } else if (forbidden) {
-      router.replace(homePathFor(user.role));
+      router.replace(homePathFor(user, company));
     }
-  }, [loading, user, forbidden, pathname, router]);
+  }, [loading, user, company, forbidden, pathname, router]);
 
   if (loading || !user || forbidden) {
     return (
@@ -56,6 +57,20 @@ export default function AdminLayout({
       >
         {/* Header */}
         <AppHeader />
+        {user.role === "superadmin" && company && (
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-warning-200 bg-warning-50 px-4 py-2 text-sm text-warning-700 dark:border-warning-500/30 dark:bg-warning-500/10 dark:text-warning-400 md:px-6">
+            <span>
+              You are working inside <strong>{company.name}</strong> as its admin.
+            </span>
+            <button
+              type="button"
+              className="font-medium underline"
+              onClick={() => switchCompany(null)}
+            >
+              Back to all companies
+            </button>
+          </div>
+        )}
         {/* Page Content */}
         <div className="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6">{children}</div>
       </div>

@@ -7,6 +7,7 @@ import { useAdvancesReport } from "@/hooks/useAdvancesReport";
 import { AdvanceRecord, DateRange } from "@/components/reporting/types";
 import { getThisMonthRange } from "@/lib/reporting";
 
+import { currency } from "@/lib/payrollConfig";
 const TABLE_HEADERS = ["Employee", "Amount", "Date", "Reason", ""];
 
 const AdvancesView: React.FC = () => {
@@ -52,7 +53,7 @@ const AdvancesView: React.FC = () => {
 
         <div className="ml-auto rounded-2xl border border-gray-200 bg-gray-50 px-5 py-2.5 text-right dark:border-gray-800 dark:bg-white/[0.03]">
           <div className="text-xs text-gray-500 dark:text-gray-400">Total Advanced</div>
-          <div className="text-lg font-bold text-gray-800 dark:text-white">{totalAdvanced.toFixed(2)} DA</div>
+          <div className="text-lg font-bold text-gray-800 dark:text-white">{totalAdvanced.toFixed(2)} {currency()}</div>
         </div>
       </div>
 
@@ -87,7 +88,7 @@ const AdvancesView: React.FC = () => {
                       `#${a.empId}`
                     )}
                   </TableCell>
-                  <TableCell className="p-3 text-sm text-gray-600 dark:text-gray-400">{a.amount.toFixed(2)} DA</TableCell>
+                  <TableCell className="p-3 text-sm text-gray-600 dark:text-gray-400">{a.amount.toFixed(2)} {currency()}</TableCell>
                   <TableCell className="p-3 text-sm text-gray-600 dark:text-gray-400">{a.date}</TableCell>
                   <TableCell className="p-3 text-sm text-gray-500 dark:text-gray-400">{a.reason || "—"}</TableCell>
                   <TableCell className="p-3 text-right">

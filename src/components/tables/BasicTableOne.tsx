@@ -3,6 +3,7 @@ import React, { useState, useMemo, useEffect } from "react";
 import Image from "next/image";
 import Badge from "../ui/badge/Badge";
 import { API_BASE_URL } from "@/lib/config";
+import { currency } from "@/lib/payrollConfig";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -306,7 +307,7 @@ export default function BasicTableOne() {
                   </td>
                   <td className="px-4 py-4 text-sm font-medium text-gray-800 dark:text-white/90">{emp.firstName}</td>
                   <td className="px-4 py-4 text-sm font-medium text-gray-800 dark:text-white/90">{emp.lastName}</td>
-                  <td className="px-4 py-4 text-sm text-gray-700 dark:text-gray-300 font-medium">${Number(emp.baseSalary).toLocaleString()}</td>
+                  <td className="px-4 py-4 text-sm text-gray-700 dark:text-gray-300 font-medium">{Number(emp.baseSalary).toLocaleString()} {currency()}</td>
                   <td className="px-4 py-4 text-sm text-gray-600 dark:text-gray-400">{emp.address ?? "—"}</td>
                   <td className="px-4 py-4 text-sm text-gray-600 dark:text-gray-400 font-mono">{emp.phoneNumber ?? "—"}</td>
                   <td className="px-4 py-4">

@@ -8,6 +8,7 @@ import AdvanceModal from "./AdvanceModal";
 import { useWeeklyAdvancesList, WeeklyAdvanceRow } from "@/hooks/useWeeklyAdvancesList";
 import { readRange, rangeQuery } from "@/lib/rangeParams";
 
+import { currency } from "@/lib/payrollConfig";
 const TABLE_HEADERS = [
   "Employee",
   "Hour Rate",
@@ -88,15 +89,15 @@ const WeeklyAdvancesContent: React.FC = () => {
                     <TableCell className="p-3 text-sm font-medium text-gray-800 dark:text-white">
                       {r.firstName} {r.lastName}
                     </TableCell>
-                    <TableCell className="p-3 text-sm text-gray-600 dark:text-gray-400">{r.hourlyRate.toFixed(2)} DA/h</TableCell>
+                    <TableCell className="p-3 text-sm text-gray-600 dark:text-gray-400">{r.hourlyRate.toFixed(2)} {currency()}/h</TableCell>
                     <TableCell className="p-3 text-sm text-gray-600 dark:text-gray-400">{r.hours} h</TableCell>
                     <TableCell className={`p-3 text-sm ${r.absences > 0 ? "font-semibold text-red-500" : "text-gray-400"}`}>
                       {r.absences > 0 ? r.absences : "—"}
                     </TableCell>
-                    <TableCell className="p-3 text-sm font-medium text-gray-800 dark:text-white">{r.weeklySalary.toFixed(2)} DA</TableCell>
-                    <TableCell className="p-3 text-sm text-gray-600 dark:text-gray-400">{r.consommation} DA</TableCell>
+                    <TableCell className="p-3 text-sm font-medium text-gray-800 dark:text-white">{r.weeklySalary.toFixed(2)} {currency()}</TableCell>
+                    <TableCell className="p-3 text-sm text-gray-600 dark:text-gray-400">{r.consommation} {currency()}</TableCell>
                     <TableCell className="p-3 text-sm font-semibold text-brand-600 dark:text-brand-400">
-                      {r.advanceOffer.toFixed(2)} DA
+                      {r.advanceOffer.toFixed(2)} {currency()}
                     </TableCell>
                     <TableCell className="p-3">
                       {r.advanceGiven ? (
@@ -145,13 +146,13 @@ const WeeklyAdvancesContent: React.FC = () => {
                     {colTotals.absences}
                   </TableCell>
                   <TableCell className="p-3 text-sm font-bold text-gray-800 dark:text-white">
-                    {colTotals.weeklySalary.toFixed(2)} DA
+                    {colTotals.weeklySalary.toFixed(2)} {currency()}
                   </TableCell>
                   <TableCell className="p-3 text-sm font-bold text-gray-800 dark:text-white">
-                    {colTotals.consommation.toFixed(2)} DA
+                    {colTotals.consommation.toFixed(2)} {currency()}
                   </TableCell>
                   <TableCell className="p-3 text-sm font-bold text-brand-600 dark:text-brand-400">
-                    {colTotals.advanceOffer.toFixed(2)} DA
+                    {colTotals.advanceOffer.toFixed(2)} {currency()}
                   </TableCell>
                   <TableCell className="p-3 text-sm font-semibold text-gray-700 dark:text-gray-300">
                     {colTotals.givenCount} / {advanceRows.length} given

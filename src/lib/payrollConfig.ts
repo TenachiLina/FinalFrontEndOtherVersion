@@ -1,12 +1,10 @@
 // ─────────────────────────────────────────────────────────────────────────
 // Payroll configuration
 //
-// This file isolates the business formulas so they can be swapped per
-// company without touching any UI or data-fetching code. Today it's
-// hardcoded to one company's rules; to support another company, create a
-// different config object with the same shape and swap which one is
-// imported (e.g. via an env var or a per-tenant lookup) — nothing else
-// in the app needs to change.
+// This file isolates the business formulas so they can change per company
+// without touching any UI or data-fetching code. The numbers come from the
+// company's settings (Company settings page) and are applied at login by
+// applyCompanySettings(); the defaults below are used until then.
 // ─────────────────────────────────────────────────────────────────────────
 
 import { Employee, WorktimeRow } from "@/components/reporting/types";
@@ -17,6 +15,10 @@ export interface PayrollConfig {
   hoursPerDay: number;
   /** Standard working days per month, used to derive the hourly rate from monthly base salary. */
   workingDaysPerMonth: number;
+  /** Share of earned pay (after consommation) offered as a weekly advance; 0.5 = half. */
+  weeklyAdvanceRatio: number;
+  /** Currency label shown next to amounts, e.g. "DA". */
+  currency: string;
 
   /** Hourly rate for an employee, derived from their base monthly salary. */
   hourlyRate(employee: Employee | undefined): number;
@@ -43,13 +45,15 @@ export interface PayrollConfig {
 /**
  * Default config — current company's rules.
  *   hourlyRate        = base_salary / 8 / 26
- *   weeklyAdvance     = (hours * hourlyRate - consommation) / 2
+ *   weeklyAdvance     = (hours * hourlyRate - consommation) * weeklyAdvanceRatio (0.5)
  *   monthlyPayout.brut = hours * hourlyRate
  *   monthlyPayout.net  = brut - penalties - consommation - advancesGivenThisMonth
  */
 export const defaultPayrollConfig: PayrollConfig = {
   hoursPerDay: 8,
   workingDaysPerMonth: 26,
+  weeklyAdvanceRatio: 0.5,
+  currency: "DA",
 
   hourlyRate(employee) {
     const baseSalary = Number(employee?.Base_salary || 0);
@@ -58,7 +62,7 @@ export const defaultPayrollConfig: PayrollConfig = {
 
   weeklyAdvance({ hours, hourlyRate, consommation }) {
     const brut = hours * hourlyRate;
-    return (brut - consommation) / 2;
+    return (brut - consommation) * this.weeklyAdvanceRatio;
   },
 
   monthlyPayout({ hours, hourlyRate, penalties, consommation, advancesGivenThisMonth }) {
@@ -68,11 +72,28 @@ export const defaultPayrollConfig: PayrollConfig = {
   },
 };
 
-// ⚠️ To onboard a different company with different rules, define a new
-// PayrollConfig object (e.g. `acmeCorpPayrollConfig`) and select it based
-// on tenant/company at the call site — the rest of the app only ever
-// imports `payrollConfig` from here, never the formulas directly.
+// The rest of the app only ever imports `payrollConfig` from here, never the
+// formulas directly. Formulas that differ in shape (not just numbers) between
+// companies would be selected here too.
 export const payrollConfig: PayrollConfig = defaultPayrollConfig;
+
+/** Applies the logged-in company's payroll settings (called by AuthContext). */
+export function applyCompanySettings(settings: {
+  hoursPerDay?: number;
+  workingDaysPerMonth?: number;
+  weeklyAdvanceRatio?: number;
+  currency?: string;
+}) {
+  if (settings.hoursPerDay) payrollConfig.hoursPerDay = settings.hoursPerDay;
+  if (settings.workingDaysPerMonth) payrollConfig.workingDaysPerMonth = settings.workingDaysPerMonth;
+  if (settings.weeklyAdvanceRatio) payrollConfig.weeklyAdvanceRatio = settings.weeklyAdvanceRatio;
+  if (settings.currency) payrollConfig.currency = settings.currency;
+}
+
+/** The company's currency label, e.g. "DA". */
+export function currency(): string {
+  return payrollConfig.currency;
+}
 
 // ─────────────────────────────────────────────────────────────────────────
 // Convenience helpers built on top of the active config

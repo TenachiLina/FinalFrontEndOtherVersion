@@ -10,23 +10,36 @@ import React, {
 import { API_BASE_URL } from "@/lib/config";
 import {
   AuthUser,
+  CompanyInfo,
   clearSession,
+  getStoredCompany,
   getStoredUser,
   getToken,
   installAuthFetch,
+  saveIdentity,
   saveSession,
-  saveUser,
+  setActingCompanyId,
 } from "@/lib/auth";
+import { applyCompanySettings } from "@/lib/payrollConfig";
 
 // Install before any component fetches data.
 installAuthFetch();
 
 interface AuthContextValue {
   user: AuthUser | null;
+  // The company being worked in (null for a super admin who hasn't picked one)
+  company: CompanyInfo | null;
   // true until the stored session has been checked with the backend
   loading: boolean;
-  login: (email: string, password: string) => Promise<AuthUser>;
+  login: (
+    email: string,
+    password: string
+  ) => Promise<{ user: AuthUser; company: CompanyInfo | null }>;
   logout: () => void;
+  /** Super admin: start or stop working inside a company. Reloads the app. */
+  switchCompany: (companyId: string | null) => void;
+  /** Re-reads the company after its settings changed. */
+  refreshCompany: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -43,55 +56,102 @@ async function readError(res: Response, fallback: string): Promise<string> {
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [company, setCompanyState] = useState<CompanyInfo | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const setIdentity = useCallback(
+    (u: AuthUser | null, c: CompanyInfo | null) => {
+      if (u) saveIdentity(u, c);
+      if (c) applyCompanySettings(c.settings);
+      setUser(u);
+      setCompanyState(c);
+    },
+    []
+  );
+
+  const loadMe = useCallback(async () => {
+    const res = await fetch(`${API_BASE_URL}/auth/me`);
+    if (res.ok) {
+      const me = (await res.json()) as {
+        user: AuthUser;
+        company: CompanyInfo | null;
+      };
+      setIdentity(me.user, me.company);
+    } else if (res.status === 401) {
+      clearSession();
+      setIdentity(null, null);
+    } else if (res.status === 403) {
+      // e.g. the company a super admin was working in no longer exists
+      setActingCompanyId(null);
+    }
+  }, [setIdentity]);
 
   useEffect(() => {
     if (!getToken()) {
       setLoading(false);
       return;
     }
-    // Show the cached user right away, then confirm the token is still valid.
-    setUser(getStoredUser());
-    fetch(`${API_BASE_URL}/auth/me`)
-      .then(async (res) => {
-        if (res.ok) {
-          const me = (await res.json()) as AuthUser;
-          saveUser(me);
-          setUser(me);
-        } else if (res.status === 401) {
-          clearSession();
-          setUser(null);
-        }
-      })
+    // Show the cached identity right away, then confirm it with the backend.
+    const cachedUser = getStoredUser();
+    setIdentity(cachedUser, cachedUser ? getStoredCompany() : null);
+    loadMe()
       .catch(() => {
-        /* backend unreachable: keep the cached user, requests will retry */
+        /* backend unreachable: keep the cached identity, requests will retry */
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [loadMe, setIdentity]);
 
-  const login = useCallback(async (email: string, password: string) => {
-    const res = await fetch(`${API_BASE_URL}/auth/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
-    if (!res.ok) {
-      throw new Error(await readError(res, "Could not sign in"));
-    }
-    const data = (await res.json()) as { accessToken: string; user: AuthUser };
-    saveSession(data.accessToken, data.user);
-    setUser(data.user);
-    return data.user;
-  }, []);
+  const login = useCallback(
+    async (email: string, password: string) => {
+      setActingCompanyId(null);
+      const res = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      if (!res.ok) {
+        throw new Error(await readError(res, "Could not sign in"));
+      }
+      const data = (await res.json()) as {
+        accessToken: string;
+        user: AuthUser;
+        company: CompanyInfo | null;
+      };
+      saveSession(data.accessToken, data.user, data.company);
+      setIdentity(data.user, data.company);
+      return { user: data.user, company: data.company };
+    },
+    [setIdentity]
+  );
 
   const logout = useCallback(() => {
     clearSession();
-    setUser(null);
+    setIdentity(null, null);
     window.location.href = "/signin";
+  }, [setIdentity]);
+
+  const switchCompany = useCallback((companyId: string | null) => {
+    setActingCompanyId(companyId);
+    // A full reload makes every page refetch its data for the new company.
+    window.location.href = companyId ? "/" : "/companies";
   }, []);
 
+  const refreshCompany = useCallback(async () => {
+    await loadMe();
+  }, [loadMe]);
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        company,
+        loading,
+        login,
+        logout,
+        switchCompany,
+        refreshCompany,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

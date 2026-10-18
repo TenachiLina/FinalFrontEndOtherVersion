@@ -4,23 +4,27 @@ import Label from "@/components/form/Label";
 import Button from "@/components/ui/button/Button";
 import { EyeCloseIcon, EyeIcon } from "@/icons";
 import { useAuth } from "@/context/AuthContext";
-import { AuthUser, homePathFor, isAdminOnlyPath } from "@/lib/auth";
+import { AuthUser, CompanyInfo, canOpen, homePathFor } from "@/lib/auth";
 import { useRouter, useSearchParams } from "next/navigation";
 import React, { useEffect, useState } from "react";
 
 // Only follow ?next= to an in-app page the user is allowed to open.
-function destinationFor(user: AuthUser, next: string | null): string {
+function destinationFor(
+  user: AuthUser,
+  company: CompanyInfo | null,
+  next: string | null
+): string {
   if (next && next.startsWith("/") && !next.startsWith("//")) {
     const path = next.split("?")[0];
-    if (!path.startsWith("/signin") && (user.role === "admin" || !isAdminOnlyPath(path))) {
+    if (!path.startsWith("/signin") && canOpen(path, user, company)) {
       return next;
     }
   }
-  return homePathFor(user.role);
+  return homePathFor(user, company);
 }
 
 export default function SignInForm() {
-  const { user, loading, login } = useAuth();
+  const { user, company, loading, login } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get("next");
@@ -33,8 +37,8 @@ export default function SignInForm() {
 
   // Already signed in: skip the form.
   useEffect(() => {
-    if (!loading && user) router.replace(destinationFor(user, next));
-  }, [loading, user, next, router]);
+    if (!loading && user) router.replace(destinationFor(user, company, next));
+  }, [loading, user, company, next, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,7 +50,7 @@ export default function SignInForm() {
     setSubmitting(true);
     try {
       const signedIn = await login(email.trim(), password);
-      router.replace(destinationFor(signedIn, next));
+      router.replace(destinationFor(signedIn.user, signedIn.company, next));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not sign in");
       setSubmitting(false);

@@ -7,7 +7,7 @@
 
 // const ReactApexChart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
-// const fmtDA = (n: number) => `${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} DA`;
+// const fmtDA = (n: number) => `${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency()}`;
 // const fmtNum = (n: number, d = 1) => n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: d });
 
 // /** % change vs previous period, or null when there is nothing to compare with. */
@@ -248,9 +248,10 @@ import { ApexOptions } from "apexcharts";
 import SimpleRangePicker from "./SimpleRangePicker";
 import { useReportingOverview } from "@/hooks/useReportingOverview";
 
+import { currency } from "@/lib/payrollConfig";
 const ReactApexChart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
-const fmtDA = (n: number) => `${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} DA`;
+const fmtDA = (n: number) => `${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency()}`;
 const fmtNum = (n: number, d = 1) => n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: d });
 
 /** % change vs previous period, or null when there is nothing to compare with. */

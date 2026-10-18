@@ -5,6 +5,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useSidebar } from "../context/SidebarContext";
 import { useAuth } from "../context/AuthContext";
+import { AuthUser, CompanyInfo, canOpen } from "../lib/auth";
 import {
   BoxCubeIcon,
   CalenderIcon,
@@ -29,7 +30,6 @@ type NavItem = {
   icon: React.ReactNode;
   path?: string;
   subItems?: (SubLink | SubGroup)[];
-  adminOnly?: boolean;
 };
 
 const navItems: NavItem[] = [
@@ -37,7 +37,6 @@ const navItems: NavItem[] = [
   {
     icon: <PieChartIcon />,
     name: "Reporting",
-    adminOnly: true,
     subItems: [
       { name: "Overview", path: "/", pro: false },
       { name: "Weekly Advances", path: "/reporting/weekly-advances", pro: false },
@@ -105,7 +104,6 @@ const navItems: NavItem[] = [
   // },
   {
     name: "Employees Management",
-    adminOnly: true,
     icon: <TableIcon />,
     subItems: [
       { name: "Add Employee", path: "/addEmployeeForm", pro: false },
@@ -125,9 +123,37 @@ const navItems: NavItem[] = [
     icon: <UserCircleIcon />,
     name: "Users",
     path: "/users",
-    adminOnly: true,
+  },
+  {
+    icon: <PlugInIcon />,
+    name: "Company settings",
+    path: "/company-settings",
+  },
+  {
+    icon: <BoxCubeIcon />,
+    name: "Companies",
+    path: "/companies",
   },
 ];
+
+// Keeps only the links this user can open in this company (role + features).
+function visibleItems(
+  items: NavItem[],
+  user: AuthUser | null,
+  company: CompanyInfo | null
+): NavItem[] {
+  if (!user) return [];
+  const allowed = (path: string) => canOpen(path, user, company);
+  return items.flatMap((item): NavItem[] => {
+    if (!item.subItems) return item.path && allowed(item.path) ? [item] : [];
+    const subItems = item.subItems.flatMap((sub): (SubLink | SubGroup)[] => {
+      if (!("subItems" in sub)) return allowed(sub.path) ? [sub] : [];
+      const children = sub.subItems.filter((c) => allowed(c.path));
+      return children.length ? [{ ...sub, subItems: children }] : [];
+    });
+    return subItems.length ? [{ ...item, subItems }] : [];
+  });
+}
 
 const othersItems: NavItem[] = [
   {
@@ -163,10 +189,10 @@ const othersItems: NavItem[] = [
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const pathname = usePathname();
-  const { user } = useAuth();
+  const { user, company } = useAuth();
   const visibleNavItems = useMemo(
-    () => navItems.filter((item) => !item.adminOnly || user?.role === "admin"),
-    [user]
+    () => visibleItems(navItems, user, company),
+    [user, company]
   );
 
   const renderMenuItems = (

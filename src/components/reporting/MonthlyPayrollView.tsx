@@ -7,6 +7,7 @@ import RangePicker from "./RangePicker";
 import { useMonthlyPayrollList, MonthlyPayrollRow } from "@/hooks/useMonthlyPayrollList";
 import { readRange, rangeQuery } from "@/lib/rangeParams";
 
+import { currency } from "@/lib/payrollConfig";
 const sumBy = (rows: MonthlyPayrollRow[], pick: (r: MonthlyPayrollRow) => unknown): number =>
   rows.reduce((acc, r) => acc + (Number(pick(r)) || 0), 0);
 
@@ -62,9 +63,9 @@ const MonthlyPayrollContent: React.FC = () => {
         />
 
         <div className="ml-auto flex flex-wrap gap-3">
-          <TotalPill label="Total Brut" value={`${totals.totalBrut} DA`} />
-          <TotalPill label="Total Advances" value={`${totals.totalAdvances} DA`} negative />
-          <TotalPill label="Total Net Payout" value={`${totals.totalNet} DA`} highlight />
+          <TotalPill label="Total Brut" value={`${totals.totalBrut} ${currency()}`} />
+          <TotalPill label="Total Advances" value={`${totals.totalAdvances} ${currency()}`} negative />
+          <TotalPill label="Total Net Payout" value={`${totals.totalNet} ${currency()}`} highlight />
         </div>
       </div>
 
@@ -104,23 +105,23 @@ const MonthlyPayrollContent: React.FC = () => {
                       {r.firstName} {r.lastName}
                     </TableCell>
                     <TableCell className="whitespace-nowrap p-3 text-center text-sm text-gray-600 dark:text-gray-400">
-                      {r.baseSalary.toFixed(2)} DA
+                      {r.baseSalary.toFixed(2)} {currency()}
                     </TableCell>
                     <TableCell className="whitespace-nowrap p-3 text-center text-sm text-gray-600 dark:text-gray-400">
-                      {r.hourlyRate.toFixed(2)} DA/h
+                      {r.hourlyRate.toFixed(2)} {currency()}/h
                     </TableCell>
                     <TableCell className="whitespace-nowrap p-3 text-center text-sm text-gray-600 dark:text-gray-400">{r.hours} h</TableCell>
-                    <TableCell className="whitespace-nowrap p-3 text-center text-sm text-red-500">{r.advancesDeducted.toFixed(2)} DA</TableCell>
-                    <TableCell className="whitespace-nowrap p-3 text-center text-sm text-red-500">{r.consommation.toFixed(2)} DA</TableCell>
-                    <TableCell className="whitespace-nowrap p-3 text-center text-sm text-red-500">{r.penalties.toFixed(2)} DA</TableCell>
+                    <TableCell className="whitespace-nowrap p-3 text-center text-sm text-red-500">{r.advancesDeducted.toFixed(2)} {currency()}</TableCell>
+                    <TableCell className="whitespace-nowrap p-3 text-center text-sm text-red-500">{r.consommation.toFixed(2)} {currency()}</TableCell>
+                    <TableCell className="whitespace-nowrap p-3 text-center text-sm text-red-500">{r.penalties.toFixed(2)} {currency()}</TableCell>
                     <TableCell className="whitespace-nowrap p-3 text-center text-sm text-green-600 dark:text-green-400">
-                      {r.bonuses.toFixed(2)} DA
+                      {r.bonuses.toFixed(2)} {currency()}
                     </TableCell>
                     <TableCell className="whitespace-nowrap p-3 text-center text-sm font-medium text-gray-800 dark:text-white">
-                      {r.brut.toFixed(2)} DA
+                      {r.brut.toFixed(2)} {currency()}
                     </TableCell>
                     <TableCell className="whitespace-nowrap p-3 text-center text-sm font-semibold text-green-600 dark:text-green-400">
-                      {r.net.toFixed(2)} DA
+                      {r.net.toFixed(2)} {currency()}
                     </TableCell>
                     <TableCell className="whitespace-nowrap p-3 text-right">
                       <Link
@@ -139,29 +140,29 @@ const MonthlyPayrollContent: React.FC = () => {
                     Total
                   </TableCell>
                   <TableCell className="whitespace-nowrap p-3 text-center text-sm font-bold text-gray-800 dark:text-white">
-                    {colTotals.baseSalary.toFixed(2)} DA
+                    {colTotals.baseSalary.toFixed(2)} {currency()}
                   </TableCell>
                   <TableCell className="whitespace-nowrap p-3 text-center text-sm text-gray-400">—</TableCell>
                   <TableCell className="whitespace-nowrap p-3 text-center text-sm font-bold text-gray-800 dark:text-white">
                     {colTotals.hours} h
                   </TableCell>
                   <TableCell className="whitespace-nowrap p-3 text-center text-sm font-bold text-red-500">
-                    {colTotals.advances.toFixed(2)} DA
+                    {colTotals.advances.toFixed(2)} {currency()}
                   </TableCell>
                   <TableCell className="whitespace-nowrap p-3 text-center text-sm font-bold text-red-500">
-                    {colTotals.consommation.toFixed(2)} DA
+                    {colTotals.consommation.toFixed(2)} {currency()}
                   </TableCell>
                   <TableCell className="whitespace-nowrap p-3 text-center text-sm font-bold text-red-500">
-                    {colTotals.penalties.toFixed(2)} DA
+                    {colTotals.penalties.toFixed(2)} {currency()}
                   </TableCell>
                   <TableCell className="whitespace-nowrap p-3 text-center text-sm font-bold text-green-600 dark:text-green-400">
-                    {colTotals.bonuses.toFixed(2)} DA
+                    {colTotals.bonuses.toFixed(2)} {currency()}
                   </TableCell>
                   <TableCell className="whitespace-nowrap p-3 text-center text-sm font-bold text-gray-800 dark:text-white">
-                    {colTotals.brut.toFixed(2)} DA
+                    {colTotals.brut.toFixed(2)} {currency()}
                   </TableCell>
                   <TableCell className="whitespace-nowrap p-3 text-center text-sm font-bold text-green-600 dark:text-green-400">
-                    {colTotals.net.toFixed(2)} DA
+                    {colTotals.net.toFixed(2)} {currency()}
                   </TableCell>
                   <TableCell className="p-3">{null}</TableCell>
                 </TableRow>
