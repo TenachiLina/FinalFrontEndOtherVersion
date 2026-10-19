@@ -36,7 +36,7 @@ const EmployeeDetailContent: React.FC<EmployeeDetailViewProps> = ({ empId }) => 
   const backHref =
     from === "weekly-advances" || from === "monthly-payroll"
       ? `/reporting/${from}${urlRange ? `?${rangeQuery(urlRange)}` : ""}`
-      : "/";
+      : "/reporting/overview";
   const backLabel =
     from === "weekly-advances"
       ? "← Back to Weekly Advances"

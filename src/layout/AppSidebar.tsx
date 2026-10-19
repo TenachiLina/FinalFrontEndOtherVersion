@@ -44,7 +44,7 @@ const navItems: NavItem[] = [
     icon: <PieChartIcon />,
     name: "Reporting",
     subItems: [
-      { name: "Overview", path: "/", pro: false },
+      { name: "Overview", path: "/reporting/overview", pro: false },
       { name: "Weekly Advances", path: "/reporting/weekly-advances", pro: false },
       { name: "Monthly Payroll", path: "/reporting/monthly-payroll", pro: false },
       { name: "Attendance", path: "/reporting/attendance", pro: false },

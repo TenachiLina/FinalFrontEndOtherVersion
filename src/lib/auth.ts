@@ -89,12 +89,10 @@ function matches(pathname: string, prefix: string) {
 }
 
 export function isAdminOnlyPath(pathname: string): boolean {
-  if (pathname === "/") return true; // the Overview report
   return ADMIN_ONLY_PREFIXES.some((p) => matches(pathname, p));
 }
 
 export function featureForPath(pathname: string): Feature | null {
-  if (pathname === "/") return "reporting";
   return PATH_FEATURES.find(([p]) => matches(pathname, p))?.[1] ?? null;
 }
 
@@ -130,7 +128,7 @@ export function homePathFor(user: AuthUser, company: CompanyInfo | null): string
   if (!company) return user.role === "superadmin" ? "/companies" : "/account";
   if (user.role === "employee") return "/kiosk";
   // Everyone with a company lands on the welcome home page
-  const candidates = ["/home", "/", "/calendar/ViewPlanning", "/clockinpage", "/basic-tables"];
+  const candidates = ["/home", "/reporting/overview", "/calendar/ViewPlanning", "/clockinpage", "/basic-tables"];
   return candidates.find((p) => canOpen(p, user, company)) ?? "/account";
 }
 

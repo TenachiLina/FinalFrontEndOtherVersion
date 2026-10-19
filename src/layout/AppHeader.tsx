@@ -22,7 +22,7 @@ const AppHeader: React.FC = () => {
   const pageTitles: Record<string, string> = {
     "/home": "Home",
     "/help": "Help & guides",
-    "/": "Overview",
+    "/reporting/overview": "Overview",
     "/reporting/weekly-advances": "Weekly Advances",
     "/reporting/monthly-payroll": "Monthly Payroll",
     "/reporting/attendance": "Attendance",

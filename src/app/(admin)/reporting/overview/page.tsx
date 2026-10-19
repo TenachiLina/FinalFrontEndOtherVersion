@@ -7,6 +7,6 @@ export const metadata: Metadata = {
   description: "Worktime, salary, and attendance overview.",
 };
 
-export default function Home() {
+export default function OverviewPage() {
   return <OverviewView />;
 }
