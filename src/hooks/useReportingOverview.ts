@@ -286,7 +286,7 @@ export interface PeriodTotals {
   net: number;
   advances: number;
   advancesCount: number;
-  bonuses: number; // primes given in the period
+  bonuses: number; // bonuses given in the period
   bonusesCount: number;
   consommation: number;
   penalties: number;
@@ -509,8 +509,8 @@ export function useReportingOverview() {
         fetchAdvances(emps, undefined, r).catch(optionalData([] as AdvanceRecord[], "Advances")),
         fetchWorktimeRows(prev),
         fetchAdvances(emps, undefined, prev).catch(optionalData([] as AdvanceRecord[], "Advances")),
-        fetchBonuses(r).catch(optionalData([] as BonusRecord[], "Primes")),
-        fetchBonuses(prev).catch(optionalData([] as BonusRecord[], "Primes")),
+        fetchBonuses(r).catch(optionalData([] as BonusRecord[], "Bonuses")),
+        fetchBonuses(prev).catch(optionalData([] as BonusRecord[], "Bonuses")),
       ]);
       setEmployees(emps);
       setRows(cur);

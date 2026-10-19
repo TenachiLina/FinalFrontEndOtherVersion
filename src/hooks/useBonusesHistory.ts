@@ -27,8 +27,8 @@ export function useBonusesHistory() {
       setBonuses(list);
       setRangeState(r);
     } catch (err) {
-      console.error("Error loading primes history:", err);
-      setError(friendlyError(err, "Couldn't load the primes history"));
+      console.error("Error loading bonus history:", err);
+      setError(friendlyError(err, "Couldn't load the bonus history"));
     } finally {
       setLoading(false);
     }
@@ -56,10 +56,10 @@ export function useBonusesHistory() {
       setBonuses((prev) => prev.filter((b) => b.id !== id));
       try {
         await deleteBonus(id);
-        toast.success("Prime removed.");
+        toast.success("Bonus removed.");
       } catch (err) {
         setBonuses(previous);
-        toast.error(friendlyError(err, "Couldn't remove the prime"));
+        toast.error(friendlyError(err, "Couldn't remove the bonus"));
       }
     },
     [bonuses]

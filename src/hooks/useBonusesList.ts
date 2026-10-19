@@ -1,4 +1,4 @@
-// → hooks/useBonusesList.ts  (used by the "Give Primes" page)
+// → hooks/useBonusesList.ts  (used by the "Give Bonuses" page)
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Employee, DateRange } from "@/components/reporting/types";
 import { getThisMonthRange, fetchEmployees } from "@/lib/reporting";
@@ -10,12 +10,12 @@ export interface BonusEmployeeRow {
   empId: number | string;
   firstName: string;
   lastName: string;
-  count: number; // primes received this month
+  count: number; // bonuses received this month
   total: number; // total amount this month
 }
 
 export function useBonusesList() {
-  // The page shows a "this month" summary per employee; the prime itself can have any date.
+  // The page shows a "this month" summary per employee; the bonus itself can have any date.
   const [range, setRange] = useState<DateRange>(getThisMonthRange());
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [bonuses, setBonuses] = useState<BonusRecord[]>([]);
@@ -33,8 +33,8 @@ export function useBonusesList() {
       setBonuses(list);
       setRange(r);
     } catch (err) {
-      console.error("Error loading primes:", err);
-      setError(friendlyError(err, "Couldn't load the primes"));
+      console.error("Error loading bonuses:", err);
+      setError(friendlyError(err, "Couldn't load the bonuses"));
     } finally {
       setLoading(false);
     }
@@ -75,7 +75,7 @@ export function useBonusesList() {
       if (created.date >= range.start && created.date <= range.end) {
         setBonuses((prev) => [created, ...prev]);
       }
-      toast.success("Prime given.");
+      toast.success("Bonus given.");
     },
     [range]
   );

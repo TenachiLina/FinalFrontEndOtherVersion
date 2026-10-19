@@ -16,7 +16,7 @@ const TABLE_HEADERS = [
   "Hours",
   "Absences",
   "Salary (Week)",
-  "Consommation",
+  "Consumption",
   "Advance Offer",
   "Status",
   "Action",

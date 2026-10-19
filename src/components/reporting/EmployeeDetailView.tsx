@@ -149,7 +149,7 @@ const WeeklyAdvanceTab: React.FC<{ week: ReturnType<typeof useEmployeeReport>["w
           {week.advanceOffer.toFixed(2)} {currency()}
         </div>
         <div className="mt-1 text-xs text-gray-400">
-          (hours × hourly rate − consommation) / 2
+          (hours × hourly rate − consumption) × weekly advance %
         </div>
 
         <div className="mt-4 flex items-center gap-3">
@@ -177,7 +177,7 @@ const WeeklyAdvanceTab: React.FC<{ week: ReturnType<typeof useEmployeeReport>["w
       {/* Supporting numbers */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <SummaryCard label="Hours This Week" value={`${week.hours.toFixed(2)} h`} />
-        <SummaryCard label="Consommation" value={`${week.consommation.toFixed(2)} ${currency()}`} />
+        <SummaryCard label="Consumption" value={`${week.consommation.toFixed(2)} ${currency()}`} />
       </div>
 
       {/* Day-by-day context */}
@@ -213,18 +213,18 @@ const MonthlyPayrollTab: React.FC<{ month: ReturnType<typeof useEmployeeReport>[
           {month.payout.net.toFixed(2)} {currency()}
         </div>
         <div className="mt-1 text-xs text-gray-400">
-          brut − penalties − consommation − advances given this month + primes
+          gross − penalties − consumption − advances given this month + bonuses
         </div>
       </div>
 
       {/* Breakdown */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <SummaryCard label="Brut Salary" value={`${month.payout.brut.toFixed(2)} ${currency()}`} />
+        <SummaryCard label="Gross Salary" value={`${month.payout.brut.toFixed(2)} ${currency()}`} />
         <SummaryCard label="Total Hours" value={`${month.hours.toFixed(2)} h`} />
         <SummaryCard label="Penalties" value={`${month.penalties.toFixed(2)} ${currency()}`} negative />
-        <SummaryCard label="Consommation" value={`${month.consommation.toFixed(2)} ${currency()}`} negative />
+        <SummaryCard label="Consumption" value={`${month.consommation.toFixed(2)} ${currency()}`} negative />
         <SummaryCard label="Advances Deducted" value={`${month.advancesTotal.toFixed(2)} ${currency()}`} negative />
-        <SummaryCard label="Primes" value={`${month.bonusesTotal.toFixed(2)} ${currency()}`} />
+        <SummaryCard label="Bonuses" value={`${month.bonusesTotal.toFixed(2)} ${currency()}`} />
         <SummaryCard label="Absences" value={`${month.absences}`} />
         <SummaryCard label="Late Minutes" value={`${month.lateMinutes} min`} />
       </div>
@@ -255,7 +255,7 @@ const MonthlyPayrollTab: React.FC<{ month: ReturnType<typeof useEmployeeReport>[
 // ═══════════════════════════════════════════════════════════════════════════
 
 const DayTable: React.FC<{ rows: WorktimeRow[] }> = ({ rows }) => {
-  const headers = ["Date", "Hours", "Late (min)", "Overtime", "Penalty", "Consommation", "Absent"];
+  const headers = ["Date", "Hours", "Late (min)", "Overtime", "Penalty", "Consumption", "Absent"];
   return (
     <div className="overflow-x-auto rounded-2xl border border-gray-200 dark:border-gray-800">
       <Table className="min-w-full">

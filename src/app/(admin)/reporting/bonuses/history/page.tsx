@@ -4,8 +4,8 @@ import React from "react";
 import BonusesHistoryView from "@/components/reporting/BonusesHistoryView";
 
 export const metadata: Metadata = {
-  title: "Primes History | Nexo InOuty",
-  description: "History of primes given to employees.",
+  title: "Bonus History | Nexo InOuty",
+  description: "History of bonuses given to employees.",
 };
 
 export default function BonusesHistoryPage() {

@@ -20,15 +20,15 @@ const MonthlyPayrollContent: React.FC = () => {
 
   const headers = [
     "Employee",
-    "Salaire de Base",
-    "Hour Rate",
-    "Total Heures",
-    "Total Avances",
-    "Total Consommations",
-    "Total Pénalités",
-    "Total Primes",
-    `Salaire Brut ${monthLabel}`,
-    `Salaire Net ${monthLabel}`,
+    "Base Salary",
+    "Hourly Rate",
+    "Total Hours",
+    "Total Advances",
+    "Total Consumption",
+    "Total Penalties",
+    "Total Bonuses",
+    `Gross Salary ${monthLabel}`,
+    `Net Salary ${monthLabel}`,
     "",
   ];
 
@@ -64,7 +64,7 @@ const MonthlyPayrollContent: React.FC = () => {
         />
 
         <div className="ml-auto flex flex-wrap gap-3">
-          <TotalPill label="Total Brut" value={`${totals.totalBrut} ${currency()}`} />
+          <TotalPill label="Total Gross" value={`${totals.totalBrut} ${currency()}`} />
           <TotalPill label="Total Advances" value={`${totals.totalAdvances} ${currency()}`} negative />
           <TotalPill label="Total Net Payout" value={`${totals.totalNet} ${currency()}`} highlight />
         </div>

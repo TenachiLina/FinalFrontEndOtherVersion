@@ -22,7 +22,7 @@ import {
 
 
 type SubLink = { name: string; path: string; pro?: boolean; new?: boolean };
-// A sub-item that itself opens a second dropdown (e.g. Reporting → Primes → Give / History)
+// A sub-item that itself opens a second dropdown (e.g. Reporting → Bonuses → Give / History)
 type SubGroup = { name: string; subItems: SubLink[] };
 
 type NavItem = {
@@ -44,9 +44,9 @@ const navItems: NavItem[] = [
       { name: "Attendance", path: "/reporting/attendance", pro: false },
       { name: "Advances", path: "/reporting/advances", pro: false },
       {
-        name: "Primes",
+        name: "Bonuses",
         subItems: [
-          { name: "Give Primes", path: "/reporting/bonuses/give", pro: false },
+          { name: "Give Bonuses", path: "/reporting/bonuses/give", pro: false },
           { name: "History", path: "/reporting/bonuses/history", pro: false },
         ],
       },
@@ -72,6 +72,7 @@ const navItems: NavItem[] = [
     subItems: [
       {  name: "Clock In / Out", path: "/clockinpage", pro: false },
       {  name: "Clock In/Out with Face recognition", path: "/clockinfacerecognitionpage", pro: false },
+      {  name: "Clock-in kiosk", path: "/kiosk", pro: false },
       {  name: "Clock In/Out History", path: "/clockinpagehistory", pro: false },
     ]
   },
@@ -272,7 +273,7 @@ const AppSidebar: React.FC = () => {
             >
               <ul className="mt-2 space-y-1 ml-9">
                 {nav.subItems.map((subItem) => {
-                  // ── Second-level group (e.g. Primes → Give Primes / History) ──
+                  // ── Second-level group (e.g. Bonuses → Give Bonuses / History) ──
                   if ("subItems" in subItem) {
                     const nestedKey = `${menuType}-${index}-${subItem.name}`;
                     const nestedOpen = openNested === nestedKey;
@@ -364,7 +365,7 @@ const AppSidebar: React.FC = () => {
     type: "main" | "others";
     index: number;
   } | null>(null);
-  // Which second-level group is open, e.g. "main-0-Primes"
+  // Which second-level group is open, e.g. "main-0-Bonuses"
   const [openNested, setOpenNested] = useState<string | null>(null);
   const [subMenuHeight, setSubMenuHeight] = useState<Record<string, number>>(
     {}

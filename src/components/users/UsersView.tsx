@@ -112,7 +112,8 @@ export default function UsersView() {
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm text-gray-500 dark:text-gray-400">
           Admins have full access. Managers can use planning, shifts and clock-in, but not
-          reporting, payroll, bonuses, advances or employee management.
+          reporting, payroll, bonuses, advances or employee management. A clock-in kiosk account
+          only sees the kiosk, where staff pick their name and clock in or out.
         </p>
         <Button size="sm" className="shrink-0 whitespace-nowrap" onClick={() => setCreateOpen(true)}>
           Add user
@@ -162,6 +163,7 @@ export default function UsersView() {
                     >
                       <option value="admin">Admin</option>
                       <option value="manager">Manager</option>
+                      <option value="employee">Clock-in kiosk</option>
                     </select>
                   </td>
                   <td className="px-4 py-3">
@@ -233,6 +235,7 @@ export default function UsersView() {
             <label className={labelClass} htmlFor="new-role">Role</label>
             <select id="new-role" className={inputClass} value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as Role })}>
               <option value="manager">Manager</option>
+              <option value="employee">Clock-in kiosk</option>
               <option value="admin">Admin</option>
             </select>
           </div>

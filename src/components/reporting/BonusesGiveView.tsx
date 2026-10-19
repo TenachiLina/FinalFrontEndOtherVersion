@@ -6,13 +6,13 @@ import { useBonusesList, BonusEmployeeRow } from "@/hooks/useBonusesList";
 
 import { currency } from "@/lib/payrollConfig";
 import LoadError from "@/components/ui/feedback/LoadError";
-const EMPLOYEE_HEADERS = ["Employee", "Primes This Month", "Total This Month", "Action"];
+const EMPLOYEE_HEADERS = ["Employee", "Bonuses This Month", "Total This Month", "Action"];
 
 const BonusesGiveView: React.FC = () => {
   const { range, employeeRows, totalGiven, search, setSearch, loading, error, giveBonus } =
     useBonusesList();
 
-  // Employee for which the "Give Prime" modal is open (null = closed)
+  // Employee for which the "Give Bonus" modal is open (null = closed)
   const [selected, setSelected] = useState<BonusEmployeeRow | null>(null);
 
   const totalCount = employeeRows.reduce((s, r) => s + r.count, 0);
@@ -20,9 +20,9 @@ const BonusesGiveView: React.FC = () => {
   return (
     <div className="flex flex-col gap-5">
       <div>
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Give Primes</h1>
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Give Bonuses</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          Give primes to employees. Primes are added to the net salary.
+          Give bonuses to employees. Bonuses are added to the net salary.
         </p>
       </div>
 
@@ -41,13 +41,13 @@ const BonusesGiveView: React.FC = () => {
           className="w-56 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
         />
         <div className="ml-auto rounded-xl border border-green-200 bg-green-50 px-4 py-2 text-right dark:border-green-900 dark:bg-green-500/10">
-          <div className="text-xs text-gray-500 dark:text-gray-400">Total Primes (this month)</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400">Total Bonuses (this month)</div>
           <div className="text-sm font-bold text-green-600 dark:text-green-400">{totalGiven.toFixed(2)} {currency()}</div>
         </div>
       </div>
 
       {error && (
-        <LoadError title="Couldn't load the primes" message={error} onRetry={() => window.location.reload()} />
+        <LoadError title="Couldn't load the bonuses" message={error} onRetry={() => window.location.reload()} />
       )}
       {loading && <div className="text-sm text-gray-500 dark:text-gray-400">Loading…</div>}
 
@@ -78,7 +78,7 @@ const BonusesGiveView: React.FC = () => {
                     </TableCell>
                     <TableCell className="p-3">
                       <button onClick={() => setSelected(r)} className="text-sm font-medium text-brand-500 hover:text-brand-600">
-                        Give Prime
+                        Give Bonus
                       </button>
                     </TableCell>
                   </TableRow>

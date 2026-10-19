@@ -1,6 +1,7 @@
 import { API_BASE_URL } from "@/lib/config";
 
-export type Role = "superadmin" | "admin" | "manager";
+// employee: a shared clock-in kiosk account that only sees /kiosk
+export type Role = "superadmin" | "admin" | "manager" | "employee";
 
 export type Feature =
   | "planning"
@@ -16,7 +17,7 @@ export const FEATURE_LABELS: Record<Feature, string> = {
   faceRecognition: "Face-recognition clock-in",
   reporting: "Reporting & payroll",
   advances: "Advances",
-  bonuses: "Bonuses (primes)",
+  bonuses: "Bonuses",
 };
 
 export interface CompanySettings {
@@ -76,6 +77,7 @@ const PATH_FEATURES: [string, Feature][] = [
   ["/clockinfacerecognitionpage", "faceRecognition"],
   ["/clockinpagehistory", "clockin"],
   ["/clockinpage", "clockin"],
+  ["/kiosk", "clockin"],
 ];
 
 function matches(pathname: string, prefix: string) {
@@ -103,6 +105,10 @@ export function canOpen(
   company: CompanyInfo | null
 ): boolean {
   if (isSuperAdminOnlyPath(pathname)) return user.role === "superadmin";
+  // Kiosk accounts only get the clock-in kiosk.
+  if (user.role === "employee") {
+    return matches(pathname, "/kiosk") && !!company?.features.includes("clockin");
+  }
   if (!company) {
     return NO_COMPANY_PATHS.some((p) => matches(pathname, p));
   }
@@ -118,6 +124,7 @@ export function canOpen(
 
 export function homePathFor(user: AuthUser, company: CompanyInfo | null): string {
   if (!company) return user.role === "superadmin" ? "/companies" : "/account";
+  if (user.role === "employee") return "/kiosk";
   const candidates = ["/", "/calendar/ViewPlanning", "/clockinpage", "/basic-tables"];
   return candidates.find((p) => canOpen(p, user, company)) ?? "/account";
 }

@@ -4,8 +4,8 @@ import React from "react";
 import BonusesGiveView from "@/components/reporting/BonusesGiveView";
 
 export const metadata: Metadata = {
-  title: "Give Primes | Nexo InOuty",
-  description: "Give weekly or monthly primes to employees.",
+  title: "Give Bonuses | Nexo InOuty",
+  description: "Give weekly or monthly bonuses to employees.",
 };
 
 export default function GiveBonusesPage() {

@@ -175,7 +175,7 @@ export function useEmployeeReport(empId: number | string, initial?: EmployeeRepo
         const [rows, advanceRecords, bonusRecords] = await Promise.all([
           fetchWorktimeRows(range, empId),
           fetchAdvances([employee].filter(Boolean) as Employee[], empId, range).catch(optionalData([] as AdvanceRecord[], "Advances")),
-          fetchBonuses(range).catch(optionalData([] as BonusRecord[], "Primes")),
+          fetchBonuses(range).catch(optionalData([] as BonusRecord[], "Bonuses")),
         ]);
         if (reqId !== monthReq.current) return; // outdated response → ignore
 
@@ -219,7 +219,7 @@ export function useEmployeeReport(empId: number | string, initial?: EmployeeRepo
       consommation: monthConsommation,
       advancesGivenThisMonth: monthAdvancesTotal,
     });
-    // primes are added to the net salary (same as the Monthly Payroll list)
+    // bonuses are added to the net salary (same as the Monthly Payroll list)
     return { ...base, net: base.net + monthBonusesTotal };
   }, [monthHours, hourlyRate, monthPenalties, monthConsommation, monthAdvancesTotal, monthBonusesTotal]);
 

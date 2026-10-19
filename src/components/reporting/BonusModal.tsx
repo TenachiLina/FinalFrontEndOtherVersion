@@ -37,7 +37,7 @@ const BonusModal: React.FC<BonusModalProps> = ({ isOpen, onClose, employeeName, 
     const n = Number(amount);
     if (!amount || !Number.isFinite(n) || n <= 0) return setError("Enter an amount greater than 0.");
     if (!date) return setError("Pick a date.");
-    if (!reason.trim()) return setError("Add a reason for this prime.");
+    if (!reason.trim()) return setError("Add a reason for this bonus.");
 
     setSaving(true);
     setError("");
@@ -45,7 +45,7 @@ const BonusModal: React.FC<BonusModalProps> = ({ isOpen, onClose, employeeName, 
       await onConfirm(Number(n.toFixed(2)), date, reason.trim());
       onClose();
     } catch (err) {
-      setError(friendlyError(err, "Couldn't save the prime"));
+      setError(friendlyError(err, "Couldn't save the bonus"));
       setSaving(false);
     }
   };
@@ -56,7 +56,7 @@ const BonusModal: React.FC<BonusModalProps> = ({ isOpen, onClose, employeeName, 
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} className="m-4 max-w-[460px] p-6">
-      <h3 className="mb-1 text-lg font-semibold text-gray-800 dark:text-white">Give Prime</h3>
+      <h3 className="mb-1 text-lg font-semibold text-gray-800 dark:text-white">Give Bonus</h3>
       <p className="mb-5 text-sm text-gray-500 dark:text-gray-400">{employeeName}</p>
 
       <div className="flex flex-col gap-4">

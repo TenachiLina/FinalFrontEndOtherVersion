@@ -15,8 +15,8 @@ const BonusesHistoryView: React.FC = () => {
   return (
     <div className="flex flex-col gap-5">
       <div>
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Primes History</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400">All primes given to employees over a chosen period.</p>
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Bonus History</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400">All bonuses given to employees over a chosen period.</p>
       </div>
 
       <SimpleRangePicker range={range} onApply={setRange} />
@@ -30,13 +30,13 @@ const BonusesHistoryView: React.FC = () => {
         />
 
         <div className="ml-auto rounded-xl border border-green-200 bg-green-50 px-4 py-2 text-right dark:border-green-900 dark:bg-green-500/10">
-          <div className="text-xs text-gray-500 dark:text-gray-400">Total Primes</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400">Total Bonuses</div>
           <div className="text-sm font-bold text-green-600 dark:text-green-400">{total.toFixed(2)} {currency()}</div>
         </div>
       </div>
 
       {error && (
-        <LoadError title="Couldn't load the primes history" message={error} onRetry={() => setRange(range)} />
+        <LoadError title="Couldn't load the bonus history" message={error} onRetry={() => setRange(range)} />
       )}
       {loading && <div className="text-sm text-gray-500 dark:text-gray-400">Loading…</div>}
 
@@ -77,7 +77,7 @@ const BonusesHistoryView: React.FC = () => {
               </>
             ) : (
               <TableRow key="empty">
-                <TableCell className="p-6 text-center text-sm text-gray-400">No primes in this range</TableCell>
+                <TableCell className="p-6 text-center text-sm text-gray-400">No bonuses in this range</TableCell>
               </TableRow>
             )}
           </TableBody>

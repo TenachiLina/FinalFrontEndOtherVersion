@@ -24,7 +24,7 @@
 //   // ── Charts ────────────────────────────────────────────────────────────
 //   const breakdownOptions: ApexOptions = {
 //     chart: { ...baseChart, type: "donut" },
-//     labels: ["Net payout", "Advances", "Consommation", "Penalties"],
+//     labels: ["Net payout", "Advances", "Consumption", "Penalties"],
 //     colors: ["#10b981", "#465fff", "#f59e0b", "#ef4444"],
 //     legend: { position: "bottom" },
 //     dataLabels: { enabled: false },
@@ -102,7 +102,7 @@
 //             change={pctChange(c.advances, p.advances)}
 //             higherIsBad
 //           />
-//           <StatCard label="Consommation" value={fmtDA(c.consommation)} change={pctChange(c.consommation, p.consommation)} higherIsBad />
+//           <StatCard label="Consumption" value={fmtDA(c.consommation)} change={pctChange(c.consommation, p.consommation)} higherIsBad />
 //           <StatCard label="Penalties" value={fmtDA(c.penalties)} change={pctChange(c.penalties, p.penalties)} higherIsBad />
 //         </div>
 //       </Section>
@@ -150,7 +150,7 @@
 //             <ReactApexChart
 //               options={deductionsOptions}
 //               series={[
-//                 { name: "Consommation", data: trend.consommation },
+//                 { name: "Consumption", data: trend.consommation },
 //                 { name: "Penalties", data: trend.penalties },
 //               ]}
 //               type="bar"
@@ -269,7 +269,7 @@ const OverviewView: React.FC = () => {
   // ── Charts ────────────────────────────────────────────────────────────
   const breakdownOptions: ApexOptions = {
     chart: { ...baseChart, type: "donut" },
-    labels: ["Net payout", "Advances", "Consommation", "Penalties"],
+    labels: ["Net payout", "Advances", "Consumption", "Penalties"],
     colors: ["#10b981", "#465fff", "#f59e0b", "#ef4444"],
     legend: { position: "bottom" },
     dataLabels: { enabled: false },
@@ -346,12 +346,12 @@ const OverviewView: React.FC = () => {
             higherIsBad
           />
           <StatCard
-            label="Primes Given"
+            label="Bonuses Given"
             value={fmtDA(c.bonuses)}
-            sub={`${c.bonusesCount} prime${c.bonusesCount === 1 ? "" : "s"}`}
+            sub={`${c.bonusesCount} bonus${c.bonusesCount === 1 ? "" : "es"}`}
             change={pctChange(c.bonuses, p.bonuses)}
           />
-          <StatCard label="Consommation" value={fmtDA(c.consommation)} change={pctChange(c.consommation, p.consommation)} higherIsBad />
+          <StatCard label="Consumption" value={fmtDA(c.consommation)} change={pctChange(c.consommation, p.consommation)} higherIsBad />
           <StatCard label="Penalties" value={fmtDA(c.penalties)} change={pctChange(c.penalties, p.penalties)} higherIsBad />
         </div>
       </Section>
@@ -399,7 +399,7 @@ const OverviewView: React.FC = () => {
             <ReactApexChart
               options={deductionsOptions}
               series={[
-                { name: "Consommation", data: trend.consommation },
+                { name: "Consumption", data: trend.consommation },
                 { name: "Penalties", data: trend.penalties },
               ]}
               type="bar"

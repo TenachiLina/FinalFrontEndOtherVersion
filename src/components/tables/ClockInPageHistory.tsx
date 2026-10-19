@@ -1368,7 +1368,7 @@ shift_id: shiftId,
       {/* HEADER */}
       <div className="mb-4">
         <h1 className="text-xl font-semibold text-gray-700">
-          Pointage
+          Clock-in history
         </h1>
       </div>
 
@@ -1407,7 +1407,7 @@ shift_id: shiftId,
   <div className="flex h-9">
     <input
       type="text"
-      placeholder="Rechercher un employé..."
+      placeholder="Search for an employee…"
       value={employeeQuery}
       onChange={(e) => {
         setEmployeeQuery(e.target.value);
@@ -1435,9 +1435,9 @@ shift_id: shiftId,
   {showSuggestions && (
     <ul className="absolute left-0 top-10 z-30 max-h-64 w-72 overflow-auto rounded-md border border-gray-200 bg-white shadow-lg">
       {loadingEmployees ? (
-        <li className="px-3 py-2 text-sm text-gray-400">Chargement...</li>
+        <li className="px-3 py-2 text-sm text-gray-400">Loading…</li>
       ) : suggestions.length === 0 ? (
-        <li className="px-3 py-2 text-sm text-gray-400">Aucun employé trouvé</li>
+        <li className="px-3 py-2 text-sm text-gray-400">No employee found</li>
       ) : (
         suggestions.map((employee) => (
           <li
@@ -1462,7 +1462,7 @@ shift_id: shiftId,
       {/* DEVICE STATUS */}
       {deviceStatus && (
         <div className="mb-3 text-xs text-gray-500">
-          Machine :{" "}
+          Machine:{" "}
           <span
             className={
               deviceStatus.connected
@@ -1471,8 +1471,8 @@ shift_id: shiftId,
             }
           >
             {deviceStatus.connected
-              ? "Connectée"
-              : "Déconnectée"}
+              ? "Connected"
+              : "Disconnected"}
           </span>
         </div>
       )}
@@ -1496,7 +1496,7 @@ onClick={() => {
             hover:bg-[#b87565]
           "
         >
-          Ajouter pointage
+          Add clock-in
         </button>
 
         <button
@@ -1513,7 +1513,7 @@ onClick={() => {
             hover:bg-[#b87565]
           "
         >
-          🗑 supprimer
+          🗑 Delete
         </button>
 
       </div>
@@ -1558,17 +1558,17 @@ onClick={() => {
 
                 {/* EMPLOYEE NUMBER */}
                 <th className="border-b border-gray-200 px-4 py-2 text-left text-xs font-semibold">
-                  Numéro
+                  Number
                 </th>
 
                 {/* LAST NAME */}
                 <th className="border-b border-gray-200 px-4 py-2 text-left text-xs font-semibold">
-                  Nom
+                  Last name
                 </th>
 
                 {/* FIRST NAME */}
                 <th className="border-b border-gray-200 px-4 py-2 text-left text-xs font-semibold">
-                  Prénom
+                  First name
                 </th>
 
                 {/* DATE */}
@@ -1603,7 +1603,7 @@ onClick={() => {
                     colSpan={8}
                     className="py-10 text-center text-sm text-gray-400"
                   >
-                    Chargement des pointages...
+                    Loading clock-in records…
                   </td>
                 </tr>
 
@@ -1614,7 +1614,7 @@ onClick={() => {
                     colSpan={8}
                     className="py-10 text-center text-sm text-gray-400"
                   >
-                    Aucun pointage trouvé.
+                    No clock-in records in this period.
                   </td>
                 </tr>
 
@@ -1713,7 +1713,7 @@ onClick={() => {
   mode: "edit",
 });
       }}
-      title="Double-cliquer pour modifier"
+      title="Double-click to edit"
       className="inline-flex cursor-pointer rounded-md bg-green-100 px-2 py-1 text-xs font-medium text-green-700 hover:ring-2 hover:ring-green-300"
     >
       {formatTime(log.clockIn)}
@@ -1799,7 +1799,7 @@ onClick={() => {
             mode: "edit",
           });
         }}
-        title="Double-cliquer pour modifier"
+        title="Double-click to edit"
         className="inline-flex cursor-pointer rounded-md bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700 hover:ring-2 hover:ring-blue-300"
       >
         {formatTime(log.clockOut)}
@@ -1820,7 +1820,7 @@ onClick={() => {
           workDate: log.date,
         });
       }}
-      title="Double-cliquer pour ajouter un Clock Out"
+      title="Double-click to add a clock-out"
       className="inline-flex cursor-pointer rounded-md border border-dashed border-orange-300 px-2 py-1 text-xs font-medium text-orange-600 hover:bg-orange-50 hover:ring-2 hover:ring-orange-200"
     >
       —
@@ -1933,7 +1933,7 @@ onClick={() => {
             <div className="mb-5 flex items-center justify-between">
 
               <h2 className="text-lg font-semibold text-gray-800">
-                Ajouter un pointage
+                Add a clock-in
               </h2>
 
               <button
@@ -1952,7 +1952,7 @@ onClick={() => {
               {/* EMPLOYEE */}
 <div>
   <label className="mb-1 block text-sm font-medium text-gray-600">
-    Employé
+    Employee
   </label>
 
   <select
@@ -1981,8 +1981,8 @@ onClick={() => {
   >
     <option value="">
       {loadingEmployees
-        ? "Chargement des employés..."
-        : "Sélectionner un employé"}
+        ? "Loading employees…"
+        : "Select an employee"}
     </option>
 
     {employees.map((employee) => (
@@ -2001,7 +2001,7 @@ onClick={() => {
               <div>
 
                 <label className="mb-1 block text-sm font-medium text-gray-600">
-                  Date et heure
+                  Date and time
                 </label>
 
                 <input
@@ -2031,7 +2031,7 @@ onClick={() => {
               {/* CONSOMMATION */}
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-600">
-                  Consommation
+                  Consumption
                 </label>
                 <input
                   type="number"
@@ -2055,7 +2055,7 @@ onClick={() => {
               {/* PENALTY */}
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-600">
-                  Pénalité
+                  Penalty
                 </label>
                 <input
                   type="number"
@@ -2119,7 +2119,7 @@ onClick={() => {
                   disabled:opacity-50
                 "
               >
-                Annuler
+                Cancel
               </button>
 
               <button
@@ -2142,10 +2142,10 @@ onClick={() => {
                 {savingAddPunch ? (
                   <span className="inline-flex items-center gap-2">
                     <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-                    Enregistrement...
+                    Saving…
                   </span>
                 ) : (
-                  "Ajouter"
+                  "Add"
                 )}
               </button>
 

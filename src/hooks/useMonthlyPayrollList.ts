@@ -16,7 +16,7 @@ export interface MonthlyPayrollRow {
   penalties: number;
   consommation: number;
   advancesDeducted: number;
-  bonuses: number; // primes given in the month — added to net
+  bonuses: number; // bonuses given in the month — added to net
   net: number;
   absences: number;
 }
@@ -43,7 +43,7 @@ export function useMonthlyPayrollList(initialRange?: DateRange) {
       const [worktimeRows, advanceRecords, bonusRecords, scheduled] = await Promise.all([
         fetchWorktimeRows(r),
         fetchAdvances(emps, undefined, r).catch(optionalData([] as AdvanceRecord[], "Advances")),
-        fetchBonuses(r).catch(optionalData([] as BonusRecord[], "Primes")),
+        fetchBonuses(r).catch(optionalData([] as BonusRecord[], "Bonuses")),
         fetchScheduledEmpIds(r).catch(optionalData(new Set<string>(), "The planning")),
       ]);
 
@@ -128,7 +128,7 @@ export function useMonthlyPayrollList(initialRange?: DateRange) {
           consommation: Number(consommation.toFixed(2)),
           advancesDeducted: Number(advancesDeducted.toFixed(2)),
           bonuses: Number(empBonuses.toFixed(2)),
-          net: Number((net + empBonuses).toFixed(2)), // primes are added to the net salary
+          net: Number((net + empBonuses).toFixed(2)), // bonuses are added to the net salary
           absences,
         };
       });
