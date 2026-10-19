@@ -25,7 +25,7 @@ const MonthlyPayrollContent: React.FC = () => {
     "Total Heures",
     "Total Avances",
     "Total Consommations",
-    "Total Penalites",
+    "Total Pénalités",
     "Total Primes",
     `Salaire Brut ${monthLabel}`,
     `Salaire Net ${monthLabel}`,

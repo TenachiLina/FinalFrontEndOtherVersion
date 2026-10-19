@@ -8,7 +8,7 @@ export const POSTS = [
   { id: 1, label: "Pizzaiolo" },
   { id: 2, label: "Livreur" },
   { id: 3, label: "Agent polyvalent" },
-  { id: 4, label: "Prepateur" },
+  { id: 4, label: "Préparateur" },
   { id: 5, label: "Caissier" },
   { id: 6, label: "Plongeur" },
   { id: 7, label: "Serveur" },
@@ -16,7 +16,7 @@ export const POSTS = [
   { id: 9, label: "Packaging" },
   { id: 10, label: "Topping" },
   { id: 11, label: "Bar" },
-  { id: 12, label: "Pate" },
+  { id: 12, label: "Pâte" },
 ];
 
 

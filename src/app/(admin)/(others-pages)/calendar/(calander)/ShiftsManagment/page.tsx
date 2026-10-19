@@ -132,7 +132,7 @@ export default function ShiftsManagementPage() {
                               Edit
                             </button>
                             </Tooltip>
-                            <Tooltip text="Move the shift from Active shifts to archieved shifts (No more will be used for now)">
+                            <Tooltip text="Move this shift from active to archived shifts (it won't be used for now)">
                             <button
                               onClick={() => archiveShift(shift)}
                               className="rounded border border-orange-500 px-3 py-1 text-orange-500 hover:bg-orange-50"
