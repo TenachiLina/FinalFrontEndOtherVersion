@@ -1,6 +1,6 @@
 "use client";
 import { ThemeToggleButton } from "@/components/common/ThemeToggleButton";
-import NotificationDropdown from "@/components/header/NotificationDropdown";
+import LanguageSwitcher from "@/components/common/LanguageSwitcher";
 import UserDropdown from "@/components/header/UserDropdown";
 import { useSidebar } from "@/context/SidebarContext";
 import { useAuth } from "@/context/AuthContext";
@@ -8,6 +8,7 @@ import { DEFAULT_BRAND } from "@/lib/branding";
 import Link from "next/link";
 import React, { useState ,useEffect,useRef} from "react";
 import { usePathname } from "next/navigation";
+import { t } from "@/lib/i18n";
 
 const AppHeader: React.FC = () => {
   const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false);
@@ -34,8 +35,12 @@ const AppHeader: React.FC = () => {
     "/clockinpagehistory": "Clock In/Out History",
     "/addEmployeeForm": "Add Employee",
     "/basic-tables": "View Employees",
+    "/users": "Users",
+    "/company-settings": "Company settings",
+    "/companies": "Companies",
+    "/account": "Change password",
   };
-  const currentPage = pageTitles[pathname] ?? "Nexo InOuty";
+  const currentPage = pageTitles[pathname] ? t(pageTitles[pathname]) : "Nexo InOuty";
 
   const handleToggle = () => {
     if (window.innerWidth >= 1024) {
@@ -72,7 +77,7 @@ const AppHeader: React.FC = () => {
           <button
             className="items-center justify-center w-10 h-10 text-gray-500 border-gray-200 rounded-lg z-99999 dark:border-gray-800 lg:flex dark:text-gray-400 lg:h-11 lg:w-11 lg:border"
             onClick={handleToggle}
-            aria-label="Toggle Sidebar"
+            aria-label={t("Toggle Sidebar")}
           >
             {isMobileOpen ? (
               <svg
@@ -184,9 +189,8 @@ const AppHeader: React.FC = () => {
             {/* <!-- Dark Mode Toggler --> */}
             <ThemeToggleButton />
             {/* <!-- Dark Mode Toggler --> */}
-
-           <NotificationDropdown /> 
-            {/* <!-- Notification Menu Area --> */}
+            <LanguageSwitcher />
+            {/* The template's notification bell showed made-up notifications; removed */}
           </div>
           {/* <!-- User Area --> */}
           <UserDropdown /> 

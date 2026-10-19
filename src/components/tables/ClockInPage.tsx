@@ -21,6 +21,7 @@ import type {
   AttendanceRow,
 } from "./../calendar/types";
 import { friendlyError } from "@/lib/errors";
+import { t } from "@/lib/i18n";
 // ─── Types ────────────────────────────────────────────────────────────────────
 type ShiftStatus = "present" | "absent" | "pending";
 type Employee = AttendanceEmployee;
@@ -64,7 +65,7 @@ const calcOvertime = (o: string, e: string) => { if(o==="00:00"||!e) return 0; l
 const nowTime      = () => { const d=new Date(); return `${d.getHours().toString().padStart(2,"0")}:${d.getMinutes().toString().padStart(2,"0")}`; };
 const getStatus    = (e: EmployeeTimeEntry): ShiftStatus => e.absent ? "absent" : e.clockIn!=="00:00" ? "present" : "pending";
 const badgeColor   = (s: ShiftStatus) => s==="present"?"success":s==="absent"?"error":"warning";
-const badgeLabel   = (s: ShiftStatus) => s==="present"?"Present":s==="absent"?"Absent":"Pending";
+const badgeLabel   = (s: ShiftStatus) => s==="present"?t("Present"):s==="absent"?t("Absent"):t("Pending");
 function recordToEntry(r: WorktimeRecord): EmployeeTimeEntry {
   return {
     clockIn:       r.clock_in       ?? "00:00",
@@ -652,13 +653,13 @@ const getAttendanceRows = (
   // ── Render ────────────────────────────────────────────────────────────────
   if (loading) return (
     <div className="flex items-center justify-center h-32 text-gray-400 text-sm animate-pulse">
-      Loading attendance data…
+      {t("Loading attendance data…")}
     </div>
   );
 
   if (!loading && !shifts.length) return (
     <div className="flex items-center justify-center h-32 text-gray-400 text-sm">
-      No shifts found — check that <code className="mx-1 font-mono bg-gray-100 px-1 rounded">${API_BASE_URL}/shifts</code> returns data and CORS is enabled.
+      {t("No shifts found. Add shifts in Shifts Management first.")}
     </div>
   );
 
@@ -693,9 +694,9 @@ const getAttendanceRows = (
         <h3 className="text-base font-medium text-gray-800 dark:text-white">
           Edit{" "}
           {manualInput.type === "clockIn"
-            ? "Clock-In"
-            : "Clock-Out"}{" "}
-          Time
+            ? t("Clock-In")
+            : t("Clock-Out")}{" "}
+          {t("Time")}
         </h3>
 
         <button
@@ -722,7 +723,7 @@ const getAttendanceRows = (
             className="block text-sm text-gray-500
             dark:text-gray-400 mb-2"
           >
-            Hour
+            {t("Hour")}
           </label>
 
           <select
@@ -765,7 +766,7 @@ const getAttendanceRows = (
             className="block text-sm text-gray-500
             dark:text-gray-400 mb-2"
           >
-            Minute
+            {t("Minute")}
           </label>
 
           <select
@@ -799,7 +800,7 @@ const getAttendanceRows = (
       </div>
 
       <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
-        Select the hour and minute. No keyboard required.
+        {t("Select the hour and minute. No keyboard required.")}
       </p>
 
       {/* Actions */}
@@ -811,7 +812,7 @@ const getAttendanceRows = (
           px-3 py-3 text-sm font-medium text-white
           hover:bg-blue-700 active:bg-blue-800"
         >
-          Save
+          {t("Save")}
         </button>
 
         <button
@@ -828,7 +829,7 @@ const getAttendanceRows = (
           px-3 py-3 text-sm font-medium
           text-gray-600 dark:text-gray-300"
         >
-          Cancel
+          {t("Cancel")}
         </button>
       </div>
     </div>
@@ -848,14 +849,13 @@ const getAttendanceRows = (
             }}
           />
 
-          <div className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-gray-200 bg-white p-6 shadow-xl dark:border-white/[0.1] dark:bg-gray-900">
+          <div className="fixed start-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-gray-200 bg-white p-6 shadow-xl dark:border-white/[0.1] dark:bg-gray-900">
             <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
-              Choose a replacement
+              {t("Choose a replacement")}
             </h3>
 
             <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-              Select one of the planned backup employees to replace
-              the absent employee.
+              {t("Select one of the planned backup employees to replace the absent employee.")}
             </p>
 
             <div className="mt-4 space-y-2">
@@ -897,7 +897,7 @@ const getAttendanceRows = (
                 }}
                 className="rounded-lg border border-gray-300 px-4 py-2 text-sm dark:border-gray-700"
               >
-                Cancel
+                {t("Cancel")}
               </button>
 
               <button
@@ -906,7 +906,7 @@ const getAttendanceRows = (
                 onClick={confirmAbsence}
                 className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Confirm absence
+                {t("Confirm absence")}
               </button>
             </div>
           </div>
@@ -925,7 +925,7 @@ const getAttendanceRows = (
       <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
   <h1 className="text-xl font-medium text-gray-800 dark:text-white">
-    Attendance
+    {t("Attendance")}
   </h1>
 
   <div className="mt-1 flex items-center gap-2">
@@ -944,7 +944,7 @@ const getAttendanceRows = (
   </div>
 </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mr-1">Shift:</span>
+          <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mr-1">{t("Shift:")}</span>
           {shifts.map((s) => (
             <button key={s.shift_id} onClick={() => setCurrentTab(s.shift_id)}
               className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
@@ -966,12 +966,12 @@ const getAttendanceRows = (
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
         {[
           { label: "Total",   value: stats.total,   color: "text-gray-800 dark:text-white" },
-          { label: "Present", value: stats.present, color: "text-green-700 dark:text-green-400" },
-          { label: "Absent",  value: stats.absent,  color: "text-red-600 dark:text-red-400" },
-          { label: "Pending", value: stats.pending, color: "text-amber-600 dark:text-amber-400" },
+          { label: t("Present"), value: stats.present, color: "text-green-700 dark:text-green-400" },
+          { label: t("Absent"),  value: stats.absent,  color: "text-red-600 dark:text-red-400" },
+          { label: t("Pending"), value: stats.pending, color: "text-amber-600 dark:text-amber-400" },
         ].map((stat) => (
           <div key={stat.label} className="rounded-xl bg-gray-50 dark:bg-white/[0.03] border border-gray-100 dark:border-white/[0.05] px-4 py-3">
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{stat.label}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{t(stat.label)}</p>
             <p className={`text-2xl font-medium ${stat.color}`}>{stat.value}</p>
           </div>
         ))}
@@ -982,13 +982,13 @@ const getAttendanceRows = (
         {/* Toolbar */}
         <div className="flex items-center justify-between px-5 py-4 gap-4 flex-wrap border-b border-gray-100 dark:border-white/[0.05]">
           <h2 className="text-base font-semibold text-gray-800 dark:text-white">
-            {currentShift ? `${currentShift.start_time.slice(0,5)} – ${currentShift.end_time.slice(0,5)} shift` : "Attendance"}
+            {currentShift ? t("{start} – {end} shift", { start: currentShift.start_time.slice(0,5), end: currentShift.end_time.slice(0,5) }) : t("Attendance")}
           </h2>
           <div className="relative">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-            <input type="text" placeholder="Search employee…" value={search}
+            <svg className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input type="text" placeholder={t("Search employee…")} value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 pr-4 py-2 rounded-lg border border-gray-200 bg-white text-sm text-gray-700 placeholder-gray-400 dark:border-white/[0.1] dark:bg-white/[0.05] dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 w-48"
+              className="pl-9 pe-4 py-2 rounded-lg border border-gray-200 bg-white text-sm text-gray-700 placeholder-gray-400 dark:border-white/[0.1] dark:bg-white/[0.05] dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 w-48"
             />
           </div>
         </div>
@@ -998,8 +998,8 @@ const getAttendanceRows = (
           <table className="w-full min-w-[920px]">
             <thead>
               <tr className="border-b border-gray-100 dark:border-white/[0.05] bg-gray-50/60 dark:bg-white/[0.02]">
-                {["Employee","Status","Clock In","Clock Out","Hours","Delay","Overtime","Consumption","Penalty","Absent","Reason","Saved"].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap">{h}</th>
+                {["Employee","Status",t("Clock In"),t("Clock Out"),"Hours","Delay","Overtime","Consumption","Penalty",t("Absent"),"Reason","Saved"].map((h) => (
+                  <th key={h} className="px-4 py-3 text-start text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap">{t(h)}</th>
                 ))}
               </tr>
             </thead>
@@ -1007,8 +1007,8 @@ const getAttendanceRows = (
               {attendanceRows.length === 0 ? (
                 <tr><td colSpan={12} className="px-5 py-12 text-center text-sm text-gray-400">
                   {employees.length === 0
-                    ? "No employees found in the database."
-                    : "No employees assigned to this shift for today."}
+                    ? t("No employees found in the database.")
+                    : t("No employees assigned to this shift for today.")}
                 </td></tr>
               ) : attendanceRows.map(({ employee: emp, isBackup, backupOfEmpNum }) => {
                     const entry = getEntry(emp.num);
@@ -1065,7 +1065,7 @@ const getAttendanceRows = (
                         <div className="flex flex-col gap-1">
                           <button onClick={() => handleClockIn(emp.num)}
                             className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${entry.clockIn !== "00:00" ? "bg-green-600 text-white hover:bg-green-700" : "border border-gray-200 dark:border-white/[0.1] text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/[0.05]"}`}>
-                            <ClockInIcon />{entry.clockIn !== "00:00" ? entry.clockIn : "Clock In"}
+                            <ClockInIcon />{entry.clockIn !== "00:00" ? entry.clockIn : t("Clock In")}
                           </button>
                           <button onClick={() => openManualInput(emp.num, "clockIn")}
                             className="flex items-center gap-1 rounded px-2 py-1 text-xs text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors">
@@ -1079,7 +1079,7 @@ const getAttendanceRows = (
                         <div className="flex flex-col gap-1">
                           <button onClick={() => handleClockOut(emp.num)}
                             className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${entry.clockOut !== "00:00" ? "bg-red-500 text-white hover:bg-red-600" : "border border-gray-200 dark:border-white/[0.1] text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/[0.05]"}`}>
-                            <ClockInIcon />{entry.clockOut !== "00:00" ? entry.clockOut : "Clock Out"}
+                            <ClockInIcon />{entry.clockOut !== "00:00" ? entry.clockOut : t("Clock Out")}
                           </button>
                           <button onClick={() => openManualInput(emp.num, "clockOut")}
                             className="flex items-center gap-1 rounded px-2 py-1 text-xs text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors">
@@ -1106,11 +1106,11 @@ const getAttendanceRows = (
                     <td className="px-4 py-3">
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input type="checkbox" className="sr-only peer" checked={entry.absent} onChange={(e) => handleAbsentClick(emp, e.target.checked)} />
-                        <div className="w-9 h-5 bg-gray-200 dark:bg-white/[0.1] peer-focus:ring-2 peer-focus:ring-blue-500/20 rounded-full peer peer-checked:bg-red-500 transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4" />
+                        <div className="w-9 h-5 bg-gray-200 dark:bg-white/[0.1] peer-focus:ring-2 peer-focus:ring-blue-500/20 rounded-full peer peer-checked:bg-red-500 transition-colors after:content-[''] after:absolute after:top-0.5 after:start-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4" />
                       </label>
                     </td>
                     <td className="px-4 py-3">
-                      <input type="text" disabled={!entry.absent} placeholder={entry.absent ? "Enter reason…" : "—"}
+                      <input type="text" disabled={!entry.absent} placeholder={entry.absent ? t("Enter reason…") : "—"}
                         value={entry.absentComment || ""}
                         onChange={(e) => updateEntry(emp.num, { absentComment: e.target.value })}
                         className="w-32 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1.5 text-xs text-gray-800 placeholder-gray-300 dark:border-white/[0.1] dark:bg-white/[0.05] dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
@@ -1118,11 +1118,11 @@ const getAttendanceRows = (
                     </td>
                     <td className="px-4 py-3">
                       {entry._saving ? (
-                        <span className="text-xs text-blue-500 animate-pulse flex items-center gap-1"><SaveIcon />Saving…</span>
+                        <span className="text-xs text-blue-500 animate-pulse flex items-center gap-1"><SaveIcon />{t("Saving…")}</span>
                       ) : entry._dirty ? (
-                        <span className="text-xs text-amber-500">Unsaved</span>
+                        <span className="text-xs text-amber-500">{t("Unsaved")}</span>
                       ) : entry.workTimeId ? (
-                        <span className="text-xs text-green-600">✓ Saved</span>
+                        <span className="text-xs text-green-600">✓ {t("Saved")}</span>
                       ) : (
                         <span className="text-xs text-gray-300 dark:text-gray-600">—</span>
                       )}

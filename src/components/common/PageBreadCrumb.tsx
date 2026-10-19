@@ -1,5 +1,8 @@
+"use client";
+
 import Link from "next/link";
 import React from "react";
+import { t } from "@/lib/i18n";
 
 interface BreadcrumbProps {
   pageTitle: string;
@@ -12,7 +15,7 @@ const PageBreadcrumb: React.FC<BreadcrumbProps> = ({ pageTitle }) => {
         className="text-xl font-semibold text-gray-800 dark:text-white/90"
         x-text="pageName"
       >
-        {pageTitle}
+        {t(pageTitle)}
       </h2>
       <nav>
         <ol className="flex items-center gap-1.5">
@@ -21,7 +24,7 @@ const PageBreadcrumb: React.FC<BreadcrumbProps> = ({ pageTitle }) => {
               className="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400"
               href="/"
             >
-              Home
+              {t("Home")}
               <svg
                 className="stroke-current"
                 width="17"
@@ -41,7 +44,7 @@ const PageBreadcrumb: React.FC<BreadcrumbProps> = ({ pageTitle }) => {
             </Link>
           </li>
           <li className="text-sm text-gray-800 dark:text-white/90">
-            {pageTitle}
+            {t(pageTitle)}
           </li>
         </ol>
       </nav>

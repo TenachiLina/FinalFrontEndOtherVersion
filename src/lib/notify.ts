@@ -1,3 +1,4 @@
+import { t } from "@/lib/i18n";
 // ─────────────────────────────────────────────────────────────────────────
 // App-wide feedback: toast messages and confirm dialogs.
 //
@@ -62,7 +63,10 @@ export function dismissToast(id: number) {
   emit();
 }
 
-function show(kind: ToastKind, message: string, title?: string) {
+function show(kind: ToastKind, rawMessage: string, rawTitle?: string) {
+  // Plain English messages are translated here, so callers can pass literals
+  const message = t(rawMessage);
+  const title = rawTitle ? t(rawTitle) : undefined;
   // Don't stack the same message twice (e.g. several requests failing at once)
   if (toasts.some((t) => t.kind === kind && t.message === message)) return;
   const id = nextId++;

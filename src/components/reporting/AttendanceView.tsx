@@ -6,6 +6,7 @@ import { useAttendanceReport, AttendanceRow } from "@/hooks/useAttendanceReport"
 import { DateRange } from "@/components/reporting/types";
 import { getThisWeekRange } from "@/lib/reporting";
 import LoadError from "@/components/ui/feedback/LoadError";
+import { t } from "@/lib/i18n";
 
 const TABLE_HEADERS = ["Employee", "Date", "Late (min)", "Absent", "Comment"];
 
@@ -50,21 +51,21 @@ const AttendanceView: React.FC = () => {
   return (
     <div className="flex flex-col gap-5">
       <div>
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Attendance</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400">Lateness and absences across all employees.</p>
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">{t("Attendance")}</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400">{t("Lateness and absences across all employees.")}</p>
       </div>
 
       <SimpleRangePicker range={range} onApply={applyRange} />
 
       <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
         <input type="checkbox" checked={onlyIssues} onChange={(e) => setOnlyIssues(e.target.checked)} />
-        Only show issues
+        {t("Only show issues")}
       </label>
 
       {error && (
         <LoadError title="Couldn't load the attendance" message={error} onRetry={() => fetchReport()} />
       )}
-      {loading && <div className="text-sm text-gray-500 dark:text-gray-400">Loading…</div>}
+      {loading && <div className="text-sm text-gray-500 dark:text-gray-400">{t("Loading…")}</div>}
 
       {/* Stats */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -80,7 +81,7 @@ const AttendanceView: React.FC = () => {
             <TableRow>
               {TABLE_HEADERS.map((h) => (
                 <TableCell key={h} isHeader className="p-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">
-                  {h}
+                  {t(h)}
                 </TableCell>
               ))}
             </TableRow>
@@ -103,7 +104,7 @@ const AttendanceView: React.FC = () => {
             ) : (
               <TableRow key="empty">
                 <TableCell className="p-6 text-center text-sm text-gray-400">
-                  No attendance issues in this range 🎉
+                  {t("No attendance issues in this range")} 🎉
                 </TableCell>
               </TableRow>
             )}
@@ -120,7 +121,7 @@ const StatCard: React.FC<{ label: string; value: string; tone?: "default" | "war
   tone = "default",
 }) => (
   <div className="rounded-2xl border border-gray-200 bg-white p-5 text-center dark:border-gray-800 dark:bg-white/[0.03]">
-    <div className="text-xs text-gray-500 dark:text-gray-400">{label}</div>
+    <div className="text-xs text-gray-500 dark:text-gray-400">{t(label)}</div>
     <div
       className={`mt-1 text-xl font-bold ${
         tone === "warning" ? "text-amber-600 dark:text-amber-400" : "text-gray-800 dark:text-white"

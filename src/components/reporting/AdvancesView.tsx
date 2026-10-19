@@ -9,6 +9,7 @@ import { getThisMonthRange } from "@/lib/reporting";
 
 import { currency } from "@/lib/payrollConfig";
 import LoadError from "@/components/ui/feedback/LoadError";
+import { t } from "@/lib/i18n";
 const TABLE_HEADERS = ["Employee", "Amount", "Date", "Reason", ""];
 
 const AdvancesView: React.FC = () => {
@@ -35,25 +36,25 @@ const AdvancesView: React.FC = () => {
   return (
     <div className="flex flex-col gap-5">
       <div>
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Advances</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400">Salary advances given to employees.</p>
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">{t("Advances")}</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400">{t("Salary advances given to employees.")}</p>
       </div>
 
       <SimpleRangePicker range={range} onApply={setRange} />
 
       <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Search employee</label>
+          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{t("Search employee")}</label>
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search…"
+            placeholder={t("Search…")}
             className="w-56 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
           />
         </div>
 
-        <div className="ml-auto rounded-2xl border border-gray-200 bg-gray-50 px-5 py-2.5 text-right dark:border-gray-800 dark:bg-white/[0.03]">
-          <div className="text-xs text-gray-500 dark:text-gray-400">Total Advanced</div>
+        <div className="ml-auto rounded-2xl border border-gray-200 bg-gray-50 px-5 py-2.5 text-end dark:border-gray-800 dark:bg-white/[0.03]">
+          <div className="text-xs text-gray-500 dark:text-gray-400">{t("Total Advanced")}</div>
           <div className="text-lg font-bold text-gray-800 dark:text-white">{totalAdvanced.toFixed(2)} {currency()}</div>
         </div>
       </div>
@@ -61,7 +62,7 @@ const AdvancesView: React.FC = () => {
       {error && (
         <LoadError title="Couldn't load the advances" message={error} onRetry={() => window.location.reload()} />
       )}
-      {loading && <div className="text-sm text-gray-500 dark:text-gray-400">Loading…</div>}
+      {loading && <div className="text-sm text-gray-500 dark:text-gray-400">{t("Loading…")}</div>}
 
       <div className="overflow-x-auto rounded-2xl border border-gray-200 dark:border-gray-800">
         <Table className="min-w-full">
@@ -69,7 +70,7 @@ const AdvancesView: React.FC = () => {
             <TableRow>
               {TABLE_HEADERS.map((h, idx) => (
                 <TableCell key={`${h}-${idx}`} isHeader className="p-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">
-                  {h}
+                  {t(h)}
                 </TableCell>
               ))}
             </TableRow>
@@ -95,14 +96,14 @@ const AdvancesView: React.FC = () => {
                       onClick={() => revokeAdvance(a.id)}
                       className="text-sm font-medium text-red-500 hover:text-red-600"
                     >
-                      Revoke
+                      {t("Revoke")}
                     </button>
                   </TableCell>
                 </TableRow>
               ))
             ) : (
               <TableRow key="empty">
-                <TableCell className="p-6 text-center text-sm text-gray-400">No advances in this range</TableCell>
+                <TableCell className="p-6 text-center text-sm text-gray-400">{t("No advances in this range")}</TableCell>
               </TableRow>
             )}
           </TableBody>

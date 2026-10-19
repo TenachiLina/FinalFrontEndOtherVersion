@@ -8,6 +8,7 @@ import { AuthUser, Role } from "@/lib/auth";
 import { useAuth } from "@/context/AuthContext";
 import { Modal } from "@/components/ui/modal";
 import Button from "@/components/ui/button/Button";
+import { t } from "@/lib/i18n";
 
 interface UserRow extends Omit<AuthUser, "id"> {
   _id: string;
@@ -56,7 +57,7 @@ export default function UsersView() {
       setUsers(await api<UserRow[]>("/users"));
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load users");
+      setError(err instanceof Error ? err.message : t("Could not load users"));
     } finally {
       setLoading(false);
     }
@@ -85,7 +86,7 @@ export default function UsersView() {
       setForm({ name: "", email: "", password: "", role: "manager" });
       await load();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Could not create user");
+      setFormError(err instanceof Error ? err.message : t("Could not create user"));
     } finally {
       setSaving(false);
     }
@@ -99,7 +100,7 @@ export default function UsersView() {
         method: "POST",
         body: JSON.stringify({ password: newPassword }),
       });
-      toast.success(`Password updated for ${resetFor.name}.`);
+      toast.success(t("Password updated for {name}.", { name: resetFor.name }));
       setResetFor(null);
       setNewPassword("");
     } catch (err) {
@@ -111,12 +112,10 @@ export default function UsersView() {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          Admins have full access. Managers can use planning, shifts and clock-in, but not
-          reporting, payroll, bonuses, advances or employee management. A clock-in kiosk account
-          only sees the kiosk, where staff pick their name and clock in or out.
+          {t("Admins have full access. Managers can use planning, shifts and clock-in, but not reporting, payroll, bonuses, advances or employee management. A clock-in kiosk account only sees the kiosk, where staff pick their name and clock in or out.")}
         </p>
         <Button size="sm" className="shrink-0 whitespace-nowrap" onClick={() => setCreateOpen(true)}>
-          Add user
+          {t("Add user")}
         </Button>
       </div>
 
@@ -128,19 +127,19 @@ export default function UsersView() {
 
       <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-800">
         <table className="min-w-full text-sm">
-          <thead className="bg-gray-50 text-left text-gray-500 dark:bg-white/[0.03] dark:text-gray-400">
+          <thead className="bg-gray-50 text-start text-gray-500 dark:bg-white/[0.03] dark:text-gray-400">
             <tr>
-              <th className="px-4 py-3 font-medium">Name</th>
-              <th className="px-4 py-3 font-medium">Email</th>
-              <th className="px-4 py-3 font-medium">Role</th>
-              <th className="px-4 py-3 font-medium">Status</th>
-              <th className="px-4 py-3 font-medium text-right">Actions</th>
+              <th className="px-4 py-3 font-medium">{t("Name")}</th>
+              <th className="px-4 py-3 font-medium">{t("Email")}</th>
+              <th className="px-4 py-3 font-medium">{t("Role")}</th>
+              <th className="px-4 py-3 font-medium">{t("Status")}</th>
+              <th className="px-4 py-3 font-medium text-end">{t("Actions")}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 text-gray-800 dark:divide-gray-800 dark:text-white/90">
             {loading && (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-gray-500">Loading…</td>
+                <td colSpan={5} className="px-4 py-6 text-center text-gray-500">{t("Loading…")}</td>
               </tr>
             )}
             {users.map((u) => {
@@ -148,12 +147,12 @@ export default function UsersView() {
               return (
                 <tr key={u._id}>
                   <td className="px-4 py-3">
-                    {u.name} {isMe && <span className="text-xs text-gray-400">(you)</span>}
+                    {u.name} {isMe && <span className="text-xs text-gray-400">{t("(you)")}</span>}
                   </td>
                   <td className="px-4 py-3">{u.email}</td>
                   <td className="px-4 py-3">
                     <select
-                      aria-label={`Role for ${u.name}`}
+                      aria-label={t("Role for {name}", { name: u.name })}
                       className="rounded-lg border border-gray-300 bg-transparent px-2 py-1 dark:border-gray-700 dark:bg-gray-900"
                       value={u.role}
                       disabled={isMe}
@@ -161,9 +160,9 @@ export default function UsersView() {
                         run(() => api(`/users/${u._id}`, { method: "PATCH", body: JSON.stringify({ role: e.target.value }) }))
                       }
                     >
-                      <option value="admin">Admin</option>
-                      <option value="manager">Manager</option>
-                      <option value="employee">Clock-in kiosk</option>
+                      <option value="admin">{t("Admin")}</option>
+                      <option value="manager">{t("Manager")}</option>
+                      <option value="employee">{t("Clock-in kiosk")}</option>
                     </select>
                   </td>
                   <td className="px-4 py-3">
@@ -174,12 +173,12 @@ export default function UsersView() {
                           : "bg-gray-100 text-gray-500 dark:bg-white/5 dark:text-gray-400"
                       }`}
                     >
-                      {u.active ? "Active" : "Disabled"}
+                      {u.active ? t("Active") : t("Disabled")}
                     </span>
                   </td>
-                  <td className="space-x-3 whitespace-nowrap px-4 py-3 text-right">
+                  <td className="space-x-3 whitespace-nowrap px-4 py-3 text-end">
                     <button type="button" className="text-brand-500 hover:underline" onClick={() => setResetFor(u)}>
-                      Reset password
+                      {t("Reset password")}
                     </button>
                     {!isMe && (
                       <>
@@ -190,21 +189,21 @@ export default function UsersView() {
                             run(() => api(`/users/${u._id}`, { method: "PATCH", body: JSON.stringify({ active: !u.active }) }))
                           }
                         >
-                          {u.active ? "Disable" : "Enable"}
+                          {u.active ? t("Disable") : t("Enable")}
                         </button>
                         <button
                           type="button"
                           className="text-error-500 hover:underline"
                           onClick={async () => {
                             const ok = await confirmDialog({
-                              title: `Delete ${u.name}?`,
+                              title: t("Delete {name}?", { name: u.name }),
                               message: "They will no longer be able to sign in. This can't be undone.",
                               danger: true,
                             });
                             if (ok) run(() => api(`/users/${u._id}`, { method: "DELETE" }));
                           }}
                         >
-                          Delete
+                          {t("Delete")}
                         </button>
                       </>
                     )}
@@ -218,49 +217,49 @@ export default function UsersView() {
 
       <Modal isOpen={createOpen} onClose={() => setCreateOpen(false)} className="max-w-[480px] p-6">
         <form onSubmit={handleCreate} className="space-y-4">
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">Add user</h3>
+          <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">{t("Add user")}</h3>
           <div>
-            <label className={labelClass} htmlFor="new-name">Name</label>
+            <label className={labelClass} htmlFor="new-name">{t("Name")}</label>
             <input id="new-name" className={inputClass} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           </div>
           <div>
-            <label className={labelClass} htmlFor="new-email">Email</label>
+            <label className={labelClass} htmlFor="new-email">{t("Email")}</label>
             <input id="new-email" type="email" className={inputClass} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
           </div>
           <div>
-            <label className={labelClass} htmlFor="new-password">Temporary password (min 8 characters)</label>
+            <label className={labelClass} htmlFor="new-password">{t("Temporary password (min 8 characters)")}</label>
             <input id="new-password" type="text" autoComplete="off" className={inputClass} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
           </div>
           <div>
-            <label className={labelClass} htmlFor="new-role">Role</label>
+            <label className={labelClass} htmlFor="new-role">{t("Role")}</label>
             <select id="new-role" className={inputClass} value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as Role })}>
-              <option value="manager">Manager</option>
-              <option value="employee">Clock-in kiosk</option>
-              <option value="admin">Admin</option>
+              <option value="manager">{t("Manager")}</option>
+              <option value="employee">{t("Clock-in kiosk")}</option>
+              <option value="admin">{t("Admin")}</option>
             </select>
           </div>
           {formError && <p role="alert" className="text-sm text-error-500">{formError}</p>}
           <div className="flex justify-end gap-3">
             <button type="button" className="rounded-lg px-4 py-3 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-400 dark:ring-gray-700 dark:hover:bg-white/[0.03]" onClick={() => setCreateOpen(false)}>
-              Cancel
+              {t("Cancel")}
             </button>
-            <Button size="sm" disabled={saving}>{saving ? "Saving…" : "Create user"}</Button>
+            <Button size="sm" disabled={saving}>{saving ? t("Saving…") : t("Create user")}</Button>
           </div>
         </form>
       </Modal>
 
       <Modal isOpen={!!resetFor} onClose={() => setResetFor(null)} className="max-w-[420px] p-6">
         <form onSubmit={handleReset} className="space-y-4">
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">Reset password for {resetFor?.name}</h3>
+          <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">{t("Reset password for {name}", { name: resetFor?.name ?? "" })}</h3>
           <div>
-            <label className={labelClass} htmlFor="reset-password">New password (min 8 characters)</label>
+            <label className={labelClass} htmlFor="reset-password">{t("New password (min 8 characters)")}</label>
             <input id="reset-password" type="text" autoComplete="off" className={inputClass} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
           </div>
           <div className="flex justify-end gap-3">
             <button type="button" className="rounded-lg px-4 py-3 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-400 dark:ring-gray-700 dark:hover:bg-white/[0.03]" onClick={() => setResetFor(null)}>
-              Cancel
+              {t("Cancel")}
             </button>
-            <Button size="sm">Set password</Button>
+            <Button size="sm">{t("Set password")}</Button>
           </div>
         </form>
       </Modal>

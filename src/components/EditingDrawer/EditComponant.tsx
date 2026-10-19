@@ -84,7 +84,7 @@ export default function EditEmployeeDrawer({
 
       {/* Drawer */}
       <div
-        className={`fixed top-0 right-0 z-50 h-full w-full max-w-md 
+        className={`fixed top-0 end-0 z-50 h-full w-full max-w-md 
         bg-white dark:bg-gray-900 shadow-2xl flex flex-col 
         transition-transform duration-300 ${
           isOpen ? "translate-x-0" : "translate-x-full"

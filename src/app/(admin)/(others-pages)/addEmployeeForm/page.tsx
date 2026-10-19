@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { createEmployee } from "./employee.api";
 import { friendlyError } from "@/lib/errors";
 import { toast } from "@/lib/notify";
+import { t } from "@/lib/i18n";
 
 type Field = "empNumber" | "firstName" | "lastName" | "baseSalary" | "phoneNumber" | "personalImage";
 type FieldErrors = Partial<Record<Field, string>>;
@@ -13,15 +14,15 @@ const MAX_PHOTO_BYTES = 500 * 1024;
 function validate(form: Record<Field | "address", string>): FieldErrors {
   const errors: FieldErrors = {};
   const num = Number(form.empNumber);
-  if (!form.empNumber.trim()) errors.empNumber = "Enter the employee number.";
-  else if (!Number.isInteger(num) || num <= 0) errors.empNumber = "Use a whole number above 0, e.g. 101.";
-  if (!form.firstName.trim()) errors.firstName = "Enter the first name.";
-  if (!form.lastName.trim()) errors.lastName = "Enter the last name.";
+  if (!form.empNumber.trim()) errors.empNumber = t("Enter the employee number.");
+  else if (!Number.isInteger(num) || num <= 0) errors.empNumber = t("Use a whole number above 0, e.g. 101.");
+  if (!form.firstName.trim()) errors.firstName = t("Enter the first name.");
+  if (!form.lastName.trim()) errors.lastName = t("Enter the last name.");
   const salary = Number(form.baseSalary);
-  if (!form.baseSalary.trim()) errors.baseSalary = "Enter the base salary (0 if none).";
-  else if (!Number.isFinite(salary) || salary < 0) errors.baseSalary = "Use a number of 0 or more.";
+  if (!form.baseSalary.trim()) errors.baseSalary = t("Enter the base salary (0 if none).");
+  else if (!Number.isFinite(salary) || salary < 0) errors.baseSalary = t("Use a number of 0 or more.");
   if (form.phoneNumber.trim() && !/^\+?[\d\s-]{6,20}$/.test(form.phoneNumber.trim())) {
-    errors.phoneNumber = "Use digits only, e.g. 0555123456.";
+    errors.phoneNumber = t("Use digits only, e.g. 0555123456.");
   }
   return errors;
 }
@@ -69,12 +70,12 @@ export default function EmployeeDataForm() {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      setFieldErrors((prev) => ({ ...prev, personalImage: "Choose an image file (JPG, PNG…)." }));
+      setFieldErrors((prev) => ({ ...prev, personalImage: t("Choose an image file (JPG, PNG…).") }));
       e.target.value = "";
       return;
     }
     if (file.size > MAX_PHOTO_BYTES) {
-      setFieldErrors((prev) => ({ ...prev, personalImage: "This photo is too large. Use one under 500 KB." }));
+      setFieldErrors((prev) => ({ ...prev, personalImage: t("This photo is too large. Use one under 500 KB.") }));
       e.target.value = "";
       return;
     }
@@ -110,7 +111,7 @@ export default function EmployeeDataForm() {
       personalImage: form.personalImage || undefined,
     });
 
-    toast.success(`${form.firstName} ${form.lastName} was added.`);
+    toast.success(t("{name} was added.", { name: `${form.firstName} ${form.lastName}` }));
 
     // Optional: clear the form after save
     setForm({
@@ -131,7 +132,7 @@ export default function EmployeeDataForm() {
     const message = friendlyError(err);
     // A duplicate number belongs next to the number field
     if (/employee number/i.test(message)) {
-      setFieldErrors((prev) => ({ ...prev, empNumber: "Another employee already has this number." }));
+      setFieldErrors((prev) => ({ ...prev, empNumber: t("Another employee already has this number.") }));
     } else {
       setError(friendlyError(err, "Couldn't save the employee"));
     }
@@ -145,9 +146,9 @@ export default function EmployeeDataForm() {
       {/* Breadcrumb */}
       <div className="px-6 py-4 border-b border-gray-100 dark:border-white/[0.06] bg-white dark:bg-gray-900">
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          <span className="font-semibold text-gray-700 dark:text-gray-200">Employees Data</span>
+          <span className="font-semibold text-gray-700 dark:text-gray-200">{t("Employees Data")}</span>
           <span className="mx-2 text-gray-300 dark:text-gray-600">/</span>
-          <span>Add Employee</span>
+          <span>{t("Add Employee")}</span>
         </p>
       </div>
 
@@ -159,7 +160,7 @@ export default function EmployeeDataForm() {
         >
           {/* Header */}
           <div className="px-8 pt-7 pb-4 border-b border-gray-100 dark:border-white/[0.06]">
-            <h1 className="text-xl font-bold text-gray-800 dark:text-white">Add Employee</h1>
+            <h1 className="text-xl font-bold text-gray-800 dark:text-white">{t("Add Employee")}</h1>
           </div>
 
           {/* Error banner */}
@@ -174,13 +175,13 @@ export default function EmployeeDataForm() {
 
             {/* Employee Number */}
             <div>
-              <label className={lbl} htmlFor="empNumber">Employee Number: *</label>
+              <label className={lbl} htmlFor="empNumber">{t("Employee Number: *")}</label>
               <input
                 id="empNumber"
                 name="empNumber"
                 type="number"
                 className={inpFor("empNumber")}
-                placeholder="e.g. 101"
+                placeholder={t("e.g. 101")}
                 value={form.empNumber}
                 onChange={set("empNumber")}
                 aria-invalid={!!fieldErrors.empNumber}
@@ -191,7 +192,7 @@ export default function EmployeeDataForm() {
 
             {/* Personal Image */}
             <div>
-              <label className={lbl}>Personal Image:</label>
+              <label className={lbl}>{t("Personal Image:")}</label>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -204,7 +205,7 @@ export default function EmployeeDataForm() {
               {form.personalImage && (
                 <img
                   src={form.personalImage}
-                  alt="Preview"
+                  alt={t("Preview")}
                   className="mt-2 h-16 w-16 rounded-full object-cover border border-gray-200 dark:border-white/[0.1]"
                 />
               )}
@@ -212,13 +213,13 @@ export default function EmployeeDataForm() {
 
             {/* First Name */}
             <div>
-              <label className={lbl} htmlFor="firstName">First Name: *</label>
+              <label className={lbl} htmlFor="firstName">{t("First Name: *")}</label>
               <input
                 id="firstName"
                 name="firstName"
                 type="text"
                 className={inpFor("firstName")}
-                placeholder="e.g. Amina"
+                placeholder={t("e.g. Amina")}
                 value={form.firstName}
                 onChange={set("firstName")}
                 aria-invalid={!!fieldErrors.firstName}
@@ -229,13 +230,13 @@ export default function EmployeeDataForm() {
 
             {/* Last Name */}
             <div>
-              <label className={lbl} htmlFor="lastName">Last Name: *</label>
+              <label className={lbl} htmlFor="lastName">{t("Last Name: *")}</label>
               <input
                 id="lastName"
                 name="lastName"
                 type="text"
                 className={inpFor("lastName")}
-                placeholder="e.g. Bouzenada"
+                placeholder={t("e.g. Bouzenada")}
                 value={form.lastName}
                 onChange={set("lastName")}
                 aria-invalid={!!fieldErrors.lastName}
@@ -246,13 +247,13 @@ export default function EmployeeDataForm() {
 
             {/* Base Salary */}
             <div>
-              <label className={lbl} htmlFor="baseSalary">Base Salary: *</label>
+              <label className={lbl} htmlFor="baseSalary">{t("Base Salary: *")}</label>
               <input
                 id="baseSalary"
                 name="baseSalary"
                 type="number"
                 className={inpFor("baseSalary")}
-                placeholder="e.g. 50000"
+                placeholder={t("e.g. 50000")}
                 value={form.baseSalary}
                 onChange={set("baseSalary")}
                 aria-invalid={!!fieldErrors.baseSalary}
@@ -263,11 +264,11 @@ export default function EmployeeDataForm() {
 
             {/* Address */}
             <div>
-              <label className={lbl}>Address:</label>
+              <label className={lbl}>{t("Address:")}</label>
               <input
                 type="text"
                 className={inp}
-                placeholder="e.g. 12 Rue Didouche, Algiers"
+                placeholder={t("e.g. 12 Rue Didouche, Algiers")}
                 value={form.address}
                 onChange={set("address")}
               />
@@ -275,13 +276,13 @@ export default function EmployeeDataForm() {
 
             {/* Phone */}
             <div>
-              <label className={lbl} htmlFor="phoneNumber">Phone:</label>
+              <label className={lbl} htmlFor="phoneNumber">{t("Phone:")}</label>
               <input
                 id="phoneNumber"
                 name="phoneNumber"
                 type="tel"
                 className={inpFor("phoneNumber")}
-                placeholder="e.g. 0555123456"
+                placeholder={t("e.g. 0555123456")}
                 value={form.phoneNumber}
                 onChange={set("phoneNumber")}
                 aria-invalid={!!fieldErrors.phoneNumber}
@@ -299,14 +300,14 @@ export default function EmployeeDataForm() {
               disabled={saving}
               className="px-6 py-2 rounded-lg bg-[#E5484D] text-sm font-semibold text-white hover:bg-[#CC3D42] active:scale-[0.98] transition-all shadow-sm disabled:opacity-50"
             >
-              Cancel
+              {t("Cancel")}
             </button>
             <button
               type="submit"
               disabled={saving}
               className="px-6 py-2 rounded-lg bg-blue-600 text-sm font-semibold text-white hover:bg-blue-700 active:scale-[0.98] transition-all shadow-sm disabled:opacity-50"
             >
-              {saving ? "Saving…" : "Save"}
+              {saving ? t("Saving…") : t("Save")}
             </button>
           </div>
         </form>

@@ -9,6 +9,7 @@ import { Branding, DEFAULT_BRAND } from "@/lib/branding";
 import { useAuth } from "@/context/AuthContext";
 import { Modal } from "@/components/ui/modal";
 import Button from "@/components/ui/button/Button";
+import { t } from "@/lib/i18n";
 
 interface CompanyRow {
   _id: string;
@@ -76,7 +77,7 @@ function FeatureChecks({
               onChange(e.target.checked ? [...value, f] : value.filter((x) => x !== f))
             }
           />
-          {FEATURE_LABELS[f]}
+          {t(FEATURE_LABELS[f])}
         </label>
       ))}
     </div>
@@ -131,7 +132,7 @@ export default function CompaniesView() {
       setCompanies(await api<CompanyRow[]>("/companies"));
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load companies");
+      setError(err instanceof Error ? err.message : t("Could not load companies"));
     } finally {
       setLoading(false);
     }
@@ -159,7 +160,7 @@ export default function CompaniesView() {
       setForm(emptyForm);
       await load();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Could not create company");
+      setFormError(err instanceof Error ? err.message : t("Could not create company"));
     } finally {
       setSaving(false);
     }
@@ -190,18 +191,18 @@ export default function CompaniesView() {
       setEditing(null);
       await load();
     } catch (err) {
-      setEditError(err instanceof Error ? err.message : "Could not save");
+      setEditError(err instanceof Error ? err.message : t("Could not save"));
     }
   };
 
   const handleLogo = async (file: File | undefined) => {
     if (!file) return;
     if (!["image/png", "image/jpeg", "image/webp", "image/svg+xml"].includes(file.type)) {
-      setEditError("Logo must be a PNG, JPEG, WebP or SVG image.");
+      setEditError(t("Logo must be a PNG, JPEG, WebP or SVG image."));
       return;
     }
     if (file.size > MAX_LOGO_BYTES) {
-      setEditError("Logo must be under 300 KB.");
+      setEditError(t("Logo must be under 300 KB."));
       return;
     }
     setEditError(null);
@@ -215,7 +216,7 @@ export default function CompaniesView() {
     if (
       c.active &&
       !(await confirmDialog({
-        title: `Suspend ${c.name}?`,
+        title: t("Suspend {name}?", { name: c.name }),
         message: "Its users won't be able to sign in and its clocking machines will be refused until you reactivate it. No data is deleted.",
         confirmLabel: "Suspend",
         danger: true,
@@ -225,7 +226,7 @@ export default function CompaniesView() {
     try {
       await api(`/companies/${c._id}`, { method: "PATCH", body: JSON.stringify({ active: !c.active }) });
       await load();
-      toast.success(c.active ? `${c.name} suspended.` : `${c.name} reactivated.`);
+      toast.success(c.active ? t("{name} suspended.", { name: c.name }) : t("{name} reactivated.", { name: c.name }));
     } catch (err) {
       toast.error(friendlyError(err, c.active ? "Couldn't suspend the company" : "Couldn't reactivate the company"));
     }
@@ -235,10 +236,10 @@ export default function CompaniesView() {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          Each company only sees its own data. Use <strong>Open</strong> to work inside a company as its admin.
+          {t("Each company only sees its own data. Use Open to work inside a company as its admin.")}
         </p>
         <Button size="sm" className="shrink-0 whitespace-nowrap" onClick={() => setCreateOpen(true)}>
-          Add company
+          {t("Add company")}
         </Button>
       </div>
 
@@ -250,24 +251,24 @@ export default function CompaniesView() {
 
       <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-800">
         <table className="min-w-full text-sm">
-          <thead className="bg-gray-50 text-left text-gray-500 dark:bg-white/[0.03] dark:text-gray-400">
+          <thead className="bg-gray-50 text-start text-gray-500 dark:bg-white/[0.03] dark:text-gray-400">
             <tr>
-              <th className="px-4 py-3 font-medium">Company</th>
-              <th className="px-4 py-3 font-medium">Features</th>
-              <th className="px-4 py-3 font-medium">Devices</th>
-              <th className="px-4 py-3 font-medium">Status</th>
-              <th className="px-4 py-3 font-medium text-right">Actions</th>
+              <th className="px-4 py-3 font-medium">{t("Company")}</th>
+              <th className="px-4 py-3 font-medium">{t("Features")}</th>
+              <th className="px-4 py-3 font-medium">{t("Devices")}</th>
+              <th className="px-4 py-3 font-medium">{t("Status")}</th>
+              <th className="px-4 py-3 font-medium text-end">{t("Actions")}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 text-gray-800 dark:divide-gray-800 dark:text-white/90">
             {loading && (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-gray-500">Loading…</td>
+                <td colSpan={5} className="px-4 py-6 text-center text-gray-500">{t("Loading…")}</td>
               </tr>
             )}
             {!loading && companies.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-gray-500">No companies yet.</td>
+                <td colSpan={5} className="px-4 py-6 text-center text-gray-500">{t("No companies yet.")}</td>
               </tr>
             )}
             {companies.map((c) => (
@@ -286,8 +287,8 @@ export default function CompaniesView() {
                 </td>
                 <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">
                   {c.features.length === ALL_FEATURES.length
-                    ? "All"
-                    : c.features.map((f) => FEATURE_LABELS[f]).join(", ") || "None"}
+                    ? t("All")
+                    : c.features.map((f) => t(FEATURE_LABELS[f])).join(", ") || t("None")}
                 </td>
                 <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">
                   {c.devices.map((d) => d.serial).join(", ") || "—"}
@@ -300,22 +301,22 @@ export default function CompaniesView() {
                         : "bg-gray-100 text-gray-500 dark:bg-white/5 dark:text-gray-400"
                     }`}
                   >
-                    {c.active ? "Active" : "Suspended"}
+                    {c.active ? t("Active") : t("Suspended")}
                   </span>
                 </td>
-                <td className="space-x-3 whitespace-nowrap px-4 py-3 text-right">
+                <td className="space-x-3 whitespace-nowrap px-4 py-3 text-end">
                   <button type="button" className="font-medium text-brand-500 hover:underline" onClick={() => switchCompany(c._id)}>
-                    Open
+                    {t("Open")}
                   </button>
                   <button type="button" className="text-gray-600 hover:underline dark:text-gray-300" onClick={() => openEdit(c)}>
-                    Edit
+                    {t("Edit")}
                   </button>
                   <button
                     type="button"
                     className={c.active ? "text-error-500 hover:underline" : "text-gray-600 hover:underline dark:text-gray-300"}
                     onClick={() => toggleActive(c)}
                   >
-                    {c.active ? "Suspend" : "Reactivate"}
+                    {c.active ? t("Suspend") : t("Reactivate")}
                   </button>
                 </td>
               </tr>
@@ -325,102 +326,102 @@ export default function CompaniesView() {
       </div>
 
       <Modal isOpen={createOpen} onClose={() => setCreateOpen(false)} className="max-w-[560px] p-6">
-        <form onSubmit={handleCreate} className="max-h-[80vh] space-y-4 overflow-y-auto pr-1">
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">Add company</h3>
+        <form onSubmit={handleCreate} className="max-h-[80vh] space-y-4 overflow-y-auto pe-1">
+          <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">{t("Add company")}</h3>
           <div>
-            <label className={labelClass} htmlFor="co-name">Company name</label>
+            <label className={labelClass} htmlFor="co-name">{t("Company name")}</label>
             <input id="co-name" className={inputClass} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           </div>
           <div>
-            <span className={labelClass}>Features</span>
+            <span className={labelClass}>{t("Features")}</span>
             <FeatureChecks value={form.features} onChange={(features) => setForm({ ...form, features })} />
           </div>
           <div>
-            <label className={labelClass} htmlFor="co-devices">ZKTeco device serials (one per line, optional)</label>
-            <textarea id="co-devices" rows={2} className={`${inputClass} h-auto`} placeholder="ABC123456, Main entrance" value={form.devices} onChange={(e) => setForm({ ...form, devices: e.target.value })} />
+            <label className={labelClass} htmlFor="co-devices">{t("ZKTeco device serials (one per line, optional)")}</label>
+            <textarea id="co-devices" rows={2} className={`${inputClass} h-auto`} placeholder={t("ABC123456, Main entrance")} value={form.devices} onChange={(e) => setForm({ ...form, devices: e.target.value })} />
           </div>
           <fieldset className="space-y-3 rounded-lg border border-gray-200 p-4 dark:border-gray-800">
-            <legend className="px-1 text-sm font-medium text-gray-700 dark:text-gray-300">First admin</legend>
+            <legend className="px-1 text-sm font-medium text-gray-700 dark:text-gray-300">{t("First admin")}</legend>
             <div>
-              <label className={labelClass} htmlFor="co-admin-name">Name</label>
+              <label className={labelClass} htmlFor="co-admin-name">{t("Name")}</label>
               <input id="co-admin-name" className={inputClass} value={form.adminName} onChange={(e) => setForm({ ...form, adminName: e.target.value })} />
             </div>
             <div>
-              <label className={labelClass} htmlFor="co-admin-email">Email</label>
+              <label className={labelClass} htmlFor="co-admin-email">{t("Email")}</label>
               <input id="co-admin-email" type="email" className={inputClass} value={form.adminEmail} onChange={(e) => setForm({ ...form, adminEmail: e.target.value })} />
             </div>
             <div>
-              <label className={labelClass} htmlFor="co-admin-password">Temporary password (min 8 characters)</label>
+              <label className={labelClass} htmlFor="co-admin-password">{t("Temporary password (min 8 characters)")}</label>
               <input id="co-admin-password" type="text" autoComplete="off" className={inputClass} value={form.adminPassword} onChange={(e) => setForm({ ...form, adminPassword: e.target.value })} />
             </div>
           </fieldset>
           {formError && <p role="alert" className="text-sm text-error-500">{formError}</p>}
           <div className="flex justify-end gap-3">
-            <button type="button" className={cancelClass} onClick={() => setCreateOpen(false)}>Cancel</button>
-            <Button size="sm" disabled={saving}>{saving ? "Creating…" : "Create company"}</Button>
+            <button type="button" className={cancelClass} onClick={() => setCreateOpen(false)}>{t("Cancel")}</button>
+            <Button size="sm" disabled={saving}>{saving ? t("Creating…") : t("Create company")}</Button>
           </div>
         </form>
       </Modal>
 
       <Modal isOpen={!!editing} onClose={() => setEditing(null)} className="max-w-[640px] p-6">
-        <form onSubmit={handleEdit} className="max-h-[85vh] space-y-4 overflow-y-auto pr-1">
+        <form onSubmit={handleEdit} className="max-h-[85vh] space-y-4 overflow-y-auto pe-1">
           <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">{editing?.name}</h3>
           <div>
-            <span className={labelClass}>Features</span>
+            <span className={labelClass}>{t("Features")}</span>
             <FeatureChecks value={editFeatures} onChange={setEditFeatures} />
           </div>
           <div>
-            <label className={labelClass} htmlFor="edit-devices">ZKTeco device serials (one per line)</label>
+            <label className={labelClass} htmlFor="edit-devices">{t("ZKTeco device serials (one per line)")}</label>
             <textarea id="edit-devices" rows={3} className={`${inputClass} h-auto`} value={editDevices} onChange={(e) => setEditDevices(e.target.value)} />
           </div>
 
           <fieldset className="space-y-4 rounded-lg border border-gray-200 p-4 dark:border-gray-800">
-            <legend className="px-1 text-sm font-medium text-gray-700 dark:text-gray-300">Sign-in page &amp; logo</legend>
+            <legend className="px-1 text-sm font-medium text-gray-700 dark:text-gray-300">{t("Sign-in page & logo")}</legend>
             <div>
-              <label className={labelClass} htmlFor="edit-slug">Sign-in link name</label>
+              <label className={labelClass} htmlFor="edit-slug">{t("Sign-in link name")}</label>
               <input
                 id="edit-slug"
                 className={inputClass}
-                placeholder="e.g. pizza-roma"
+                placeholder={t("e.g. pizza-roma")}
                 value={editSlug}
                 onChange={(e) => setEditSlug(e.target.value.toLowerCase())}
               />
               {editSlug && (
                 <p className="mt-1 break-all text-xs text-gray-500 dark:text-gray-400">
-                  Staff sign in at <span className="font-medium">{signInLink(editSlug)}</span>
+                  {t("Staff sign in at")} <span className="font-medium">{signInLink(editSlug)}</span>
                 </p>
               )}
             </div>
             <div>
-              <span className={labelClass}>Logo (PNG, JPEG, WebP or SVG, under 300 KB)</span>
+              <span className={labelClass}>{t("Logo (PNG, JPEG, WebP or SVG, under 300 KB)")}</span>
               <div className="flex flex-wrap items-center gap-3">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={editBranding.logo || DEFAULT_BRAND.logo}
-                  alt="Logo preview"
+                  alt={t("Logo preview")}
                   className="h-14 w-14 rounded-lg border border-gray-200 object-contain dark:border-gray-800"
                 />
                 <input
                   type="file"
-                  aria-label="Upload logo"
+                  aria-label={t("Upload logo")}
                   accept="image/png,image/jpeg,image/webp,image/svg+xml"
                   className="text-sm text-gray-600 dark:text-gray-400"
                   onChange={(e) => handleLogo(e.target.files?.[0])}
                 />
                 {editBranding.logo && (
                   <button type="button" className="text-sm text-error-500 hover:underline" onClick={() => setEditBranding({ ...editBranding, logo: undefined })}>
-                    Remove
+                    {t("Remove")}
                   </button>
                 )}
               </div>
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_auto]">
               <div>
-                <label className={labelClass} htmlFor="edit-title">Title</label>
+                <label className={labelClass} htmlFor="edit-title">{t("Title")}</label>
                 <input id="edit-title" className={inputClass} placeholder={editing?.name} value={editBranding.title ?? ""} onChange={(e) => setEditBranding({ ...editBranding, title: e.target.value })} />
               </div>
               <div>
-                <label className={labelClass} htmlFor="edit-color">Colour</label>
+                <label className={labelClass} htmlFor="edit-color">{t("Colour")}</label>
                 <input
                   id="edit-color"
                   type="color"
@@ -431,11 +432,11 @@ export default function CompaniesView() {
               </div>
             </div>
             <div>
-              <label className={labelClass} htmlFor="edit-subtitle">Welcome text</label>
-              <input id="edit-subtitle" className={inputClass} placeholder="e.g. Welcome back! Sign in to see your planning." value={editBranding.subtitle ?? ""} onChange={(e) => setEditBranding({ ...editBranding, subtitle: e.target.value })} />
+              <label className={labelClass} htmlFor="edit-subtitle">{t("Welcome text")}</label>
+              <input id="edit-subtitle" className={inputClass} placeholder={t("e.g. Welcome back! Sign in to see your planning.")} value={editBranding.subtitle ?? ""} onChange={(e) => setEditBranding({ ...editBranding, subtitle: e.target.value })} />
             </div>
             <div>
-              <span className={labelClass}>Preview</span>
+              <span className={labelClass}>{t("Preview")}</span>
               <div
                 className="flex flex-col items-center rounded-xl px-6 py-8 text-center"
                 style={{ backgroundColor: editBranding.color || DEFAULT_BRAND.color }}
@@ -449,8 +450,8 @@ export default function CompaniesView() {
           </fieldset>
           {editError && <p role="alert" className="text-sm text-error-500">{editError}</p>}
           <div className="flex justify-end gap-3">
-            <button type="button" className={cancelClass} onClick={() => setEditing(null)}>Cancel</button>
-            <Button size="sm">Save</Button>
+            <button type="button" className={cancelClass} onClick={() => setEditing(null)}>{t("Cancel")}</button>
+            <Button size="sm">{t("Save")}</Button>
           </div>
         </form>
       </Modal>

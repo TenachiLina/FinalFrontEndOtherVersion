@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useRef, useEffect } from "react";
+import { monthName, t, weekdayInitial } from "@/lib/i18n";
 
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
@@ -85,7 +86,7 @@ const DateInput: React.FC<DateInputProps> = ({ value, onChange, className = "" }
         <button
           type="button"
           onClick={openCalendar}
-          aria-label="Open calendar"
+          aria-label={t("Open calendar")}
           className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-300 text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-white/5"
         >
           <CalendarGlyph />
@@ -110,7 +111,7 @@ const DateInput: React.FC<DateInputProps> = ({ value, onChange, className = "" }
               ‹
             </button>
             <span className="text-sm font-semibold text-gray-800 dark:text-white">
-              {MONTH_NAMES[viewMonth]} {viewYear}
+              {monthName(viewMonth)} {viewYear}
             </span>
             <button
               type="button"
@@ -129,9 +130,9 @@ const DateInput: React.FC<DateInputProps> = ({ value, onChange, className = "" }
           </div>
 
           <div className="grid grid-cols-7 gap-y-1 text-center">
-            {WEEKDAY_LABELS.map((w, i) => (
+            {WEEKDAY_LABELS.map((_w, i) => (
               <div key={i} className="text-[11px] font-medium text-gray-400">
-                {w}
+                {weekdayInitial(i)}
               </div>
             ))}
             {days.map((d, idx) =>

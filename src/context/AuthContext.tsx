@@ -21,6 +21,7 @@ import {
   setActingCompanyId,
 } from "@/lib/auth";
 import { applyCompanySettings } from "@/lib/payrollConfig";
+import { applyDefaultLang } from "@/lib/i18n";
 import { getRememberedSlug, rememberCompanySlug, signInPathFor } from "@/lib/branding";
 
 // Install before any component fetches data.
@@ -64,6 +65,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     (u: AuthUser | null, c: CompanyInfo | null) => {
       if (u) saveIdentity(u, c);
       if (c) applyCompanySettings(c.settings);
+      if (c) applyDefaultLang(c.settings.language);
       // A super admin opening companies shouldn't change this browser's sign-in look.
       if (c && u?.role !== "superadmin") rememberCompanySlug(c.slug);
       setUser(u);

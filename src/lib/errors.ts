@@ -1,3 +1,4 @@
+import { t } from "@/lib/i18n";
 // ─────────────────────────────────────────────────────────────────────────
 // Turning failures into messages people can act on.
 //
@@ -18,6 +19,7 @@ export class ApiError extends Error {
 
 const NETWORK = "Can't reach the server. Check your internet connection and try again.";
 const SERVER = "Something went wrong on our side. Please try again in a moment.";
+// All messages below are English and translated on the way out (see friendlyError)
 
 /** Reads the backend's message from a failed response. */
 async function messageFrom(res: Response): Promise<string> {
@@ -114,8 +116,10 @@ export function friendlyError(err: unknown, context?: string): string {
     reason = SERVER;
   }
 
+  // Server messages arrive already translated; t() leaves unknown text unchanged
+  reason = t(reason);
   if (!context) return reason;
-  return `${context}. ${reason}`;
+  return `${t(context)}. ${reason}`;
 }
 
 /**
@@ -129,7 +133,9 @@ export function optionalData<T>(fallback: T, what: string) {
     console.error(`${what} couldn't be loaded`, err);
     // Imported lazily so this file stays free of UI dependencies
     import("@/lib/notify").then(({ toast }) =>
-      toast.warning(`${what} couldn't be loaded, so the totals shown may be incomplete. Try refreshing.`)
+      toast.warning(
+        t("{what} couldn't be loaded, so the totals shown may be incomplete. Try refreshing.", { what: t(what) })
+      )
     );
     return fallback;
   };

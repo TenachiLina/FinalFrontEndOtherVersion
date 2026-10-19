@@ -6,6 +6,7 @@ import Button from "../ui/button/Button";
 import { ArrowDownTrayIcon, ArrowTopRightOnSquareIcon, ArrowUturnLeftIcon, TableCellsIcon } from "@heroicons/react/24/outline";
 import Tooltip from "@/components/common/Tooltip";
 import LoadError from "@/components/ui/feedback/LoadError";
+import { t } from "@/lib/i18n";
 
 const ViewCalender: React.FC = () => {
   //table mode view
@@ -52,13 +53,13 @@ const ViewCalender: React.FC = () => {
     return days;
   };
 
-  if (loadingMeta) return <div className="text-center text-gray-500 mt-4">Loading...</div>;
+  if (loadingMeta) return <div className="text-center text-gray-500 mt-4">{t("Loading...")}</div>;
   if (metaError) return <div className="text-center text-red-500 mt-4">Error: {metaError}</div>;
 
   return (
     <>
       <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2 ml-auto">
+        <div className="flex items-center gap-2 ms-auto">
           
           {/* Show table only */}
           <Tooltip text="Show table only">
@@ -71,7 +72,7 @@ const ViewCalender: React.FC = () => {
                   ? "border-gray-700 text-brand-500 hover:bg-brand-500 hover:text-white"
                   : "border-gray-800 text-gray-600 opacity-40 cursor-not-allowed"
               }`}
-              aria-label="Show table only"
+              aria-label={t("Show table only")}
             >
               <TableCellsIcon className="h-5 w-5" />
             </button>
@@ -88,7 +89,7 @@ const ViewCalender: React.FC = () => {
                   ? "border-gray-700 text-brand-500 hover:bg-brand-500 hover:text-white"
                   : "border-gray-800 text-gray-600 opacity-40 cursor-not-allowed"
               }`}
-              aria-label="Back to normal view"
+              aria-label={t("Back to normal view")}
             >
               <ArrowUturnLeftIcon className="h-5 w-5" />
             </button>
@@ -150,7 +151,7 @@ const ViewCalender: React.FC = () => {
                 const isToday    = date.toDateString() === new Date().toDateString();
                 const isSelected = date.toDateString() === currentDate.toDateString();
                 return (
-                  <Tooltip text="Select a day to see its planning in the right-side grid." key={i}>
+                  <Tooltip text="Select a day to see its planning in the end-side grid." key={i}>
                     <button key={i} onClick={() => { setCurrentDate(date); setCalendarMonth(date); }}
                       className={[
                         "text-[12px] w-8 h-8 mx-auto flex items-center justify-center rounded-full transition-colors",
@@ -175,7 +176,7 @@ const ViewCalender: React.FC = () => {
               {!showTableOnly && (
                 <div className="flex items-center gap-3 p-4 border-b border-gray-200 dark:border-gray-700">
                   <button onClick={goToToday} type="button" className="rounded-full border border-gray-300 dark:border-gray-600 px-4 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-                    Today
+                    {t("Today")}
                   </button>
                   <div className="flex items-center gap-1">
                     <button onClick={goPrev} type="button" className="p-1.5 rounded-md text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
@@ -185,7 +186,7 @@ const ViewCalender: React.FC = () => {
                       <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
                     </button>
                   </div>
-                  <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-1">
+                  <div className="ms-auto flex min-w-0 flex-1 items-center justify-end gap-1">
                     {/* Date - LEFT */}
                     {/* <div className="shrink-0">
                       <span className="text-sm font-medium text-gray-800 dark:text-white whitespace-nowrap">
@@ -194,7 +195,7 @@ const ViewCalender: React.FC = () => {
                     </div> */}
                    
                     {/* Export Buttons - RIGHT */}
-                    <div className="ml-auto flex shrink-0 items-center gap-2">
+                    <div className="ms-auto flex shrink-0 items-center gap-2">
 
                       {/* Export Day */}
                       <div className="relative shrink-0">
@@ -209,14 +210,14 @@ const ViewCalender: React.FC = () => {
                               className="h-4 w-4 text-gray-100"
                               strokeWidth={3}
                             />
-                            Export Day
+                            {t("Export Day")}
                           </Button>
                         </Tooltip>
 
                         {showExportDayMenu && (
-                          <div className="absolute right-0 z-50 mt-2 w-48 rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                          <div className="absolute end-0 z-50 mt-2 w-48 rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
                             <button
-                              className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+                              className="flex w-full items-center gap-2 px-4 py-2 text-start text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
                               onClick={() => {
                                 handleExport("excel");
                                 closeMenus();
@@ -225,7 +226,7 @@ const ViewCalender: React.FC = () => {
                               📊 Excel (.xlsx)
                             </button>
                             <button
-                              className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+                              className="flex w-full items-center gap-2 px-4 py-2 text-start text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
                               onClick={() => {
                                 handleExport("pdf");
                                 closeMenus();
@@ -250,14 +251,14 @@ const ViewCalender: React.FC = () => {
                               className="h-4 w-4 text-gray-100"
                               strokeWidth={3}
                             />
-                            Manager Export
+                            {t("Manager Export")}
                           </Button>
                         </Tooltip>
 
                         {showWeeklyExportManagerMenu && (
-                          <div className="absolute right-0 z-50 mt-2 w-48 rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                          <div className="absolute end-0 z-50 mt-2 w-48 rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
                             <button
-                              className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+                              className="flex w-full items-center gap-2 px-4 py-2 text-start text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
                               onClick={() => {
                                 handleWeeklyExportManager("excel");
                                 closeMenus();
@@ -266,7 +267,7 @@ const ViewCalender: React.FC = () => {
                               📊 Excel (.xlsx)
                             </button>
                             <button
-                              className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+                              className="flex w-full items-center gap-2 px-4 py-2 text-start text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
                               onClick={() => {
                                 handleWeeklyExportManager("pdf");
                                 closeMenus();
@@ -291,14 +292,14 @@ const ViewCalender: React.FC = () => {
                               className="h-4 w-4 text-gray-100"
                               strokeWidth={3}
                             />
-                            Employees Export 
+                            {t("Employees Export")}
                           </Button>
                         </Tooltip>
 
                         {showWeeklyExportMenu && (
-                          <div className="absolute right-0 z-50 mt-2 w-48 rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                          <div className="absolute end-0 z-50 mt-2 w-48 rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
                             <button
-                              className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+                              className="flex w-full items-center gap-2 px-4 py-2 text-start text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
                               onClick={() => {
                                 handleWeeklyExport("excel");
                                 closeMenus();
@@ -307,7 +308,7 @@ const ViewCalender: React.FC = () => {
                               📊 Excel (.xlsx)
                             </button>
                             <button
-                              className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+                              className="flex w-full items-center gap-2 px-4 py-2 text-start text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
                               onClick={() => {
                                 handleWeeklyExport("pdf");
                                 closeMenus();
@@ -328,10 +329,10 @@ const ViewCalender: React.FC = () => {
                 <table className="w-full border-collapse">
                   <thead>
                     <tr>
-                      <th className="w-32 min-w-[8rem] border-b border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 p-3" />
+                      <th className="w-32 min-w-[8rem] border-b border-e border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 p-3" />
                       {/* ✅ Use shifts from DB */}
                       {shifts.map((shift) => (
-                        <th key={shift._id} className="border-b border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 p-3 text-center last:border-r-0">
+                        <th key={shift._id} className="border-b border-e border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 p-3 text-center last:border-e-0">
                           <span className="block text-sm font-bold text-gray-800 dark:text-white/90">
                             {shift.startTime} - {shift.endTime}
                           </span>
@@ -344,7 +345,7 @@ const ViewCalender: React.FC = () => {
                     {/* ✅ Use tasks from DB */}
                     {tasks.map((task, rowIdx) => (
                       <tr key={task._id} className={rowIdx % 2 === 0 ? "" : "bg-gray-50/50 dark:bg-white/[0.01]"}>
-                        <td className="border-b border-r border-gray-200 dark:border-gray-700 p-3 last:border-b-0">
+                        <td className="border-b border-e border-gray-200 dark:border-gray-700 p-3 last:border-b-0">
                           <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                             {task.taskName}
                           </span>
@@ -357,7 +358,7 @@ const ViewCalender: React.FC = () => {
                             <td
                               key={shift._id}
                               className={[
-                                "border-b border-r border-gray-200 dark:border-gray-700 p-2 transition-colors duration-150 last:border-r-0",
+                                "border-b border-e border-gray-200 dark:border-gray-700 p-2 transition-colors duration-150 last:border-e-0",
                                 rowIdx === tasks.length - 1 ? "border-b-0" : "",
                               ].join(" ")}
                               style={{ minWidth: "160px", height: "64px" }}
@@ -383,7 +384,7 @@ const ViewCalender: React.FC = () => {
                                     {emp.backupTitle && (
                                       <>
                                         {" ("}
-                                        <strong>Backup:</strong> {emp.backupTitle}
+                                        <strong>{t("Backup:")}</strong> {emp.backupTitle}
                                         {")"}
                                       </>
                                     )}
@@ -423,13 +424,13 @@ const ViewCalender: React.FC = () => {
                   <thead>
                     <tr>
                       {/* Empty corner cell */}
-                      <th className="w-32 min-w-[8rem] border-b border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 p-3" />
+                      <th className="w-32 min-w-[8rem] border-b border-e border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 p-3" />
 
                       {/* Shift columns */}
                       {shifts.map((shift) => (
                         <th
                           key={shift._id}
-                          className="border-b border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 p-3 text-center last:border-r-0"
+                          className="border-b border-e border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 p-3 text-center last:border-e-0"
                         >
                           <span className="block text-sm font-bold text-gray-800 dark:text-white/90">
                             {shift.startTime} - {shift.endTime}
@@ -451,7 +452,7 @@ const ViewCalender: React.FC = () => {
                         }
                       >
                         {/* Task name */}
-                        <td className="border-b border-r border-gray-200 dark:border-gray-700 p-3">
+                        <td className="border-b border-e border-gray-200 dark:border-gray-700 p-3">
                           <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                             {task.taskName}
                           </span>
@@ -466,7 +467,7 @@ const ViewCalender: React.FC = () => {
                             <td
                               key={shift._id}
                               className={[
-                                "border-b border-r border-gray-200 dark:border-gray-700 p-2 transition-colors duration-150 last:border-r-0",
+                                "border-b border-e border-gray-200 dark:border-gray-700 p-2 transition-colors duration-150 last:border-e-0",
                                 rowIdx === tasks.length - 1 ? "border-b-0" : "",
                                 "hover:bg-brand-50 dark:hover:bg-brand-900/10",
                               ].join(" ")}
@@ -503,11 +504,11 @@ const ViewCalender: React.FC = () => {
                                         className="text-[10px] text-gray-400 dark:text-gray-500 truncate"
                                         title={
                                           emp.backupTitle
-                                            ? `Backup: ${emp.backupTitle}`
-                                            : "No backup"
+                                            ? `${t("Backup:")} ${emp.backupTitle}`
+                                            : t("No backup")
                                         }
                                       >
-                                        Backup: {emp.backupTitle ?? "No backup"}
+                                        {t("Backup:")} {emp.backupTitle ?? t("No backup")}
                                       </span>
 
                                       {/* Tasks */}
@@ -551,13 +552,13 @@ const ViewCalender: React.FC = () => {
             {/* ── Modals ── */}
             <Modal isOpen={isDetailsModalOpen} onClose={handleCloseDetailsModal} className="max-w-[400px] p-6">
               <div className="flex flex-col gap-6">
-                <h5 className="font-semibold text-gray-800 text-lg dark:text-white/90">Employee Details</h5>
+                <h5 className="font-semibold text-gray-800 text-lg dark:text-white/90">{t("Employee Details")}</h5>
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-400">Name</label>
+                  <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-400">{t("Name")}</label>
                   <div className="px-4 py-2.5 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-white">{activeEmployee?.title}</div>
                 </div>
                 <div className="flex items-center gap-3 sm:justify-end">
-                  <button onClick={handleCloseDetailsModal} type="button" className="flex w-full justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 sm:w-auto">Close</button>
+                  <button onClick={handleCloseDetailsModal} type="button" className="flex w-full justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 sm:w-auto">{t("Close")}</button>
                 </div>
               </div>
             </Modal>
@@ -571,7 +572,7 @@ const ViewCalender: React.FC = () => {
                 {/* Header */}
                 <div>
                   <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
-                    Employees in Shift
+                    {t("Employees in Shift")}
                   </h3>
 
                   <p className="text-xs text-gray-400 mt-1">
@@ -580,7 +581,7 @@ const ViewCalender: React.FC = () => {
                 </div>
 
                 {/* Employee list */}
-                <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto pr-1">
+                <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto pe-1">
                   {listEmployees.map((emp) => (
                     <div
                       key={emp.id}
@@ -595,7 +596,7 @@ const ViewCalender: React.FC = () => {
                       {emp.backupTitle && (
                         <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                           <span className="font-bold text-gray-700 dark:text-gray-300">
-                            Backup:
+                            {t("Backup:")}
                           </span>{" "}
                           {emp.backupTitle}
                         </div>
@@ -606,7 +607,7 @@ const ViewCalender: React.FC = () => {
                   {/* No employees */}
                   {listEmployees.length === 0 && (
                     <div className="text-sm text-gray-400 text-center py-6">
-                      No employees assigned
+                      {t("No employees assigned")}
                     </div>
                   )}
                 </div>
@@ -617,14 +618,14 @@ const ViewCalender: React.FC = () => {
                   type="button"
                   className="flex w-full justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 sm:w-auto"
                 >
-                  Close
+                  {t("Close")}
                 </button>
 
               </div>
             </Modal>
           </div>
       </div>
-      {loading && <div className="text-center text-gray-500 mt-4">Loading planning data...</div>}
+      {loading && <div className="text-center text-gray-500 mt-4">{t("Loading planning data...")}</div>}
       {error && <LoadError className="mt-4" title="Couldn't load the planning" message={error} onRetry={() => window.location.reload()} />}
     </>
   );

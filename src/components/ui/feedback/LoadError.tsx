@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { t } from "@/lib/i18n";
 
 /** Shown in place of content that failed to load, with a way to retry. */
 export default function LoadError({
@@ -33,8 +34,8 @@ export default function LoadError({
         !
       </span>
       <div className="min-w-0 flex-1">
-        <p className="font-semibold text-gray-800 dark:text-white/90">{title}</p>
-        {message && <p className="text-gray-600 dark:text-gray-400">{message}</p>}
+        <p className="font-semibold text-gray-800 dark:text-white/90">{t(title)}</p>
+        {message && <p className="text-gray-600 dark:text-gray-400">{t(message)}</p>}
       </div>
       {onRetry && (
         <button
@@ -42,7 +43,7 @@ export default function LoadError({
           onClick={onRetry}
           className="shrink-0 rounded-lg bg-white px-4 py-2 font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-700"
         >
-          Try again
+          {t("Try again")}
         </button>
       )}
     </div>

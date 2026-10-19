@@ -6,7 +6,10 @@ import LoadError from "@/components/ui/feedback/LoadError";
 import {
   upsertWorktime,
   getWorktimesByDate,
-} from "./worktime.api";interface AttendanceLog {
+} from "./worktime.api";
+import { t } from "@/lib/i18n";
+
+interface AttendanceLog {
   _id?: string;
   deviceUserId: string;
   timestamp: string;
@@ -479,7 +482,7 @@ const deleteSelected = async () => {
   }
 
   const confirmed = await confirmDialog({
-    title: `Delete ${selectedLogs.size} clock-in record${selectedLogs.size === 1 ? "" : "s"}?`,
+    title: t(selectedLogs.size === 1 ? "Delete {n} clock-in record?" : "Delete {n} clock-in records?", { n: selectedLogs.size }),
     message: "Their clock-in and clock-out times will be removed. This can't be undone.",
     confirmLabel: "Delete",
     danger: true,
@@ -544,7 +547,7 @@ for (const id of selectedLogs) {
       );
     } else {
       setSelectedLogs(new Set());
-      toast.success(`${selectedLogs.size} clock-in record${selectedLogs.size === 1 ? "" : "s"} deleted.`);
+      toast.success(t(selectedLogs.size === 1 ? "{n} clock-in record deleted." : "{n} clock-in records deleted.", { n: selectedLogs.size }));
     }
   } catch (err) {
     console.error("Deletion error:", err);
@@ -741,7 +744,7 @@ if (Number.isNaN(timestamp.getTime())) {
 
     if (!employee) {
       throw new Error(
-        `No employee has the number ${employeeNumber}.`
+        t("No employee has the number {n}.", { n: employeeNumber })
       );
     }
 
@@ -804,7 +807,7 @@ if (Number.isNaN(timestamp.getTime())) {
     // Warn only when the employee has no planning entry for this date.
     if (!employeePlanning) {
       toast.warning(
-        `Employee ${employeeNumber} isn't in the planning on ${workDate}. The clock-in is saved, but lateness and overtime can't be calculated.`
+        t("Employee {n} isn't in the planning on {date}. The clock-in is saved, but lateness and overtime can't be calculated.", { n: employeeNumber, date: workDate })
       );
     }
 
@@ -1158,7 +1161,7 @@ const timestamp = new Date(
     );
 
     if (!employee) {
-      throw new Error(`No employee has the number ${employeeNumber}.`);
+      throw new Error(t("No employee has the number {n}.", { n: employeeNumber }));
     }
 
     // 5. Fetch shifts.
@@ -1203,7 +1206,7 @@ const timestamp = new Date(
     // Show the warning only when the employee is not scheduled.
     if (!employeePlanning) {
       toast.warning(
-        `Employee ${employeeNumber} isn't in the planning on ${workDate}. The clock-in is saved, but lateness and overtime can't be calculated.`
+        t("Employee {n} isn't in the planning on {date}. The clock-in is saved, but lateness and overtime can't be calculated.", { n: employeeNumber, date: workDate })
       );
     }
 
@@ -1345,9 +1348,9 @@ shift_id: shiftId,
     await loadLogs();
 
     toast.success(
-      `Worked ${workHours}, late ${lateMinutes} min, overtime ${overtimeMinutes} min.` +
-        (!employeePlanning ? " This employee wasn't in the planning." : ""),
-      mode === "edit" ? "Clock-in updated" : "Clock-out added"
+      t("Worked {hours}, late {late} min, overtime {overtime} min.", { hours: workHours, late: lateMinutes, overtime: overtimeMinutes }) +
+        (!employeePlanning ? " " + t("This employee wasn't in the planning.") : ""),
+      mode === "edit" ? t("Clock-in updated") : t("Clock-out added")
     );
   } catch (err) {
     console.error("Error updating punch and worktime:", err);
@@ -1368,7 +1371,7 @@ shift_id: shiftId,
       {/* HEADER */}
       <div className="mb-4">
         <h1 className="text-xl font-semibold text-gray-700">
-          Clock-in history
+          {t("Clock-in history")}
         </h1>
       </div>
 
@@ -1407,7 +1410,7 @@ shift_id: shiftId,
   <div className="flex h-9">
     <input
       type="text"
-      placeholder="Search for an employee…"
+      placeholder={t("Search for an employee…")}
       value={employeeQuery}
       onChange={(e) => {
         setEmployeeQuery(e.target.value);
@@ -1425,7 +1428,7 @@ shift_id: shiftId,
         setSelectedEmployee("");
         setShowSuggestions(false);
       }}
-      title="Effacer"
+      title={t("Clear")}
       className="rounded-r-md border border-l-0 border-gray-300 bg-gray-100 px-3 text-sm text-gray-600 hover:bg-gray-200"
     >
       ✕
@@ -1435,9 +1438,9 @@ shift_id: shiftId,
   {showSuggestions && (
     <ul className="absolute left-0 top-10 z-30 max-h-64 w-72 overflow-auto rounded-md border border-gray-200 bg-white shadow-lg">
       {loadingEmployees ? (
-        <li className="px-3 py-2 text-sm text-gray-400">Loading…</li>
+        <li className="px-3 py-2 text-sm text-gray-400">{t("Loading…")}</li>
       ) : suggestions.length === 0 ? (
-        <li className="px-3 py-2 text-sm text-gray-400">No employee found</li>
+        <li className="px-3 py-2 text-sm text-gray-400">{t("No employee found")}</li>
       ) : (
         suggestions.map((employee) => (
           <li
@@ -1462,7 +1465,7 @@ shift_id: shiftId,
       {/* DEVICE STATUS */}
       {deviceStatus && (
         <div className="mb-3 text-xs text-gray-500">
-          Machine:{" "}
+          {t("Machine:")}{" "}
           <span
             className={
               deviceStatus.connected
@@ -1471,8 +1474,8 @@ shift_id: shiftId,
             }
           >
             {deviceStatus.connected
-              ? "Connected"
-              : "Disconnected"}
+              ? t("Connected")
+              : t("Disconnected")}
           </span>
         </div>
       )}
@@ -1496,7 +1499,7 @@ onClick={() => {
             hover:bg-[#b87565]
           "
         >
-          Add clock-in
+          {t("Add clock-in")}
         </button>
 
         <button
@@ -1513,7 +1516,7 @@ onClick={() => {
             hover:bg-[#b87565]
           "
         >
-          🗑 Delete
+          🗑 {t("Delete")}
         </button>
 
       </div>
@@ -1522,7 +1525,7 @@ onClick={() => {
       {error && (
         <LoadError
           className="mb-4"
-          title="Something didn't load"
+          title={t("Something didn't load")}
           message={error}
           onRetry={() => {
             setError(null);
@@ -1558,37 +1561,37 @@ onClick={() => {
 
                 {/* EMPLOYEE NUMBER */}
                 <th className="border-b border-gray-200 px-4 py-2 text-left text-xs font-semibold">
-                  Number
+                  {t("Number")}
                 </th>
 
                 {/* LAST NAME */}
                 <th className="border-b border-gray-200 px-4 py-2 text-left text-xs font-semibold">
-                  Last name
+                  {t("Last name")}
                 </th>
 
                 {/* FIRST NAME */}
                 <th className="border-b border-gray-200 px-4 py-2 text-left text-xs font-semibold">
-                  First name
+                  {t("First name")}
                 </th>
 
                 {/* DATE */}
                 <th className="border-b border-gray-200 px-4 py-2 text-left text-xs font-semibold">
-                  Date
+                  {t("Date")}
                 </th>
 
                 {/* CLOCK IN */}
                 <th className="border-b border-gray-200 px-4 py-2 text-left text-xs font-semibold">
-                  Clock In
+                  {t("Clock In")}
                 </th>
 
                 {/* CLOCK OUT */}
                 <th className="border-b border-gray-200 px-4 py-2 text-left text-xs font-semibold">
-                  Clock Out
+                  {t("Clock Out")}
                 </th>
 
                 {/* STATUS */}
                 <th className="border-b border-gray-200 px-4 py-2 text-left text-xs font-semibold">
-                  Status
+                  {t("Status")}
                 </th>
 
               </tr>
@@ -1603,7 +1606,7 @@ onClick={() => {
                     colSpan={8}
                     className="py-10 text-center text-sm text-gray-400"
                   >
-                    Loading clock-in records…
+                    {t("Loading clock-in records…")}
                   </td>
                 </tr>
 
@@ -1614,7 +1617,7 @@ onClick={() => {
                     colSpan={8}
                     className="py-10 text-center text-sm text-gray-400"
                   >
-                    No clock-in records in this period.
+                    {t("No clock-in records in this period.")}
                   </td>
                 </tr>
 
@@ -1713,7 +1716,7 @@ onClick={() => {
   mode: "edit",
 });
       }}
-      title="Double-click to edit"
+      title={t("Double-click to edit")}
       className="inline-flex cursor-pointer rounded-md bg-green-100 px-2 py-1 text-xs font-medium text-green-700 hover:ring-2 hover:ring-green-300"
     >
       {formatTime(log.clockIn)}
@@ -1799,7 +1802,7 @@ onClick={() => {
             mode: "edit",
           });
         }}
-        title="Double-click to edit"
+        title={t("Double-click to edit")}
         className="inline-flex cursor-pointer rounded-md bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700 hover:ring-2 hover:ring-blue-300"
       >
         {formatTime(log.clockOut)}
@@ -1820,7 +1823,7 @@ onClick={() => {
           workDate: log.date,
         });
       }}
-      title="Double-click to add a clock-out"
+      title={t("Double-click to add a clock-out")}
       className="inline-flex cursor-pointer rounded-md border border-dashed border-orange-300 px-2 py-1 text-xs font-medium text-orange-600 hover:bg-orange-50 hover:ring-2 hover:ring-orange-200"
     >
       —
@@ -1843,7 +1846,7 @@ onClick={() => {
         text-orange-700
       "
     >
-      Not validated
+      {t("Not validated")}
     </span>
   ) : (() => {
       const minutes = getMinutesBetween(
@@ -1865,7 +1868,7 @@ onClick={() => {
               text-yellow-700
             "
           >
-            Pause
+            {t("Pause")}
           </span>
         );
       }
@@ -1883,7 +1886,7 @@ onClick={() => {
             text-green-700
           "
         >
-          Validated
+          {t("Validated")}
         </span>
       );
     })()}
@@ -1933,7 +1936,7 @@ onClick={() => {
             <div className="mb-5 flex items-center justify-between">
 
               <h2 className="text-lg font-semibold text-gray-800">
-                Add a clock-in
+                {t("Add a clock-in")}
               </h2>
 
               <button
@@ -1952,7 +1955,7 @@ onClick={() => {
               {/* EMPLOYEE */}
 <div>
   <label className="mb-1 block text-sm font-medium text-gray-600">
-    Employee
+    {t("Employee")}
   </label>
 
   <select
@@ -1981,8 +1984,8 @@ onClick={() => {
   >
     <option value="">
       {loadingEmployees
-        ? "Loading employees…"
-        : "Select an employee"}
+        ? t("Loading employees…")
+        : t("Select an employee")}
     </option>
 
     {employees.map((employee) => (
@@ -2001,7 +2004,7 @@ onClick={() => {
               <div>
 
                 <label className="mb-1 block text-sm font-medium text-gray-600">
-                  Date and time
+                  {t("Date and time")}
                 </label>
 
                 <input
@@ -2031,7 +2034,7 @@ onClick={() => {
               {/* CONSOMMATION */}
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-600">
-                  Consumption
+                  {t("Consumption")}
                 </label>
                 <input
                   type="number"
@@ -2055,7 +2058,7 @@ onClick={() => {
               {/* PENALTY */}
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-600">
-                  Penalty
+                  {t("Penalty")}
                 </label>
                 <input
                   type="number"
@@ -2079,7 +2082,7 @@ onClick={() => {
               {/* BONUS */}
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-600">
-                  Bonus
+                  {t("Bonus")}
                 </label>
                 <input
                   type="number"
@@ -2119,7 +2122,7 @@ onClick={() => {
                   disabled:opacity-50
                 "
               >
-                Cancel
+                {t("Cancel")}
               </button>
 
               <button
@@ -2142,7 +2145,7 @@ onClick={() => {
                 {savingAddPunch ? (
                   <span className="inline-flex items-center gap-2">
                     <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-                    Saving…
+                    {t("Saving…")}
                   </span>
                 ) : (
                   "Add"

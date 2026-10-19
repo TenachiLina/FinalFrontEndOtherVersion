@@ -5,6 +5,7 @@ import { API_BASE_URL } from "@/lib/config";
 import { CompanySettings } from "@/lib/auth";
 import { useAuth } from "@/context/AuthContext";
 import Button from "@/components/ui/button/Button";
+import { LANGUAGES, Lang, t } from "@/lib/i18n";
 
 const inputClass =
   "h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90";
@@ -42,12 +43,12 @@ export default function CompanySettingsForm() {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => null);
-        throw new Error(body?.message ?? "Could not save settings");
+        throw new Error(body?.message ?? t("Could not save settings"));
       }
       await refreshCompany();
-      setMessage({ ok: true, text: "Settings saved." });
+      setMessage({ ok: true, text: t("Settings saved.") });
     } catch (err) {
-      setMessage({ ok: false, text: err instanceof Error ? err.message : "Could not save settings" });
+      setMessage({ ok: false, text: err instanceof Error ? err.message : t("Could not save settings") });
     } finally {
       setSaving(false);
     }
@@ -56,38 +57,54 @@ export default function CompanySettingsForm() {
   return (
     <form onSubmit={handleSubmit} className="max-w-xl space-y-6">
       <section className="space-y-4">
-        <h4 className="font-semibold text-gray-800 dark:text-white/90">General</h4>
+        <h4 className="font-semibold text-gray-800 dark:text-white/90">{t("General")}</h4>
         <div>
-          <label className={labelClass} htmlFor="company-name">Company name</label>
+          <label className={labelClass} htmlFor="company-name">{t("Company name")}</label>
           <input id="company-name" className={inputClass} value={name} onChange={(e) => setName(e.target.value)} />
+        </div>
+        <div>
+          <label className={labelClass} htmlFor="default-language">{t("Default language")}</label>
+          <select
+            id="default-language"
+            className={inputClass}
+            value={settings.language ?? "en"}
+            onChange={(e) => set("language", e.target.value as Lang)}
+          >
+            {LANGUAGES.map((l) => (
+              <option key={l.code} value={l.code}>
+                {l.label}
+              </option>
+            ))}
+          </select>
+          <p className={hintClass}>{t("Used for people who haven't picked a language themselves.")}</p>
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label className={labelClass} htmlFor="currency">Currency label</label>
+            <label className={labelClass} htmlFor="currency">{t("Currency label")}</label>
             <input id="currency" className={inputClass} value={settings.currency} onChange={(e) => set("currency", e.target.value)} />
-            <p className={hintClass}>Shown next to amounts, e.g. DA, EUR, MAD.</p>
+            <p className={hintClass}>{t("Shown next to amounts, e.g. DA, EUR, MAD.")}</p>
           </div>
           <div>
-            <label className={labelClass} htmlFor="utc-offset">Clocking machine time zone</label>
+            <label className={labelClass} htmlFor="utc-offset">{t("Clocking machine time zone")}</label>
             <input id="utc-offset" className={inputClass} value={settings.utcOffset} onChange={(e) => set("utcOffset", e.target.value)} />
-            <p className={hintClass}>UTC offset, e.g. +01:00 for Algeria.</p>
+            <p className={hintClass}>{t("UTC offset, e.g. +01:00 for Algeria.")}</p>
           </div>
         </div>
       </section>
 
       <section className="space-y-4">
-        <h4 className="font-semibold text-gray-800 dark:text-white/90">Payroll rules</h4>
+        <h4 className="font-semibold text-gray-800 dark:text-white/90">{t("Payroll rules")}</h4>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div>
-            <label className={labelClass} htmlFor="hours-per-day">Hours per day</label>
+            <label className={labelClass} htmlFor="hours-per-day">{t("Hours per day")}</label>
             <input id="hours-per-day" type="number" min={1} max={24} step="0.5" className={inputClass} value={settings.hoursPerDay} onChange={(e) => set("hoursPerDay", Number(e.target.value))} />
           </div>
           <div>
-            <label className={labelClass} htmlFor="days-per-month">Working days / month</label>
+            <label className={labelClass} htmlFor="days-per-month">{t("Working days / month")}</label>
             <input id="days-per-month" type="number" min={1} max={31} className={inputClass} value={settings.workingDaysPerMonth} onChange={(e) => set("workingDaysPerMonth", Number(e.target.value))} />
           </div>
           <div>
-            <label className={labelClass} htmlFor="advance-ratio">Weekly advance (%)</label>
+            <label className={labelClass} htmlFor="advance-ratio">{t("Weekly advance (%)")}</label>
             <input
               id="advance-ratio"
               type="number"
@@ -100,8 +117,7 @@ export default function CompanySettingsForm() {
           </div>
         </div>
         <p className={hintClass}>
-          Hourly rate = base salary ÷ hours per day ÷ working days. The weekly advance offered is this percentage of
-          the week&apos;s earned pay, after consommation.
+          {t("Hourly rate = base salary ÷ hours per day ÷ working days. The weekly advance offered is this percentage of the week's earned pay, after consumption.")}
         </p>
       </section>
 
@@ -110,7 +126,7 @@ export default function CompanySettingsForm() {
           {message.text}
         </p>
       )}
-      <Button size="sm" disabled={saving}>{saving ? "Saving…" : "Save settings"}</Button>
+      <Button size="sm" disabled={saving}>{saving ? t("Saving…") : t("Save settings")}</Button>
     </form>
   );
 }

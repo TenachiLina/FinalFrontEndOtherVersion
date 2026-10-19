@@ -4,6 +4,7 @@ import { Modal } from "../ui/modal";
 
 import { currency } from "@/lib/payrollConfig";
 import { friendlyError } from "@/lib/errors";
+import { t } from "@/lib/i18n";
 interface BonusModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -35,9 +36,9 @@ const BonusModal: React.FC<BonusModalProps> = ({ isOpen, onClose, employeeName, 
 
   const handleSubmit = async () => {
     const n = Number(amount);
-    if (!amount || !Number.isFinite(n) || n <= 0) return setError("Enter an amount greater than 0.");
-    if (!date) return setError("Pick a date.");
-    if (!reason.trim()) return setError("Add a reason for this bonus.");
+    if (!amount || !Number.isFinite(n) || n <= 0) return setError(t("Enter an amount greater than 0."));
+    if (!date) return setError(t("Pick a date."));
+    if (!reason.trim()) return setError(t("Add a reason for this bonus."));
 
     setSaving(true);
     setError("");
@@ -56,25 +57,25 @@ const BonusModal: React.FC<BonusModalProps> = ({ isOpen, onClose, employeeName, 
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} className="m-4 max-w-[460px] p-6">
-      <h3 className="mb-1 text-lg font-semibold text-gray-800 dark:text-white">Give Bonus</h3>
+      <h3 className="mb-1 text-lg font-semibold text-gray-800 dark:text-white">{t("Give Bonus")}</h3>
       <p className="mb-5 text-sm text-gray-500 dark:text-gray-400">{employeeName}</p>
 
       <div className="flex flex-col gap-4">
         <div>
-          <label className={labelCls}>Amount ({currency()})</label>
+          <label className={labelCls}>{t("Amount")} ({currency()})</label>
           <input type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} className={inputCls} autoFocus />
         </div>
         <div>
-          <label className={labelCls}>Date</label>
+          <label className={labelCls}>{t("Date")}</label>
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} />
         </div>
         <div>
-          <label className={labelCls}>Reason</label>
+          <label className={labelCls}>{t("Reason")}</label>
           <textarea
             rows={2}
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            placeholder="e.g. Perfect attendance, great performance…"
+            placeholder={t("e.g. Perfect attendance, great performance…")}
             className={inputCls}
           />
         </div>
@@ -90,14 +91,14 @@ const BonusModal: React.FC<BonusModalProps> = ({ isOpen, onClose, employeeName, 
           disabled={saving}
           className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]"
         >
-          Cancel
+          {t("Cancel")}
         </button>
         <button
           onClick={handleSubmit}
           disabled={saving}
           className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-50"
         >
-          {saving ? "Saving…" : "Confirm"}
+          {saving ? t("Saving…") : t("Confirm")}
         </button>
       </div>
     </Modal>

@@ -3,6 +3,7 @@ import { useState, useCallback, useEffect } from "react";
 import { useModal } from "@/hooks/useModal";
 import { API_BASE_URL } from "@/lib/config";
 import { ensureOk, friendlyError } from "@/lib/errors";
+import { t } from "@/lib/i18n";
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
@@ -105,12 +106,12 @@ export const useShiftsManagement = () => {
 
   const handleSubmit = useCallback(async () => {
     if (!form.startTime || !form.endTime) {
-      setFormError("Start time and end time are required.");
+      setFormError(t("Start time and end time are required."));
       return;
     }
 
     if (form.endTime === form.startTime) {
-      setFormError("Start time and end time can't be the same.");
+      setFormError(t("Start time and end time can't be the same."));
       return;
     }
     // Note: endTime <= startTime is allowed on purpose — it just means the
@@ -183,7 +184,7 @@ export const useShiftsManagement = () => {
           const match = message.match(/"usageCount":(\d+)/);
           setPendingDelete((prev) => (prev ? { ...prev, usageCount: match ? Number(match[1]) : 0 } : prev));
         } else {
-          setError("Could not delete this shift. " + message);
+          setError(t("Could not delete this shift.") + " " + message);
           setPendingDelete(null);
         }
       } finally {

@@ -4,6 +4,7 @@ import Button from "../ui/button/Button";
 import { DateRange } from "@/components/reporting/types";
 import { getCalendarMonthRange, toLocalDateString } from "@/lib/reporting";
 import DateInput from "./DateInput";
+import { locale, monthName, t } from "@/lib/i18n";
 
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
@@ -27,7 +28,7 @@ type RangePickerProps = WeekRangePickerProps | MonthRangePickerProps;
 function formatPretty(dateStr: string): string {
   if (!dateStr) return "—";
   const d = new Date(`${dateStr}T00:00:00`);
-  return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+  return d.toLocaleDateString(locale(), { weekday: "short", month: "short", day: "numeric", year: "numeric" });
 }
 
 /**
@@ -68,10 +69,10 @@ const RangePicker: React.FC<RangePickerProps> = (props) => {
       {/* Mode toggle */}
       <div className="flex items-center gap-1 border-b border-gray-100 p-3 dark:border-gray-800">
         <ToggleButton active={!useCustom} onClick={() => setUseCustom(false)}>
-          {props.mode === "week" ? "Pick a week" : "Pick a month"}
+          {props.mode === "week" ? t("Pick a week") : t("Pick a month")}
         </ToggleButton>
         <ToggleButton active={useCustom} onClick={() => setUseCustom(true)}>
-          Custom range
+          {t("Custom range")}
         </ToggleButton>
       </div>
 
@@ -99,7 +100,7 @@ const RangePicker: React.FC<RangePickerProps> = (props) => {
               >
                 {MONTH_NAMES.map((name, idx) => (
                   <option key={name} value={idx}>
-                    {name}
+                    {monthName(idx)}
                   </option>
                 ))}
               </select>
@@ -116,7 +117,7 @@ const RangePicker: React.FC<RangePickerProps> = (props) => {
         )}
 
         <Button size="md" variant="primary" onClick={handleApply}>
-          Apply
+          {t("Apply")}
         </Button>
       </div>
 
@@ -124,7 +125,7 @@ const RangePicker: React.FC<RangePickerProps> = (props) => {
       <div className="flex items-center gap-2 rounded-b-2xl border-t border-gray-100 bg-gray-50 px-4 py-3 text-sm dark:border-gray-800 dark:bg-white/[0.02]">
         <CalendarIcon />
         <span className="text-gray-500 dark:text-gray-400">
-          Selected range:
+          {t("Selected range:")}
         </span>
         <span className="font-medium text-gray-800 dark:text-white">
           {formatPretty(previewRange.start)} → {formatPretty(previewRange.end)}
@@ -153,7 +154,7 @@ const ToggleButton: React.FC<{ active: boolean; onClick: () => void; children: R
 
 const Field: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
   <div className="flex flex-col gap-1">
-    <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{label}</label>
+    <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{t(label)}</label>
     {children}
   </div>
 );

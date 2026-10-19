@@ -12,6 +12,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { useShiftGrid } from "@/hooks/useNewPlanning";
 import Tooltip from "@/components/common/Tooltip";
+import { locale, t } from "@/lib/i18n";
 
 const ShiftGrid: React.FC = () => {
   //table mode view
@@ -58,7 +59,7 @@ const ShiftGrid: React.FC = () => {
   const backupLabel = (backups?: { title: string }[]) =>
     backups && backups.length > 0
       ? backups.map((b) => b.title).join(", ")
-      : "No backup";
+      : t("No backup");
 
   const getCalendarDays = (date: Date) => {
     const year = date.getFullYear(), month = date.getMonth();
@@ -78,7 +79,7 @@ const ShiftGrid: React.FC = () => {
 
   if (loadingMeta) return (
     <div className="flex items-center justify-center h-40 text-gray-400 text-sm animate-pulse">
-      Loading shifts and tasks…
+      {t("Loading shifts and tasks…")}
     </div>
   );
 
@@ -93,7 +94,7 @@ const ShiftGrid: React.FC = () => {
   <>
         {/* Page header / view controls */}
         <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2 ml-auto">
+          <div className="flex items-center gap-2 ms-auto">
             
             {/* Show table only */}
             <Tooltip text="Show table only">
@@ -106,7 +107,7 @@ const ShiftGrid: React.FC = () => {
                     ? "border-gray-700 text-brand-500 hover:bg-brand-500 hover:text-white"
                     : "border-gray-800 text-gray-600 opacity-40 cursor-not-allowed"
                 }`}
-                aria-label="Show table only"
+                aria-label={t("Show table only")}
               >
                 <TableCellsIcon className="h-5 w-5" />
               </button>
@@ -123,7 +124,7 @@ const ShiftGrid: React.FC = () => {
                     ? "border-gray-700 text-brand-500 hover:bg-brand-500 hover:text-white"
                     : "border-gray-800 text-gray-600 opacity-40 cursor-not-allowed"
                 }`}
-                aria-label="Back to normal view"
+                aria-label={t("Back to normal view")}
               >
                 <ArrowUturnLeftIcon className="h-5 w-5" />
               </button>
@@ -241,20 +242,20 @@ const ShiftGrid: React.FC = () => {
                       className="w-4 h-4 text-gray-100"
                       strokeWidth={3}
                     />
-                    Import from File
+                    {t("Import from File")}
                 </Button>
                 {showImportMenu && (
-                  <div className="absolute left-0 right-0 mt-2 z-50 rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                  <div className="absolute start-0 end-0 mt-2 z-50 rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
 
                     {/* Excel */}
                     <Tooltip text="Import a daily planning from an Excel file (Local machine storage).">
                       <button
                         type="button"
                         onClick={handleExcelImportClick}
-                        className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+                        className="flex w-full items-center gap-2 px-4 py-2.5 text-start text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
                       >
                         📊
-                        <span>Import from Excel</span>
+                        <span>{t("Import from Excel")}</span>
                       </button>
                     </Tooltip>
 
@@ -263,10 +264,10 @@ const ShiftGrid: React.FC = () => {
                       <button
                         type="button"
                         onClick={handlePdfImportClick}
-                        className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+                        className="flex w-full items-center gap-2 px-4 py-2.5 text-start text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
                       >
                         📄
-                        <span>Import from PDF</span>
+                        <span>{t("Import from PDF")}</span>
                       </button>
                     </Tooltip>
 
@@ -274,7 +275,7 @@ const ShiftGrid: React.FC = () => {
                 )}
               </div>
 
-              <Tooltip text="Import planning from a specific date (No need to file just Enter a day).">
+              <Tooltip text="Copy the planning of another day (no file needed, just pick the day).">
                 <Button
                   size="sm"
                   variant="primary"
@@ -285,7 +286,7 @@ const ShiftGrid: React.FC = () => {
                     className="w-4 h-4 text-gray-100"
                     strokeWidth={3}
                   />
-                  Import from Date
+                  {t("Import from Date")}
                 </Button>
               </Tooltip>
               <Tooltip text="Copy and save the planning from one month to another month.">
@@ -295,7 +296,7 @@ const ShiftGrid: React.FC = () => {
                   onClick={handleCopyMonthClick}
                   className="w-full justify-center"
                 >
-                  Copy Month
+                  {t("Copy Month")}
                 </Button>
               </Tooltip>
             </div>
@@ -319,7 +320,7 @@ const ShiftGrid: React.FC = () => {
                     type="button"
                     className="shrink-0 rounded-full border border-gray-300 dark:border-gray-600 px-4 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                   >
-                    Today
+                    {t("Today")}
                   </button>
                 </Tooltip>
                 {/* Previous / Next */}
@@ -388,7 +389,7 @@ const ShiftGrid: React.FC = () => {
                       onClick={() => handleSavePlanning()}
                       className="h-10 shrink-0 px-3 justify-center text-center whitespace-nowrap"
                     >
-                      Save
+                      {t("Save")}
                     </Button>
                   </Tooltip>
 
@@ -400,11 +401,9 @@ const ShiftGrid: React.FC = () => {
                       onClick={handleSaveToAllWeekdays}
                       className="h-10 shrink-0 px-3 justify-center text-center whitespace-nowrap"
                     >
-                      Save to all{" "}
-                      {currentDate.toLocaleDateString("en-US", {
-                        weekday: "long",
+                      {t("Save to every {weekday}", {
+                        weekday: currentDate.toLocaleDateString(locale(), { weekday: "long" }),
                       })}
-                      s
                     </Button>
                   </Tooltip>
 
@@ -416,11 +415,9 @@ const ShiftGrid: React.FC = () => {
                       onClick={handleSaveToNextWeekdays}
                       className="h-10 shrink-0 px-3 justify-center text-center whitespace-nowrap"
                     >
-                      Save to Next{" "}
-                      {currentDate.toLocaleDateString("en-US", {
-                        weekday: "long",
+                      {t("Save to the next {weekday}s", {
+                        weekday: currentDate.toLocaleDateString(locale(), { weekday: "long" }),
                       })}
-                      s
                     </Button>
                   </Tooltip>
                 </div>
@@ -432,9 +429,9 @@ const ShiftGrid: React.FC = () => {
               <table className="w-full border-collapse">
                 <thead>
                   <tr>
-                    <th className="w-32 min-w-[8rem] border-b border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 p-3" />
+                    <th className="w-32 min-w-[8rem] border-b border-e border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 p-3" />
                     {shifts.map((shift) => (
-                      <th key={shift.id} className="border-b border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 p-3 text-center last:border-r-0">
+                      <th key={shift.id} className="border-b border-e border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 p-3 text-center last:border-e-0">
                         <span className="block text-sm font-bold text-gray-800 dark:text-white/90">{shift.label}</span>
                         {shift.sub && <span className="block text-xs text-gray-400 dark:text-gray-500 mt-0.5">{shift.sub}</span>}
                       </th>
@@ -445,7 +442,7 @@ const ShiftGrid: React.FC = () => {
                 <tbody>
                   {posts.map((post, rowIdx) => (
                     <tr key={post.id} className={rowIdx % 2 === 0 ? "" : "bg-gray-50/50 dark:bg-white/[0.01]"}>
-                      <td className="border-b border-r border-gray-200 dark:border-gray-700 p-3 last:border-b-0">
+                      <td className="border-b border-e border-gray-200 dark:border-gray-700 p-3 last:border-b-0">
                         <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{post.label}</span>
                       </td>
 
@@ -455,7 +452,7 @@ const ShiftGrid: React.FC = () => {
                           <td key={shift.id}
                             onClick={() => handleCellClick(post.id, shift.id)}
                             className={[
-                              "border-b border-r border-gray-200 dark:border-gray-700 p-2 cursor-pointer transition-colors duration-150 last:border-r-0",
+                              "border-b border-e border-gray-200 dark:border-gray-700 p-2 cursor-pointer transition-colors duration-150 last:border-e-0",
                               rowIdx === posts.length - 1 ? "border-b-0" : "",
                               "hover:bg-brand-50 dark:hover:bg-brand-900/10",
                             ].join(" ")}
@@ -543,12 +540,12 @@ const ShiftGrid: React.FC = () => {
               <table className="w-full border-collapse">
                 <thead>
                   <tr>
-                    <th className="w-32 min-w-[8rem] border-b border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 p-3" />
+                    <th className="w-32 min-w-[8rem] border-b border-e border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 p-3" />
 
                     {shifts.map((shift) => (
                       <th
                         key={shift.id}
-                        className="border-b border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 p-3 text-center last:border-r-0"
+                        className="border-b border-e border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 p-3 text-center last:border-e-0"
                       >
                         <span className="block text-sm font-bold text-gray-800 dark:text-white/90">
                           {shift.label}
@@ -575,7 +572,7 @@ const ShiftGrid: React.FC = () => {
                       }
                     >
                       {/* Post name */}
-                      <td className="border-b border-r border-gray-200 dark:border-gray-700 p-3 last:border-b-0">
+                      <td className="border-b border-e border-gray-200 dark:border-gray-700 p-3 last:border-b-0">
                         <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                           {post.label}
                         </span>
@@ -589,7 +586,7 @@ const ShiftGrid: React.FC = () => {
                             key={shift.id}
                             onClick={() => handleCellClick(post.id, shift.id)}
                             className={[
-                              "border-b border-r border-gray-200 dark:border-gray-700 p-2 cursor-pointer transition-colors duration-150 last:border-r-0",
+                              "border-b border-e border-gray-200 dark:border-gray-700 p-2 cursor-pointer transition-colors duration-150 last:border-e-0",
                               rowIdx === posts.length - 1 ? "border-b-0" : "",
                               "hover:bg-brand-50 dark:hover:bg-brand-900/10",
                             ].join(" ")}
@@ -687,7 +684,7 @@ const ShiftGrid: React.FC = () => {
             <div className="flex flex-col gap-6">
               <div>
                 <h5 className="mb-1 font-semibold text-gray-800 text-theme-xl dark:text-white/90 lg:text-2xl">
-                  Add Assignment
+                  {t("Add Assignment")}
                 </h5>
                 {activePost && activeShift && (
                   <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -699,7 +696,7 @@ const ShiftGrid: React.FC = () => {
               {/* Search input */}
               <div className="relative">
                 <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
-                  Main Employee
+                  {t("Main Employee")}
                 </label>
                 <Tooltip text="Write the name of the main employee. Then optionally add backups below, and hit Add.">
                   <input
@@ -709,7 +706,7 @@ const ShiftGrid: React.FC = () => {
                       ? `${selectedEmployee.firstName} ${selectedEmployee.lastName}`
                       : empSearch}
                     onChange={(e) => { setEmpSearch(e.target.value); setSelectedEmployee(null); }}
-                    placeholder="Type a name or employee number…"
+                    placeholder={t("Type a name or employee number…")}
                     className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
                   />
                 </Tooltip>
@@ -717,7 +714,7 @@ const ShiftGrid: React.FC = () => {
                 {!selectedEmployee && empSearch.length > 0 && (
                   <ul className="absolute z-50 mt-1 w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg max-h-48 overflow-y-auto">
                     {filteredEmployees.length === 0 ? (
-                      <li className="px-4 py-3 text-sm text-gray-400">No employees found</li>
+                      <li className="px-4 py-3 text-sm text-gray-400">{t("No employees found")}</li>
                     ) : filteredEmployees.map((emp) => (
                       <li
                         key={emp._id}
@@ -736,7 +733,7 @@ const ShiftGrid: React.FC = () => {
                 <div className="flex items-center justify-between rounded-lg bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 px-3 py-2">
                   <span className="text-sm font-medium text-brand-700 dark:text-brand-300">
                     ✓ {selectedEmployee.firstName} {selectedEmployee.lastName}
-                    <span className="ml-2 text-xs text-brand-400">#{selectedEmployee.empNumber}</span>
+                    <span className="ms-2 text-xs text-brand-400">#{selectedEmployee.empNumber}</span>
                   </span>
                   <button
                     onClick={() => { setSelectedEmployee(null); setEmpSearch(""); }}
@@ -750,8 +747,8 @@ const ShiftGrid: React.FC = () => {
               {/* Backup Employees */}
               <div className="relative">
                 <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
-                  Backup Employees
-                  <span className="ml-1 text-xs text-gray-400">(optional)</span>
+                  {t("Backup Employees")}
+                  <span className="ms-1 text-xs text-gray-400">{t("(optional)")}</span>
                 </label>
 
                 <Tooltip text="Type a name and press Enter (or click a result) to add a backup. Repeat to add more.">
@@ -767,7 +764,7 @@ const ShiftGrid: React.FC = () => {
                         }
                       }
                     }}
-                    placeholder="Search backup employee..."
+                    placeholder={t("Search backup employee...")}
                     className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
                   />
                 </Tooltip>
@@ -775,7 +772,7 @@ const ShiftGrid: React.FC = () => {
                 {backupEmpSearch.trim().length > 0 && (
                   <ul className="absolute z-50 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900">
                     {filteredBackupEmployees.length === 0 ? (
-                      <li className="px-4 py-3 text-sm text-gray-400">No employees found</li>
+                      <li className="px-4 py-3 text-sm text-gray-400">{t("No employees found")}</li>
                     ) : (
                       filteredBackupEmployees.map((emp, i) => (
                         <li
@@ -802,7 +799,7 @@ const ShiftGrid: React.FC = () => {
                       >
                         <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
                           {b.firstName} {b.lastName}
-                          <span className="ml-2 text-xs text-gray-400">#{b.empNumber}</span>
+                          <span className="ms-2 text-xs text-gray-400">#{b.empNumber}</span>
                         </span>
                         <button
                           type="button"
@@ -821,7 +818,7 @@ const ShiftGrid: React.FC = () => {
               <div className="mt-4">
                 <div className="flex items-center justify-between mb-2">
                   <Tooltip
-                    text="Click here to add a subtask: first field for starting time of subtask, second for end time, next field to name the subtask, cross icon to remove subtask"
+                    text="Add a task within the shift: start time, end time, then its name. Use the cross to remove it."
                   >
                     <button
                       type="button"
@@ -835,8 +832,7 @@ const ShiftGrid: React.FC = () => {
 
                 {addTasks.length === 0 && (
                   <p className="text-xs text-gray-400 mb-2">
-                    No tasks yet — the employee is shown for the full shift.
-                    Add a task to split the time.
+                    {t("No tasks yet — the employee is shown for the full shift. Add a task to split the time.")}
                   </p>
                 )}
 
@@ -857,12 +853,12 @@ const ShiftGrid: React.FC = () => {
               <div className="flex items-center gap-3 sm:justify-end">
                 <button onClick={handleClose} type="button"
                   className="flex w-full justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] sm:w-auto">
-                  Cancel
+                  {t("Cancel")}
                 </button>
                 <button onClick={handleSave} type="button"
                   disabled={!selectedEmployee}
                   className="flex w-full justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-40 disabled:cursor-not-allowed sm:w-auto">
-                  Add
+                  {t("Add")}
                 </button>
               </div>
             </div>
@@ -872,10 +868,10 @@ const ShiftGrid: React.FC = () => {
           <Modal isOpen={isListModalOpen} onClose={() => setIsListModalOpen(false)} className="max-w-[400px] p-6 relative">
             <div className="flex flex-col gap-4">
               <div>
-                <h3 className="text-lg font-semibold text-gray-800 dark:text-white">Employees in Shift</h3>
+                <h3 className="text-lg font-semibold text-gray-800 dark:text-white">{t("Employees in Shift")}</h3>
                 <p className="text-xs text-gray-400 mt-1">{listEmployees.length} assigned employee(s)</p>
               </div>
-              <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto pr-1">
+              <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto pe-1">
                 {listEmployees.map((emp) => (
                   <div key={emp.id} className="px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-800 text-sm text-gray-700 dark:text-white">
                     <div className="flex items-center justify-between">
@@ -884,7 +880,7 @@ const ShiftGrid: React.FC = () => {
 
                         {emp.backups && emp.backups.length > 0 ? (
                           <div className="mt-0.5 flex flex-wrap items-center gap-1">
-                            <span className="text-xs text-gray-400">Backup:</span>
+                            <span className="text-xs text-gray-400">{t("Backup:")}</span>
                             {emp.backups.map((b) => (
                               <span
                                 key={b.id}
@@ -895,15 +891,15 @@ const ShiftGrid: React.FC = () => {
                             ))}
                           </div>
                         ) : (
-                          <span className="text-xs text-gray-400 truncate">Backup: No backup</span>
+                          <span className="text-xs text-gray-400 truncate">{t("Backup:")} {t("No backup")}</span>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 ml-2 shrink-0">
-                        <Tooltip text="Click this button, If you want to modify this assignment (main, backup, one of them or to add special tasks within the shift.).">
-                        <button onClick={() => openEditModal(emp, listCell!)} type="button" className="text-blue-400 hover:text-blue-600 text-xs font-medium">Edit</button>
+                      <div className="flex items-center gap-2 ms-2 shrink-0">
+                        <Tooltip text="Change this assignment: the main employee, the backups, or tasks within the shift.">
+                        <button onClick={() => openEditModal(emp, listCell!)} type="button" className="text-blue-400 hover:text-blue-600 text-xs font-medium">{t("Edit")}</button>
                         </Tooltip>
-                        <Tooltip text="Click this button, If you want to remove this employee from the planning.">
-                        <button onClick={() => { if (!listCell) return; handleDelete(emp.id, listCell); if (listEmployees.length <= 1) setIsListModalOpen(false); }} type="button" className="text-red-400 hover:text-red-600 text-xs font-medium">Remove</button>
+                        <Tooltip text="Remove this employee from the planning.">
+                        <button onClick={() => { if (!listCell) return; handleDelete(emp.id, listCell); if (listEmployees.length <= 1) setIsListModalOpen(false); }} type="button" className="text-red-400 hover:text-red-600 text-xs font-medium">{t("Remove")}</button>
                         </Tooltip>
                       </div>
                     </div>
@@ -918,9 +914,9 @@ const ShiftGrid: React.FC = () => {
                     )}
                   </div>
                 ))}
-                {listEmployees.length === 0 && <div className="text-sm text-gray-400 text-center py-6">No employees assigned</div>}
+                {listEmployees.length === 0 && <div className="text-sm text-gray-400 text-center py-6">{t("No employees assigned")}</div>}
               </div>
-              <Tooltip text="Click this button, if you want to close employees' List for these post and shift or you can simply hit the cross icon at the top of the window.">
+              <Tooltip text="Close this list (or use the cross at the top of the window).">
               <button onClick={() => setIsListModalOpen(false)} type="button" className="flex w-full justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600">Hide details</button>
               </Tooltip>
             </div>
@@ -930,14 +926,14 @@ const ShiftGrid: React.FC = () => {
           <Modal isOpen={isEditModalOpen} onClose={handleCloseEditModal} className="max-w-[500px] p-6 lg:p-10">
             <div className="flex flex-col gap-6">
               <div>
-                <h5 className="mb-1 font-semibold text-gray-800 text-theme-xl dark:text-white/90 lg:text-2xl">Edit Assignment</h5>
+                <h5 className="mb-1 font-semibold text-gray-800 text-theme-xl dark:text-white/90 lg:text-2xl">{t("Edit Assignment")}</h5>
               </div>
 
               <div className="relative">
                 <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
-                  Main Employee
+                  {t("Main Employee")}
                 </label>
-                <Tooltip text="Click Remove button bellow to remove the old one, then write a new one Here.">
+                <Tooltip text="Click Remove below to clear the current employee, then type the new one here.">
                 <input
                   autoFocus
                   type="text"
@@ -950,7 +946,7 @@ const ShiftGrid: React.FC = () => {
                     setEditTitle(e.target.value);
                     setEditSelectedEmployee(null);
                   }}
-                  placeholder="Search employee..."
+                  placeholder={t("Search employee...")}
                   className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
                 />
                 </Tooltip>
@@ -959,7 +955,7 @@ const ShiftGrid: React.FC = () => {
 
                     {filteredEditEmployees.length === 0 ? (
                       <li className="px-4 py-3 text-sm text-gray-400">
-                        No employees found
+                        {t("No employees found")}
                       </li>
                     ) : (
                       filteredEditEmployees.map((employee) => (
@@ -992,7 +988,7 @@ const ShiftGrid: React.FC = () => {
                       {editSelectedEmployee.firstName}{" "}
                       {editSelectedEmployee.lastName}
 
-                      <span className="ml-2 text-xs text-gray-400">
+                      <span className="ms-2 text-xs text-gray-400">
                         #{editSelectedEmployee.empNumber}
                       </span>
                     </span>
@@ -1005,7 +1001,7 @@ const ShiftGrid: React.FC = () => {
                       }}
                       className="text-red-400 hover:text-red-600 text-xs"
                     >
-                      Remove
+                      {t("Remove")}
                     </button>
                   </div>
                 )}
@@ -1014,8 +1010,8 @@ const ShiftGrid: React.FC = () => {
               {/* Backup Employees */}
               <div className="relative">
                 <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
-                  Backup Employees
-                  <span className="ml-1 text-xs text-gray-400">(optional)</span>
+                  {t("Backup Employees")}
+                  <span className="ms-1 text-xs text-gray-400">{t("(optional)")}</span>
                 </label>
 
                 <Tooltip text="Type a name and press Enter (or click a result) to add a backup. Click ✕ on a backup to remove it.">
@@ -1031,7 +1027,7 @@ const ShiftGrid: React.FC = () => {
                         }
                       }
                     }}
-                    placeholder="Search backup employee..."
+                    placeholder={t("Search backup employee...")}
                     className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
                   />
                 </Tooltip>
@@ -1039,7 +1035,7 @@ const ShiftGrid: React.FC = () => {
                 {editBackupSearch.trim().length > 0 && (
                   <ul className="absolute z-50 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900">
                     {filteredEditBackupEmployees.length === 0 ? (
-                      <li className="px-4 py-3 text-sm text-gray-400">No employees found</li>
+                      <li className="px-4 py-3 text-sm text-gray-400">{t("No employees found")}</li>
                     ) : (
                       filteredEditBackupEmployees.map((emp, i) => (
                         <li
@@ -1066,7 +1062,7 @@ const ShiftGrid: React.FC = () => {
                       >
                         <span className="text-sm text-gray-700 dark:text-gray-200">
                           {b.firstName} {b.lastName}
-                          <span className="ml-2 text-xs text-gray-400">#{b.empNumber}</span>
+                          <span className="ms-2 text-xs text-gray-400">#{b.empNumber}</span>
                         </span>
                         <button
                           type="button"
@@ -1084,7 +1080,7 @@ const ShiftGrid: React.FC = () => {
               {/* ── task breakdown ─────────────────────────────────────── */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <Tooltip text="Click here to add a subtask: first field for starting time of subtask second for end time, next field ti name the subtask ,cross icon to remove subtask">
+                  <Tooltip text="Add a task within the shift: start time, end time, then its name. Use the cross to remove it.">
                   <button type="button" onClick={addEditTask} className="text-xs font-medium text-brand-500 hover:text-brand-600">
                     + Add task
                   </button>
@@ -1113,8 +1109,8 @@ const ShiftGrid: React.FC = () => {
               {/* ── end task breakdown block ───────────────────────────────── */}
 
               <div className="flex items-center gap-3 sm:justify-end">
-                <button onClick={handleCloseEditModal} type="button" className="flex w-full justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] sm:w-auto">Cancel</button>
-                <button onClick={handleEdit} type="button" className="flex w-full justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 sm:w-auto">Update</button>
+                <button onClick={handleCloseEditModal} type="button" className="flex w-full justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] sm:w-auto">{t("Cancel")}</button>
+                <button onClick={handleEdit} type="button" className="flex w-full justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 sm:w-auto">{t("Update")}</button>
               </div>
             </div>
           </Modal>
@@ -1128,7 +1124,7 @@ const ShiftGrid: React.FC = () => {
             <div className="flex flex-col gap-5">
               <div>
                 <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
-                  Import Planning
+                  {t("Import Planning")}
                 </h3>
                 <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                   Select the date to import planning from.
@@ -1136,7 +1132,7 @@ const ShiftGrid: React.FC = () => {
               </div>
               <div>
                 <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Source Date
+                  {t("Source Date")}
                 </label>
                 <input
                   type="date"
@@ -1153,7 +1149,7 @@ const ShiftGrid: React.FC = () => {
                   variant="outline"
                   onClick={() => setIsImportModalOpen(false)}
                 >
-                  Cancel
+                  {t("Cancel")}
                 </Button>
 
                 <Button
@@ -1165,7 +1161,7 @@ const ShiftGrid: React.FC = () => {
                     setImportDate("");
                   }}
                 >
-                  Import
+                  {t("Import")}
                 </Button>
 
               </div>
@@ -1179,17 +1175,17 @@ const ShiftGrid: React.FC = () => {
             <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl dark:bg-gray-900">
 
               <h2 className="mb-2 text-lg font-semibold text-gray-800 dark:text-white">
-                Copy Monthly Planning
+                {t("Copy Monthly Planning")}
               </h2>
 
               <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
-                Select the month you want to copy from and the month you want to copy to.
+                {t("Select the month you want to copy from and the month you want to copy to.")}
               </p>
 
               {/* Source */}
               <div className="mb-4">
                 <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Source month
+                  {t("Source month")}
                 </label>
 
                 <input
@@ -1203,7 +1199,7 @@ const ShiftGrid: React.FC = () => {
               {/* Destination */}
               <div className="mb-6">
                 <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Destination month
+                  {t("Destination month")}
                 </label>
 
                 <input
@@ -1223,7 +1219,7 @@ const ShiftGrid: React.FC = () => {
                   disabled={isCopyingMonth}
                   className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
                 >
-                  Cancel
+                  {t("Cancel")}
                 </button>
 
                 <button
@@ -1236,7 +1232,7 @@ const ShiftGrid: React.FC = () => {
                   }
                   className="rounded-lg bg-brand-500 px-4 py-2 text-sm text-white hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {isCopyingMonth ? "Copying..." : "Copy Month"}
+                  {isCopyingMonth ? t("Copying…") : t("Copy Month")}
                 </button>
 
               </div>

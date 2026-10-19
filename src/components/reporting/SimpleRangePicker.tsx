@@ -4,6 +4,7 @@ import Button from "../ui/button/Button";
 import { DateRange } from "@/components/reporting/types";
 import { getThisWeekRange, getThisMonthRange } from "@/lib/reporting";
 import DateInput from "./DateInput";
+import { locale, t } from "@/lib/i18n";
 
 function getThisYearRange(): DateRange {
   const year = new Date().getFullYear();
@@ -13,7 +14,7 @@ function getThisYearRange(): DateRange {
 function formatPretty(dateStr: string): string {
   if (!dateStr) return "—";
   const d = new Date(`${dateStr}T00:00:00`);
-  return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+  return d.toLocaleDateString(locale(), { weekday: "short", month: "short", day: "numeric", year: "numeric" });
 }
 
 interface SimpleRangePickerProps {
@@ -39,27 +40,27 @@ const SimpleRangePicker: React.FC<SimpleRangePickerProps> = ({ range, onApply })
   return (
     <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
       <div className="flex flex-wrap items-center gap-2 border-b border-gray-100 p-3 dark:border-gray-800">
-        <PresetButton onClick={() => applyPreset(getThisWeekRange())}>This Week</PresetButton>
-        <PresetButton onClick={() => applyPreset(getThisMonthRange())}>This Month</PresetButton>
-        <PresetButton onClick={() => applyPreset(getThisYearRange())}>This Year</PresetButton>
+        <PresetButton onClick={() => applyPreset(getThisWeekRange())}>{t("This Week")}</PresetButton>
+        <PresetButton onClick={() => applyPreset(getThisMonthRange())}>{t("This Month")}</PresetButton>
+        <PresetButton onClick={() => applyPreset(getThisYearRange())}>{t("This Year")}</PresetButton>
       </div>
 
       <div className="flex flex-wrap items-end gap-4 p-4">
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Start</label>
+          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{t("Start")}</label>
           <DateInput value={start} onChange={setStart} />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">End</label>
+          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{t("End")}</label>
           <DateInput value={end} onChange={setEnd} />
         </div>
         <Button size="md" variant="primary" onClick={() => onApply({ start, end })}>
-          Apply
+          {t("Apply")}
         </Button>
       </div>
 
       <div className="flex items-center gap-2 rounded-b-2xl border-t border-gray-100 bg-gray-50 px-4 py-3 text-sm dark:border-gray-800 dark:bg-white/[0.02]">
-        <span className="text-gray-500 dark:text-gray-400">Selected range:</span>
+        <span className="text-gray-500 dark:text-gray-400">{t("Selected range:")}</span>
         <span className="font-medium text-gray-800 dark:text-white">
           {formatPretty(range.start)} → {formatPretty(range.end)}
         </span>

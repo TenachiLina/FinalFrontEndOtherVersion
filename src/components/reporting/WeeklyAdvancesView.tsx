@@ -10,6 +10,7 @@ import { readRange, rangeQuery } from "@/lib/rangeParams";
 
 import { currency } from "@/lib/payrollConfig";
 import LoadError from "@/components/ui/feedback/LoadError";
+import { t } from "@/lib/i18n";
 const TABLE_HEADERS = [
   "Employee",
   "Hour Rate",
@@ -47,9 +48,9 @@ const WeeklyAdvancesContent: React.FC = () => {
   return (
     <div className="flex flex-col gap-5">
       <div>
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Weekly Advances</h1>
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">{t("Weekly Advances")}</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          Review and give salary advances for the selected week, across all employees.
+          {t("Review and give salary advances for the selected week, across all employees.")}
         </p>
       </div>
 
@@ -59,7 +60,7 @@ const WeeklyAdvancesContent: React.FC = () => {
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search employee…"
+          placeholder={t("Search employee…")}
           className="w-56 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
         />
       </div>
@@ -67,7 +68,7 @@ const WeeklyAdvancesContent: React.FC = () => {
       {error && (
         <LoadError title="Couldn't load the weekly advances" message={error} onRetry={() => setRange(range)} />
       )}
-      {loading && <div className="text-sm text-gray-500 dark:text-gray-400">Loading…</div>}
+      {loading && <div className="text-sm text-gray-500 dark:text-gray-400">{t("Loading…")}</div>}
 
       <div className="overflow-x-auto rounded-2xl border border-gray-200 dark:border-gray-800">
         <Table className="min-w-full">
@@ -75,7 +76,7 @@ const WeeklyAdvancesContent: React.FC = () => {
             <TableRow>
               {TABLE_HEADERS.map((h, idx) => (
                 <TableCell key={`${h}-${idx}`} isHeader className="p-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">
-                  {h}
+                  {t(h)}
                 </TableCell>
               ))}
             </TableRow>
@@ -101,11 +102,11 @@ const WeeklyAdvancesContent: React.FC = () => {
                     <TableCell className="p-3">
                       {r.advanceGiven ? (
                         <span className="inline-flex items-center rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700 dark:bg-green-500/10 dark:text-green-400">
-                          Given
+                          {t("Given")}
                         </span>
                       ) : (
                         <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-500 dark:bg-gray-800 dark:text-gray-400">
-                          Not given
+                          {t("Not given")}
                         </span>
                       )}
                     </TableCell>
@@ -115,14 +116,14 @@ const WeeklyAdvancesContent: React.FC = () => {
                           onClick={() => revokeAdvance(r.advanceId)}
                           className="text-sm font-medium text-red-500 hover:text-red-600"
                         >
-                          Undo
+                          {t("Undo")}
                         </button>
                       ) : (
                         <button
                           onClick={() => setSelected(r)}
                           className="text-sm font-medium text-brand-500 hover:text-brand-600"
                         >
-                          Give Advance
+                          {t("Give Advance")}
                         </button>
                       )}
                     </TableCell>
@@ -131,14 +132,14 @@ const WeeklyAdvancesContent: React.FC = () => {
                         href={`/reporting/employee/${r.empId}?tab=advance&${rangeQuery(range)}&from=weekly-advances`}
                         className="inline-flex items-center gap-1 rounded-lg border border-brand-200 bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand-600 hover:bg-brand-100 dark:border-brand-900 dark:bg-brand-500/10 dark:text-brand-400 dark:hover:bg-brand-500/20"
                       >
-                        Details
+                        {t("Details")}
                       </Link>
                     </TableCell>
                   </TableRow>
                 ))}
 
                 <TableRow key="totals" className="border-t-2 border-gray-300 bg-gray-100 dark:border-gray-700 dark:bg-gray-800">
-                  <TableCell className="p-3 text-sm font-bold uppercase text-gray-800 dark:text-white">Total</TableCell>
+                  <TableCell className="p-3 text-sm font-bold uppercase text-gray-800 dark:text-white">{t("Total")}</TableCell>
                   <TableCell className="p-3 text-sm text-gray-400">—</TableCell>
                   <TableCell className="p-3 text-sm font-bold text-gray-800 dark:text-white">{colTotals.hours} h</TableCell>
                   <TableCell className={`p-3 text-sm font-bold ${colTotals.absences > 0 ? "text-red-500" : "text-gray-400"}`}>
@@ -162,7 +163,7 @@ const WeeklyAdvancesContent: React.FC = () => {
               </>
             ) : (
               <TableRow key="empty">
-                <TableCell className="p-6 text-center text-sm text-gray-400">No employees found</TableCell>
+                <TableCell className="p-6 text-center text-sm text-gray-400">{t("No employees found")}</TableCell>
               </TableRow>
             )}
           </TableBody>

@@ -6,6 +6,7 @@ import { useBonusesList, BonusEmployeeRow } from "@/hooks/useBonusesList";
 
 import { currency } from "@/lib/payrollConfig";
 import LoadError from "@/components/ui/feedback/LoadError";
+import { t } from "@/lib/i18n";
 const EMPLOYEE_HEADERS = ["Employee", "Bonuses This Month", "Total This Month", "Action"];
 
 const BonusesGiveView: React.FC = () => {
@@ -20,9 +21,9 @@ const BonusesGiveView: React.FC = () => {
   return (
     <div className="flex flex-col gap-5">
       <div>
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Give Bonuses</h1>
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">{t("Give Bonuses")}</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          Give bonuses to employees. Bonuses are added to the net salary.
+          {t("Give bonuses to employees. Bonuses are added to the net salary.")}
         </p>
       </div>
 
@@ -37,11 +38,11 @@ const BonusesGiveView: React.FC = () => {
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search employee…"
+          placeholder={t("Search employee…")}
           className="w-56 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
         />
-        <div className="ml-auto rounded-xl border border-green-200 bg-green-50 px-4 py-2 text-right dark:border-green-900 dark:bg-green-500/10">
-          <div className="text-xs text-gray-500 dark:text-gray-400">Total Bonuses (this month)</div>
+        <div className="ms-auto rounded-xl border border-green-200 bg-green-50 px-4 py-2 text-end dark:border-green-900 dark:bg-green-500/10">
+          <div className="text-xs text-gray-500 dark:text-gray-400">{t("Total Bonuses (this month)")}</div>
           <div className="text-sm font-bold text-green-600 dark:text-green-400">{totalGiven.toFixed(2)} {currency()}</div>
         </div>
       </div>
@@ -49,15 +50,15 @@ const BonusesGiveView: React.FC = () => {
       {error && (
         <LoadError title="Couldn't load the bonuses" message={error} onRetry={() => window.location.reload()} />
       )}
-      {loading && <div className="text-sm text-gray-500 dark:text-gray-400">Loading…</div>}
+      {loading && <div className="text-sm text-gray-500 dark:text-gray-400">{t("Loading…")}</div>}
 
       <div className="overflow-x-auto rounded-2xl border border-gray-200 dark:border-gray-800">
         <Table className="min-w-full">
           <TableHeader className="bg-gray-50 dark:bg-gray-800/60">
             <TableRow>
               {EMPLOYEE_HEADERS.map((h) => (
-                <TableCell key={h} isHeader className="p-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">
-                  {h}
+                <TableCell key={h} isHeader className="p-3 text-start text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  {t(h)}
                 </TableCell>
               ))}
             </TableRow>
@@ -78,13 +79,13 @@ const BonusesGiveView: React.FC = () => {
                     </TableCell>
                     <TableCell className="p-3">
                       <button onClick={() => setSelected(r)} className="text-sm font-medium text-brand-500 hover:text-brand-600">
-                        Give Bonus
+                        {t("Give Bonus")}
                       </button>
                     </TableCell>
                   </TableRow>
                 ))}
                 <TableRow key="totals" className="border-t-2 border-gray-300 bg-gray-100 dark:border-gray-700 dark:bg-gray-800">
-                  <TableCell className="p-3 text-sm font-bold uppercase text-gray-800 dark:text-white">Total</TableCell>
+                  <TableCell className="p-3 text-sm font-bold uppercase text-gray-800 dark:text-white">{t("Total")}</TableCell>
                   <TableCell className="p-3 text-sm font-bold text-gray-800 dark:text-white">{totalCount}</TableCell>
                   <TableCell className="p-3 text-sm font-bold text-green-600 dark:text-green-400">{totalGiven.toFixed(2)} {currency()}</TableCell>
                   <TableCell className="p-3">{null}</TableCell>
@@ -92,7 +93,7 @@ const BonusesGiveView: React.FC = () => {
               </>
             ) : (
               <TableRow key="empty">
-                <TableCell className="p-6 text-center text-sm text-gray-400">No employees found</TableCell>
+                <TableCell className="p-6 text-center text-sm text-gray-400">{t("No employees found")}</TableCell>
               </TableRow>
             )}
           </TableBody>

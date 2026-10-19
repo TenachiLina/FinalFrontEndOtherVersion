@@ -9,6 +9,7 @@ import { readRange, rangeQuery } from "@/lib/rangeParams";
 
 import { currency } from "@/lib/payrollConfig";
 import LoadError from "@/components/ui/feedback/LoadError";
+import { t } from "@/lib/i18n";
 const sumBy = (rows: MonthlyPayrollRow[], pick: (r: MonthlyPayrollRow) => unknown): number =>
   rows.reduce((acc, r) => acc + (Number(pick(r)) || 0), 0);
 
@@ -47,9 +48,9 @@ const MonthlyPayrollContent: React.FC = () => {
   return (
     <div className="flex flex-col gap-5">
       <div>
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Monthly Payroll</h1>
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">{t("Monthly Payroll")}</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          Net payout for every employee for the selected pay period.
+          {t("Net payout for every employee for the selected pay period.")}
         </p>
       </div>
 
@@ -59,7 +60,7 @@ const MonthlyPayrollContent: React.FC = () => {
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search employee…"
+          placeholder={t("Search employee…")}
           className="w-56 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
         />
 
@@ -73,7 +74,7 @@ const MonthlyPayrollContent: React.FC = () => {
       {error && (
         <LoadError title="Couldn't load the payroll" message={error} onRetry={() => setRange(range)} />
       )}
-      {loading && <div className="text-sm text-gray-500 dark:text-gray-400">Loading…</div>}
+      {loading && <div className="text-sm text-gray-500 dark:text-gray-400">{t("Loading…")}</div>}
 
       {/* Table has its own horizontal scrollbar, scoped to just the table.
           Full words, full numbers, sticky employee column so you never lose
@@ -90,7 +91,7 @@ const MonthlyPayrollContent: React.FC = () => {
                     idx === 0 ? "sticky left-0 z-20 bg-[#2563a0] text-left" : ""
                   }`}
                 >
-                  {h}
+                  {t(h)}
                 </TableCell>
               ))}
             </TableRow>
@@ -127,7 +128,7 @@ const MonthlyPayrollContent: React.FC = () => {
                         href={`/reporting/employee/${r.empId}?tab=payroll&${rangeQuery(range)}&from=monthly-payroll`}
                         className="inline-flex items-center gap-1 rounded-lg border border-brand-200 bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand-600 hover:bg-brand-100 dark:border-brand-900 dark:bg-brand-500/10 dark:text-brand-400 dark:hover:bg-brand-500/20"
                       >
-                        Details
+                        {t("Details")}
                       </Link>
                     </TableCell>
                   </TableRow>
@@ -136,7 +137,7 @@ const MonthlyPayrollContent: React.FC = () => {
                 {/* Totals row */}
                 <TableRow key="totals" className="border-t-2 border-gray-300 bg-gray-100 dark:border-gray-700 dark:bg-gray-800">
                   <TableCell className="sticky left-0 z-10 whitespace-nowrap bg-gray-100 p-3 text-sm font-bold uppercase text-gray-800 shadow-[2px_0_4px_rgba(0,0,0,0.04)] dark:bg-gray-800 dark:text-white">
-                    Total
+                    {t("Total")}
                   </TableCell>
                   <TableCell className="whitespace-nowrap p-3 text-center text-sm font-bold text-gray-800 dark:text-white">
                     {colTotals.baseSalary.toFixed(2)} {currency()}
@@ -168,7 +169,7 @@ const MonthlyPayrollContent: React.FC = () => {
               </>
             ) : (
               <TableRow key="empty">
-                <TableCell className="p-6 text-center text-sm text-gray-400">No employees found</TableCell>
+                <TableCell className="p-6 text-center text-sm text-gray-400">{t("No employees found")}</TableCell>
                 <TableCell className="p-6">{null}</TableCell>
                 <TableCell className="p-6">{null}</TableCell>
                 <TableCell className="p-6">{null}</TableCell>
@@ -185,7 +186,7 @@ const MonthlyPayrollContent: React.FC = () => {
         </Table>
       </div>
 
-      <p className="text-xs text-gray-400">Scroll the table right to see all columns — employee names stay fixed in place.</p>
+      <p className="text-xs text-gray-400">{t("Scroll the table right to see all columns — employee names stay fixed in place.")}</p>
     </div>
   );
 };
@@ -203,7 +204,7 @@ const TotalPill: React.FC<{ label: string; value: string; negative?: boolean; hi
         : "border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-white/[0.03]"
     }`}
   >
-    <div className="text-xs text-gray-500 dark:text-gray-400">{label}</div>
+    <div className="text-xs text-gray-500 dark:text-gray-400">{t(label)}</div>
     <div
       className={`text-sm font-bold ${
         highlight ? "text-green-600 dark:text-green-400" : negative ? "text-red-500" : "text-gray-800 dark:text-white"

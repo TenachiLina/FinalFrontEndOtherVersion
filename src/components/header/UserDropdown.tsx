@@ -3,6 +3,13 @@ import { useAuth } from "@/context/AuthContext";
 import React, { useState } from "react";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
+import { t } from "@/lib/i18n";
+
+const ROLE_NAMES: Record<string, string> = {
+  admin: "Admin",
+  manager: "Manager",
+  employee: "Clock-in kiosk",
+};
 
 export default function UserDropdown() {
   const [isOpen, setIsOpen] = useState(false);
@@ -28,11 +35,11 @@ function toggleDropdown(e: React.MouseEvent<HTMLButtonElement, MouseEvent>) {
         onClick={toggleDropdown} 
         className="flex items-center text-gray-700 dark:text-gray-400 dropdown-toggle"
       >
-        <span className="mr-3 flex h-11 w-11 items-center justify-center rounded-full bg-brand-100 font-semibold text-brand-600 dark:bg-brand-500/20 dark:text-brand-400">
+        <span className="me-3 flex h-11 w-11 items-center justify-center rounded-full bg-brand-100 font-semibold text-brand-600 dark:bg-brand-500/20 dark:text-brand-400">
           {initials}
         </span>
 
-        <span className="block mr-1 font-medium text-theme-sm">{user?.name}</span>
+        <span className="block me-1 font-medium text-theme-sm">{user?.name}</span>
 
         <svg
           className={`stroke-gray-500 dark:stroke-gray-400 transition-transform duration-200 ${
@@ -57,7 +64,7 @@ function toggleDropdown(e: React.MouseEvent<HTMLButtonElement, MouseEvent>) {
       <Dropdown
         isOpen={isOpen}
         onClose={closeDropdown}
-        className="absolute right-0 mt-[17px] flex w-[260px] flex-col rounded-2xl border border-gray-200 bg-white p-3 shadow-theme-lg dark:border-gray-800 dark:bg-gray-dark"
+        className="absolute end-0 mt-[17px] flex w-[260px] flex-col rounded-2xl border border-gray-200 bg-white p-3 shadow-theme-lg dark:border-gray-800 dark:bg-gray-dark"
       >
         <div>
           <span className="block font-medium text-gray-700 text-theme-sm dark:text-gray-400">
@@ -67,7 +74,7 @@ function toggleDropdown(e: React.MouseEvent<HTMLButtonElement, MouseEvent>) {
             {user?.email}
           </span>
           <span className="mt-1 inline-block rounded-full bg-gray-100 px-2 py-0.5 text-theme-xs capitalize text-gray-600 dark:bg-white/5 dark:text-gray-400">
-            {user?.role === "superadmin" ? "Super admin" : user?.role}
+            {t(user?.role === "superadmin" ? "Super admin" : ROLE_NAMES[user?.role ?? ""] ?? user?.role ?? "")}
           </span>
           {company && (
             <span className="mt-1 block text-theme-xs text-gray-500 dark:text-gray-400">
@@ -99,7 +106,7 @@ function toggleDropdown(e: React.MouseEvent<HTMLButtonElement, MouseEvent>) {
                   fill=""
                 />
               </svg>
-              Change password
+              {t("Change password")}
             </DropdownItem>
           </li>
         </ul>
@@ -123,7 +130,7 @@ function toggleDropdown(e: React.MouseEvent<HTMLButtonElement, MouseEvent>) {
               fill=""
             />
           </svg>
-          Sign out
+          {t("Sign out")}
         </button>
       </Dropdown>
     </div>

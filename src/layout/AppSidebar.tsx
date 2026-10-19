@@ -19,6 +19,7 @@ import {
   TableIcon,
   UserCircleIcon,
 } from "../icons/index";
+import { t } from "@/lib/i18n";
 
 
 type SubLink = { name: string; path: string; pro?: boolean; new?: boolean };
@@ -225,11 +226,11 @@ const AppSidebar: React.FC = () => {
                 {nav.icon}
               </span>
               {(isExpanded || isHovered || isMobileOpen) && (
-                <span className={`menu-item-text`}>{nav.name}</span>
+                <span className={`menu-item-text`}>{t(nav.name)}</span>
               )}
               {(isExpanded || isHovered || isMobileOpen) && (
                 <ChevronDownIcon
-                  className={`ml-auto w-5 h-5 transition-transform duration-200  ${openSubmenu?.type === menuType &&
+                  className={`ms-auto w-5 h-5 transition-transform duration-200  ${openSubmenu?.type === menuType &&
                     openSubmenu?.index === index
                     ? "rotate-180 text-brand-500"
                     : ""
@@ -253,7 +254,7 @@ const AppSidebar: React.FC = () => {
                   {nav.icon}
                 </span>
                 {(isExpanded || isHovered || isMobileOpen) && (
-                  <span className={`menu-item-text`}>{nav.name}</span>
+                  <span className={`menu-item-text`}>{t(nav.name)}</span>
                 )}
               </Link>
             )
@@ -271,7 +272,7 @@ const AppSidebar: React.FC = () => {
                     : "0px",
               }}
             >
-              <ul className="mt-2 space-y-1 ml-9">
+              <ul className="mt-2 space-y-1 ms-9">
                 {nav.subItems.map((subItem) => {
                   // ── Second-level group (e.g. Bonuses → Give Bonuses / History) ──
                   if ("subItems" in subItem) {
@@ -289,14 +290,14 @@ const AppSidebar: React.FC = () => {
                             : "menu-dropdown-item-inactive"
                             }`}
                         >
-                          {subItem.name}
+                          {t(subItem.name)}
                           <ChevronDownIcon
-                            className={`ml-auto w-4 h-4 transition-transform duration-200 ${nestedOpen ? "rotate-180" : ""
+                            className={`ms-auto w-4 h-4 transition-transform duration-200 ${nestedOpen ? "rotate-180" : ""
                               }`}
                           />
                         </button>
                         {nestedOpen && (
-                          <ul className="mt-1 space-y-1 ml-4">
+                          <ul className="mt-1 space-y-1 ms-4">
                             {subItem.subItems.map((child) => (
                               <li key={child.name}>
                                 <Link
@@ -306,7 +307,7 @@ const AppSidebar: React.FC = () => {
                                     : "menu-dropdown-item-inactive"
                                     }`}
                                 >
-                                  {child.name}
+                                  {t(child.name)}
                                 </Link>
                               </li>
                             ))}
@@ -326,11 +327,11 @@ const AppSidebar: React.FC = () => {
                           : "menu-dropdown-item-inactive"
                           }`}
                       >
-                        {subItem.name}
-                        <span className="flex items-center gap-1 ml-auto">
+                        {t(subItem.name)}
+                        <span className="flex items-center gap-1 ms-auto">
                           {subItem.new && (
                             <span
-                              className={`ml-auto ${isActive(subItem.path)
+                              className={`ms-auto ${isActive(subItem.path)
                                 ? "menu-dropdown-badge-active"
                                 : "menu-dropdown-badge-inactive"
                                 } menu-dropdown-badge `}
@@ -340,7 +341,7 @@ const AppSidebar: React.FC = () => {
                           )}
                           {subItem.pro && (
                             <span
-                              className={`ml-auto ${isActive(subItem.path)
+                              className={`ms-auto ${isActive(subItem.path)
                                 ? "menu-dropdown-badge-active"
                                 : "menu-dropdown-badge-inactive"
                                 } menu-dropdown-badge `}
@@ -437,15 +438,15 @@ const AppSidebar: React.FC = () => {
 
   return (
     <aside
-      className={`fixed mt-16 flex flex-col lg:mt-0 top-0 px-5 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 h-screen transition-all duration-300 ease-in-out z-50 border-r border-gray-200 
+      className={`fixed mt-16 flex flex-col lg:mt-0 top-0 px-5 start-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 h-screen transition-all duration-300 ease-in-out z-50 border-e border-gray-200 
         ${isExpanded || isMobileOpen
           ? "w-[290px]"
           : isHovered
             ? "w-[290px]"
             : "w-[90px]"
         }
-        ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}
-        lg:translate-x-0`}
+        ${isMobileOpen ? "translate-x-0" : "-translate-x-full rtl:translate-x-full"}
+        lg:translate-x-0 lg:rtl:translate-x-0`}
       onMouseEnter={() => !isExpanded && setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
@@ -488,7 +489,7 @@ const AppSidebar: React.FC = () => {
                   }`}
               >
                 {isExpanded || isHovered || isMobileOpen ? (
-                  "Menu"
+                  t("Menu")
                 ) : (
                   <HorizontaLDots />
                 )}

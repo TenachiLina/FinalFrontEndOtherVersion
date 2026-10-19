@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef } from "react";
+import { t } from "@/lib/i18n";
 
 interface TooltipProps {
   text: string;
@@ -102,7 +103,7 @@ export default function Tooltip({
             left: position.left,
           }}
         >
-          {text}
+          {t(text)}
         </div>
       )}
     </div>

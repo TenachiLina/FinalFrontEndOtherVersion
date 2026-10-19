@@ -30,6 +30,7 @@ import type {
   EmployeeRecord,
 } from "./../calendar/types";
 import { friendlyError } from "@/lib/errors";
+import { t } from "@/lib/i18n";
 
 /* ============================================================================
    FACE RECOGNITION API
@@ -1005,10 +1006,10 @@ const badgeLabel = (
   s: ShiftStatus
 ) =>
   s === "present"
-    ? "Present"
+    ? t("Present")
     : s === "absent"
-    ? "Absent"
-    : "Pending";
+    ? t("Absent")
+    : t("Pending");
 
 /* ============================================================================
    WORKTIME CONVERSION
@@ -2989,7 +2990,7 @@ const confirmAbsence = () => {
   const clearAllData =
     async () => {
       const ok = await confirmDialog({
-        title: `Reset clock-ins for ${operationalDate}?`,
+        title: t("Reset clock-ins for {date}?", { date: operationalDate }),
         message: "All clock-in and clock-out times shown for this day will be cleared.",
         confirmLabel: "Reset",
         danger: true,
@@ -3114,7 +3115,7 @@ const confirmAbsence = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-32 text-gray-400 text-sm animate-pulse">
-        Loading attendance data…
+        {t("Loading attendance data…")}
       </div>
     );
   }
@@ -3125,13 +3126,7 @@ const confirmAbsence = () => {
   ) {
     return (
       <div className="flex items-center justify-center h-32 text-gray-400 text-sm">
-        No shifts found — check
-        that{" "}
-        <code className="mx-1 font-mono bg-gray-100 px-1 rounded">
-          ${API_BASE_URL}/shifts
-        </code>{" "}
-        returns data and CORS
-        is enabled.
+        {t("No shifts found. Add shifts in Shifts Management first.")}
       </div>
     );
   }
@@ -3176,9 +3171,9 @@ const confirmAbsence = () => {
                 Edit{" "}
                 {manualInput.type ===
                 "clockIn"
-                  ? "Clock-In"
-                  : "Clock-Out"}{" "}
-                Time
+                  ? t("Clock-In")
+                  : t("Clock-Out")}{" "}
+                {t("Time")}
               </h3>
 
               <button
@@ -3226,7 +3221,7 @@ const confirmAbsence = () => {
                 }
                 className="flex-1 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
               >
-                Save
+                {t("Save")}
               </button>
 
               <button
@@ -3244,7 +3239,7 @@ const confirmAbsence = () => {
                 }
                 className="flex-1 rounded-lg border border-gray-200 dark:border-white/[0.1] px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/[0.05] transition-colors"
               >
-                Cancel
+                {t("Cancel")}
               </button>
             </div>
           </div>
@@ -3273,15 +3268,11 @@ const confirmAbsence = () => {
               id="backup-dialog-title"
               className="text-lg font-semibold text-gray-800 dark:text-white"
             >
-              Choose a replacement
+              {t("Choose a replacement")}
             </h3>
 
             <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-              Select one of the planned backup employees to replace
-              {" "}
-              {employees.find(
-                (emp) => emp.num === absenceModal.empNum
-              )?.FirstName ?? "the absent employee"}.
+              {t("Select one of the planned backup employees to replace the absent employee.")}
             </p>
 
             {/* Planned backup employees */}
@@ -3325,7 +3316,7 @@ const confirmAbsence = () => {
                 }}
                 className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.05]"
               >
-                Cancel
+                {t("Cancel")}
               </button>
 
               <button
@@ -3334,7 +3325,7 @@ const confirmAbsence = () => {
                 onClick={confirmAbsence}
                 className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Confirm absence
+                {t("Confirm absence")}
               </button>
             </div>
           </div>
@@ -3373,7 +3364,7 @@ const confirmAbsence = () => {
       <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-medium text-gray-800 dark:text-white">
-            Attendance
+            {t("Attendance")}
           </h1>
 
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
@@ -3386,7 +3377,7 @@ const confirmAbsence = () => {
 
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mr-1">
-            Shift:
+            {t("Shift:")}
           </span>
 
           {shifts.map(
@@ -3446,13 +3437,13 @@ const confirmAbsence = () => {
             <span>
               {deviceStatus ===
               null
-                ? "Checking machine…"
+                ? t("Checking machine…")
                 : `${
-                    deviceStatus.name
+                    t(deviceStatus.name)
                   } — ${
                     deviceStatus.connected
-                      ? "Connected"
-                      : "Disconnected"
+                      ? t("Connected")
+                      : t("Disconnected")
                   }`}
             </span>
           </div>
@@ -3467,8 +3458,8 @@ const confirmAbsence = () => {
             }`}
           >
             {deviceLoading
-              ? "Reading machine…"
-              : `Machine punches: ${deviceLogs.length}`}
+              ? t("Reading machine…")
+              : t("Machine punches: {n}", { n: deviceLogs.length })}
           </span>
 
           {/* RESET */}
@@ -3480,7 +3471,7 @@ const confirmAbsence = () => {
             className="ml-2 flex items-center gap-1.5 rounded-lg border border-red-200 dark:border-red-900/50 px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
           >
             <TrashIcon />
-            Reset
+            {t("Reset")}
           </button>
         </div>
       </div>
@@ -3504,7 +3495,7 @@ const confirmAbsence = () => {
 
           {
             label:
-              "Present",
+              t("Present"),
 
             value:
               stats.present,
@@ -3515,7 +3506,7 @@ const confirmAbsence = () => {
 
           {
             label:
-              "Absent",
+              t("Absent"),
 
             value:
               stats.absent,
@@ -3526,7 +3517,7 @@ const confirmAbsence = () => {
 
           {
             label:
-              "Pending",
+              t("Pending"),
 
             value:
               stats.pending,
@@ -3544,7 +3535,7 @@ const confirmAbsence = () => {
             >
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
                 {
-                  stat.label
+                  t(stat.label)
                 }
               </p>
 
@@ -3566,21 +3557,15 @@ const confirmAbsence = () => {
 
       {attendanceLoading ? (
         <div className="p-6 text-center text-gray-500">
-          Loading attendance...
+          {t("Loading attendance...")}
         </div>
       ) : (
       <div className="rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
         <div className="flex items-center justify-between px-5 py-4 gap-4 flex-wrap border-b border-gray-100 dark:border-white/[0.05]">
           <h2 className="text-base font-semibold text-gray-800 dark:text-white">
             {currentShift
-              ? `${currentShift.start_time.slice(
-                  0,
-                  5
-                )} – ${currentShift.end_time.slice(
-                  0,
-                  5
-                )} shift`
-              : "Attendance"}
+              ? t("{start} – {end} shift", { start: currentShift.start_time.slice(0, 5), end: currentShift.end_time.slice(0, 5) })
+              : t("Attendance")}
           </h2>
 
           <div className="relative">
@@ -3602,7 +3587,7 @@ const confirmAbsence = () => {
 
             <input
               type="text"
-              placeholder="Search employee…"
+              placeholder={t("Search employee…")}
               value={
                 search
               }
@@ -3624,14 +3609,14 @@ const confirmAbsence = () => {
                 {[
                   "Employee",
                   "Status",
-                  "Clock In",
-                  "Clock Out",
+                  t("Clock In"),
+                  t("Clock Out"),
                   "Hours",
                   "Delay",
                   "Overtime",
                   "Consumption",
                   "Penalty",
-                  "Absent",
+                  t("Absent"),
                   "Reason",
                   "Saved",
                 ].map(
@@ -3643,7 +3628,7 @@ const confirmAbsence = () => {
                       className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap"
                     >
                       {
-                        h
+                        t(h)
                       }
                     </th>
                   )
@@ -3663,8 +3648,8 @@ const confirmAbsence = () => {
                   >
                     {employees.length ===
                     0
-                      ? "No employees found in the database."
-                      : "No employees assigned to this shift for today."}
+                      ? t("No employees found in the database.")
+                      : t("No employees assigned to this shift for today.")}
                   </td>
                 </tr>
               ) : (
@@ -3751,12 +3736,12 @@ const confirmAbsence = () => {
 
                           {entry.absent && (
                             <p className="mt-1 text-xs text-blue-600 dark:text-blue-400">
-                              Backup:{" "}
+                              {t("Backup:")}{" "}
                               {backupEmployee
                                 ? `${backupEmployee.FirstName} `
                                 : entry.backupEmpNum != null
-                                  ? `Employee #${entry.backupEmpNum}`
-                                  : "Not assigned"}
+                                  ? t("Employee #{n}", { n: entry.backupEmpNum })
+                                  : t("Not assigned")}
                             </p>
                           )}
                         </td>
@@ -3796,11 +3781,11 @@ const confirmAbsence = () => {
                                 {entry.clockIn !==
                                 "00:00"
                                   ? entry.clockIn
-                                  : "No punch"}
+                                  : t("No punch")}
                               </span>
 
                               <span className="text-[10px] text-gray-400">
-                                Face recognition
+                                {t("Face recognition")}
                               </span>
                             </div>
                           ) : (
@@ -3828,11 +3813,11 @@ const confirmAbsence = () => {
                                 {entry.clockOut !==
                                 "00:00"
                                   ? entry.clockOut
-                                  : "No punch"}
+                                  : t("No punch")}
                               </span>
 
                               <span className="text-[10px] text-gray-400">
-                                Face recognition
+                                {t("Face recognition")}
                               </span>
                             </div>
                           ) : (
@@ -3976,7 +3961,7 @@ const confirmAbsence = () => {
                             }
                             placeholder={
                               entry.absent
-                                ? "Enter reason…"
+                                ? t("Enter reason…")
                                 : "—"
                             }
                             value={
@@ -4006,11 +3991,11 @@ const confirmAbsence = () => {
                           {entry._saving ? (
                             <span className="text-xs text-blue-500 animate-pulse flex items-center gap-1">
                               <SaveIcon />
-                              Saving…
+                              {t("Saving…")}
                             </span>
                           ) : entry._dirty ? (
                             <span className="text-xs text-amber-500">
-                              Unsaved
+                              {t("Unsaved")}
                             </span>
                           ) : entry.workTimeId ? (
                             <span className="text-xs text-green-600">

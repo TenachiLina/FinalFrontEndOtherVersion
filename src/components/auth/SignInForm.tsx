@@ -9,6 +9,7 @@ import { displayBrand, useSignInBrand } from "@/lib/branding";
 import { friendlyError } from "@/lib/errors";
 import { useRouter, useSearchParams } from "next/navigation";
 import React, { useEffect, useState } from "react";
+import { t } from "@/lib/i18n";
 
 // Only follow ?next= to an in-app page the user is allowed to open.
 function destinationFor(
@@ -49,9 +50,9 @@ export default function SignInForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const errors: { email?: string; password?: string } = {};
-    if (!email.trim()) errors.email = "Enter your email.";
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) errors.email = "This doesn't look like an email address.";
-    if (!password) errors.password = "Enter your password.";
+    if (!email.trim()) errors.email = t("Enter your email.");
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) errors.email = t("This doesn't look like an email address.");
+    if (!password) errors.password = t("Enter your password.");
     setFieldErrors(errors);
     if (errors.email || errors.password) return;
     setError(null);
@@ -74,10 +75,10 @@ export default function SignInForm() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={b.logo} alt={`${b.name} logo`} className="mb-6 h-14 max-w-[180px] object-contain lg:hidden" />
             <h1 className="mb-2 font-semibold text-gray-800 text-title-sm dark:text-white/90 sm:text-title-md">
-              Sign in to {b.name}
+              {t("Sign in to {name}", { name: b.name })}
             </h1>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Enter your email and password to sign in.
+              {t("Enter your email and password to sign in.")}
             </p>
           </div>
           <div>
@@ -85,7 +86,7 @@ export default function SignInForm() {
               <div className="space-y-6">
                 <div>
                   <Label htmlFor="email">
-                    Email <span className="text-error-500">*</span>{" "}
+                    {t("Email")} <span className="text-error-500">*</span>{" "}
                   </Label>
                   <Input
                     id="email"
@@ -102,14 +103,14 @@ export default function SignInForm() {
                 </div>
                 <div>
                   <Label htmlFor="password">
-                    Password <span className="text-error-500">*</span>{" "}
+                    {t("Password")} <span className="text-error-500">*</span>{" "}
                   </Label>
                   <div className="relative">
                     <Input
                       id="password"
                       name="password"
                       type={showPassword ? "text" : "password"}
-                      placeholder="Enter your password"
+                      placeholder={t("Enter your password")}
                       error={!!fieldErrors.password}
                       onChange={(e) => {
                         setPassword(e.target.value);
@@ -118,7 +119,7 @@ export default function SignInForm() {
                     />
                     <span
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute z-30 -translate-y-1/2 cursor-pointer right-4 top-1/2"
+                      className="absolute z-30 -translate-y-1/2 cursor-pointer end-4 top-1/2"
                     >
                       {showPassword ? (
                         <EyeIcon className="fill-gray-500 dark:fill-gray-400" />
@@ -136,7 +137,7 @@ export default function SignInForm() {
                     role="status"
                     className="rounded-lg bg-warning-50 px-4 py-3 text-sm text-warning-700 dark:bg-warning-500/15 dark:text-warning-400"
                   >
-                    Your session expired. Please sign in again.
+                    {t("Your session expired. Please sign in again.")}
                   </p>
                 )}
                 {error && (
@@ -149,11 +150,11 @@ export default function SignInForm() {
                 )}
                 <div>
                   <Button className="w-full" size="sm" disabled={submitting}>
-                    {submitting ? "Signing in…" : "Sign in"}
+                    {submitting ? t("Signing in…") : t("Sign in")}
                   </Button>
                 </div>
                 <p className="text-sm text-center text-gray-500 dark:text-gray-400">
-                  Forgot your password or need an account? Ask an admin.
+                  {t("Forgot your password or need an account? Ask an admin.")}
                 </p>
               </div>
             </form>

@@ -1,5 +1,6 @@
 import AuthBrandPanel from "@/components/auth/AuthBrandPanel";
 import ThemeTogglerTwo from "@/components/common/ThemeTogglerTwo";
+import LanguageSwitcher from "@/components/common/LanguageSwitcher";
 
 import { ThemeProvider } from "@/context/ThemeContext";
 import React, { Suspense } from "react";
@@ -18,7 +19,10 @@ export default function AuthLayout({
           <Suspense fallback={<div className="lg:w-1/2 hidden lg:block" />}>
             <AuthBrandPanel />
           </Suspense>
-          <div className="fixed bottom-6 right-6 z-50 hidden sm:block">
+          <div className="fixed top-4 end-4 z-50">
+            <LanguageSwitcher />
+          </div>
+          <div className="fixed bottom-6 end-6 z-50 hidden sm:block">
             <ThemeTogglerTwo />
           </div>
         </div>

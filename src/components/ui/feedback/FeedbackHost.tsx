@@ -9,6 +9,7 @@ import {
   getToasts,
   subscribe,
 } from "@/lib/notify";
+import { t } from "@/lib/i18n";
 
 const EMPTY: never[] = [];
 
@@ -39,15 +40,15 @@ function Toasts() {
   const toasts = useSyncExternalStore(subscribe, getToasts, () => EMPTY);
   return (
     <div
-      className="pointer-events-none fixed right-4 top-4 flex w-[calc(100%-2rem)] max-w-sm flex-col gap-3"
+      className="pointer-events-none fixed end-4 top-4 flex w-[calc(100%-2rem)] max-w-sm flex-col gap-3"
       style={{ zIndex: 100000 }}
     >
-      {toasts.map((t) => {
-        const s = STYLES[t.kind];
+      {toasts.map((item) => {
+        const s = STYLES[item.kind];
         return (
           <div
-            key={t.id}
-            role={t.kind === "error" || t.kind === "warning" ? "alert" : "status"}
+            key={item.id}
+            role={item.kind === "error" || item.kind === "warning" ? "alert" : "status"}
             className={`pointer-events-auto flex items-start gap-3 rounded-xl border p-4 shadow-theme-lg animate-[toast-in_0.2s_ease-out] ${s.box}`}
           >
             <span
@@ -57,13 +58,13 @@ function Toasts() {
               {s.symbol}
             </span>
             <div className="min-w-0 flex-1 text-sm">
-              {t.title && <p className="font-semibold text-gray-800 dark:text-white/90">{t.title}</p>}
-              <p className="text-gray-700 dark:text-gray-300">{t.message}</p>
+              {item.title && <p className="font-semibold text-gray-800 dark:text-white/90">{item.title}</p>}
+              <p className="text-gray-700 dark:text-gray-300">{item.message}</p>
             </div>
             <button
               type="button"
-              aria-label="Dismiss"
-              onClick={() => dismissToast(t.id)}
+              aria-label={t("Dismiss")}
+              onClick={() => dismissToast(item.id)}
               className="-m-1 rounded p-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
             >
               ✕
@@ -102,9 +103,9 @@ function ConfirmDialog() {
         className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-theme-xl dark:bg-gray-900"
       >
         <h3 id={`confirm-title-${req.id}`} className="text-lg font-semibold text-gray-800 dark:text-white/90">
-          {req.title}
+          {t(req.title)}
         </h3>
-        {req.message && <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">{req.message}</p>}
+        {req.message && <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">{t(req.message)}</p>}
         <div className="mt-6 flex justify-end gap-3">
           <button
             ref={cancelRef}
@@ -112,7 +113,7 @@ function ConfirmDialog() {
             onClick={() => answerConfirm(req.id, false)}
             className="rounded-lg px-4 py-2.5 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700 dark:hover:bg-white/[0.03]"
           >
-            {req.cancelLabel ?? "Cancel"}
+            {t(req.cancelLabel ?? "Cancel")}
           </button>
           <button
             ref={confirmRef}
@@ -122,7 +123,7 @@ function ConfirmDialog() {
               req.danger ? "bg-error-500 hover:bg-error-600" : "bg-brand-500 hover:bg-brand-600"
             }`}
           >
-            {req.confirmLabel ?? (req.danger ? "Delete" : "Confirm")}
+            {t(req.confirmLabel ?? (req.danger ? "Delete" : "Confirm"))}
           </button>
         </div>
       </div>

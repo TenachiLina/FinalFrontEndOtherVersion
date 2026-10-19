@@ -9,6 +9,8 @@ import { DEFAULT_BRAND } from "@/lib/branding";
 import { fetchJson, friendlyError } from "@/lib/errors";
 import { toast } from "@/lib/notify";
 import LoadError from "@/components/ui/feedback/LoadError";
+import LanguageSwitcher from "@/components/common/LanguageSwitcher";
+import { locale, t } from "@/lib/i18n";
 
 interface KioskEmployee {
   id: string;
@@ -25,7 +27,7 @@ const REFRESH_MS = 30_000;
 const AUTO_CLOSE_MS = 4_000;
 
 const timeOf = (iso: string) =>
-  new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  new Date(iso).toLocaleTimeString(locale(), { hour: "2-digit", minute: "2-digit" });
 
 function initials(e: KioskEmployee) {
   return `${e.firstName?.[0] ?? ""}${e.lastName?.[0] ?? ""}`.toUpperCase() || "?";
@@ -57,12 +59,12 @@ function LiveClock() {
   }, []);
   if (!now) return null;
   return (
-    <div className="text-right">
+    <div className="text-end">
       <div className="text-2xl font-semibold tabular-nums text-gray-800 dark:text-white/90">
-        {now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+        {now.toLocaleTimeString(locale(), { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
       </div>
       <div className="text-sm text-gray-500 dark:text-gray-400">
-        {now.toLocaleDateString([], { weekday: "long", day: "numeric", month: "long" })}
+        {now.toLocaleDateString(locale(), { weekday: "long", day: "numeric", month: "long" })}
       </div>
     </div>
   );
@@ -158,7 +160,7 @@ export default function KioskView() {
   if (loading || !allowed) {
     return (
       <div className="flex min-h-screen items-center justify-center text-sm text-gray-500 dark:bg-gray-900 dark:text-gray-400">
-        Loading…
+        {t("Loading…")}
       </div>
     );
   }
@@ -173,18 +175,19 @@ export default function KioskView() {
           <img src={logo} alt="" className="h-10 w-10 shrink-0 rounded-lg object-contain" />
           <div className="min-w-0">
             <div className="truncate text-lg font-semibold text-gray-800 dark:text-white/90">{company?.name}</div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">Clock in / Clock out</div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">{t("Clock in / Clock out")}</div>
           </div>
         </div>
         <div className="flex items-center gap-4">
           <LiveClock />
+          <LanguageSwitcher className="hidden sm:inline-flex" />
           {user?.role === "employee" ? (
             <button
               type="button"
               onClick={logout}
               className="rounded-lg px-3 py-2 text-sm text-gray-500 ring-1 ring-inset ring-gray-200 hover:bg-gray-50 dark:text-gray-400 dark:ring-gray-700 dark:hover:bg-white/5"
             >
-              Sign out
+              {t("Sign out")}
             </button>
           ) : (
             <button
@@ -192,7 +195,7 @@ export default function KioskView() {
               onClick={() => router.push("/clockinpagehistory")}
               className="rounded-lg px-3 py-2 text-sm text-gray-500 ring-1 ring-inset ring-gray-200 hover:bg-gray-50 dark:text-gray-400 dark:ring-gray-700 dark:hover:bg-white/5"
             >
-              Exit kiosk
+              {t("Exit kiosk")}
             </button>
           )}
         </div>
@@ -200,13 +203,13 @@ export default function KioskView() {
 
       <main className="mx-auto max-w-6xl px-4 py-6 md:px-8">
         <label htmlFor="kiosk-search" className="sr-only">
-          Find your name
+          {t("Find your name")}
         </label>
         <input
           id="kiosk-search"
           type="search"
           autoComplete="off"
-          placeholder="Find your name or number…"
+          placeholder={t("Find your name or number…")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="mb-6 h-14 w-full rounded-xl border border-gray-300 bg-white px-5 text-lg text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
@@ -216,7 +219,7 @@ export default function KioskView() {
         {loadingList && <p className="text-gray-500 dark:text-gray-400">Loading…</p>}
         {!loadingList && !loadError && filtered.length === 0 && (
           <p className="text-gray-500 dark:text-gray-400">
-            {employees.length === 0 ? "No employees yet. An admin can add them." : "No one matches this search."}
+            {employees.length === 0 ? t("No employees yet. An admin can add them.") : t("No one matches this search.")}
           </p>
         )}
 
@@ -242,7 +245,7 @@ export default function KioskView() {
                       : "bg-gray-100 text-gray-600 dark:bg-white/5 dark:text-gray-400"
                   }`}
                 >
-                  {e.clockedIn && e.since ? `In since ${timeOf(e.since)}` : "Out"}
+                  {e.clockedIn && e.since ? t("In since {time}", { time: timeOf(e.since) }) : t("Out")}
                 </span>
               </button>
             </li>
@@ -259,7 +262,7 @@ export default function KioskView() {
           <div
             role="dialog"
             aria-modal="true"
-            aria-label={`Clock in or out for ${selected.firstName} ${selected.lastName}`}
+            aria-label={t("Clock in or out for {name}", { name: `${selected.firstName} ${selected.lastName}` })}
             className="relative w-full max-w-md rounded-3xl bg-white p-8 text-center shadow-theme-xl dark:bg-gray-900"
           >
             {done ? (
@@ -273,17 +276,17 @@ export default function KioskView() {
                   ✓
                 </div>
                 <h2 className="text-2xl font-semibold text-gray-800 dark:text-white/90">
-                  {done.action === "in" ? "Clocked in" : "Clocked out"}
+                  {done.action === "in" ? t("Clocked in") : t("Clocked out")}
                 </h2>
                 <p className="mt-2 text-gray-600 dark:text-gray-400">
-                  {done.name} at <strong>{timeOf(done.time)}</strong>
+                  {t("{name} at {time}", { name: done.name, time: timeOf(done.time) })}
                 </p>
                 <button
                   type="button"
                   onClick={() => (setDone(null), setSelected(null))}
                   className="mt-6 text-sm font-medium text-brand-500 hover:underline"
                 >
-                  Done
+                  {t("Done")}
                 </button>
               </div>
             ) : (
@@ -296,8 +299,8 @@ export default function KioskView() {
                 </h2>
                 <p className="mb-6 mt-1 text-gray-500 dark:text-gray-400">
                   {selected.clockedIn && selected.since
-                    ? `Clocked in since ${timeOf(selected.since)}`
-                    : "Not clocked in"}
+                    ? t("Clocked in since {time}", { time: timeOf(selected.since) })
+                    : t("Not clocked in")}
                 </p>
                 <div className="grid grid-cols-2 gap-3">
                   <button
@@ -306,7 +309,7 @@ export default function KioskView() {
                     onClick={() => clock("in")}
                     className="rounded-2xl bg-success-500 px-4 py-5 text-lg font-semibold text-white hover:bg-success-600 disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    Clock in
+                    {t("Clock in")}
                   </button>
                   <button
                     type="button"
@@ -314,17 +317,17 @@ export default function KioskView() {
                     onClick={() => clock("out")}
                     className="rounded-2xl bg-error-500 px-4 py-5 text-lg font-semibold text-white hover:bg-error-600 disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    Clock out
+                    {t("Clock out")}
                   </button>
                 </div>
-                <p className="mt-4 text-xs text-gray-400">The time is recorded by the server when you press the button.</p>
+                <p className="mt-4 text-xs text-gray-400">{t("The time is recorded by the server when you press the button.")}</p>
                 <button
                   type="button"
                   disabled={busy}
                   onClick={() => setSelected(null)}
                   className="mt-4 text-sm font-medium text-gray-500 hover:underline dark:text-gray-400"
                 >
-                  Not me — go back
+                  {t("Not me — go back")}
                 </button>
               </>
             )}

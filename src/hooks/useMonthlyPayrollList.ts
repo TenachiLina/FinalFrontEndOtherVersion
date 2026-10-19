@@ -4,6 +4,8 @@ import { getThisMonthRange, fetchEmployees, fetchWorktimeRows, fetchAdvances, fe
 import { payrollConfig, sumHours, sumConsommation, sumPenalties, sumAbsences } from "@/lib/payrollConfig";
 import { fetchBonuses, BonusRecord } from "@/lib/bonuses";
 import { friendlyError, optionalData } from "@/lib/errors";
+import { locale } from "@/lib/i18n";
+import { t } from "@/lib/i18n";
 
 export interface MonthlyPayrollRow {
   empId: number | string;
@@ -148,7 +150,7 @@ export function useMonthlyPayrollList(initialRange?: DateRange) {
   const monthLabel = useMemo(() => {
     if (!range.start) return "";
     const d = new Date(`${range.start}T00:00:00`);
-    return d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    return d.toLocaleDateString(locale(), { month: "long", year: "numeric" });
   }, [range.start]);
 
   return {

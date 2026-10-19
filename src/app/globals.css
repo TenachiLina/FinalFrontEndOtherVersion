@@ -779,3 +779,12 @@ html.theme-transition *::after {
     transform: translateY(0);
   }
 }
+
+/* Arabic: use an Arabic font everywhere (see app/layout.tsx) */
+html[lang="ar"] body,
+html[lang="ar"] button,
+html[lang="ar"] input,
+html[lang="ar"] select,
+html[lang="ar"] textarea {
+  font-family: var(--font-cairo), var(--font-outfit), sans-serif;
+}

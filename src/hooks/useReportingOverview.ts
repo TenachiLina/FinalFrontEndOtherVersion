@@ -164,11 +164,11 @@
 // function bucketLabel(key: string, g: Granularity): string {
 //   if (g === "yearly") return key;
 //   if (g === "monthly") {
-//     return new Date(`${key}-01T00:00:00`).toLocaleDateString("en-US", { month: "short", year: "numeric" });
+//     return new Date(`${key}-01T00:00:00`).toLocaleDateString(locale(), { month: "short", year: "numeric" });
 //   }
 //   const d = new Date(`${key}T00:00:00`);
-//   if (g === "weekly") return `Wk ${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
-//   return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+//   if (g === "weekly") return `${t("Wk")} ${d.toLocaleDateString(locale(), { month: "short", day: "numeric" })}`;
+//   return d.toLocaleDateString(locale(), { weekday: "short", month: "short", day: "numeric" });
 // }
 
 // function computeTrend(rows: WorktimeRow[], range: DateRange): TrendData {
@@ -274,6 +274,7 @@ import {
 import { payrollConfig, sumHours, sumConsommation } from "@/lib/payrollConfig";
 import { fetchBonuses, BonusRecord } from "@/lib/bonuses";
 import { friendlyError, optionalData } from "@/lib/errors";
+import { locale, t } from "@/lib/i18n";
 
 // ─────────────────────────────────────────────────────────────────────────
 // Types
@@ -439,11 +440,11 @@ function bucketKey(dateStr: string, g: Granularity): string {
 function bucketLabel(key: string, g: Granularity): string {
   if (g === "yearly") return key;
   if (g === "monthly") {
-    return new Date(`${key}-01T00:00:00`).toLocaleDateString("en-US", { month: "short", year: "numeric" });
+    return new Date(`${key}-01T00:00:00`).toLocaleDateString(locale(), { month: "short", year: "numeric" });
   }
   const d = new Date(`${key}T00:00:00`);
-  if (g === "weekly") return `Wk ${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
-  return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  if (g === "weekly") return `${t("Wk")} ${d.toLocaleDateString(locale(), { month: "short", day: "numeric" })}`;
+  return d.toLocaleDateString(locale(), { weekday: "short", month: "short", day: "numeric" });
 }
 
 function computeTrend(rows: WorktimeRow[], range: DateRange): TrendData {

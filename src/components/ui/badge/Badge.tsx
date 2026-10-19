@@ -69,9 +69,9 @@ const Badge: React.FC<BadgeProps> = ({
 
   return (
     <span className={`${baseStyles} ${sizeClass} ${colorStyles}`}>
-      {startIcon && <span className="mr-1">{startIcon}</span>}
+      {startIcon && <span className="me-1">{startIcon}</span>}
       {children}
-      {endIcon && <span className="ml-1">{endIcon}</span>}
+      {endIcon && <span className="ms-1">{endIcon}</span>}
     </span>
   );
 };

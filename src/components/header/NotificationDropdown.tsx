@@ -28,7 +28,7 @@ export default function NotificationDropdown() {
         onClick={handleClick}
       >
         <span
-          className={`absolute right-0 top-0.5 z-10 h-2 w-2 rounded-full bg-orange-400 ${
+          className={`absolute end-0 top-0.5 z-10 h-2 w-2 rounded-full bg-orange-400 ${
             !notifying ? "hidden" : "flex"
           }`}
         >
@@ -52,7 +52,7 @@ export default function NotificationDropdown() {
       <Dropdown
         isOpen={isOpen}
         onClose={closeDropdown}
-        className="absolute -right-[240px] mt-[17px] flex h-[480px] w-[350px] flex-col rounded-2xl border border-gray-200 bg-white p-3 shadow-theme-lg dark:border-gray-800 dark:bg-gray-dark sm:w-[361px] lg:right-0"
+        className="absolute -end-[240px] mt-[17px] flex h-[480px] w-[350px] flex-col rounded-2xl border border-gray-200 bg-white p-3 shadow-theme-lg dark:border-gray-800 dark:bg-gray-dark sm:w-[361px] lg:end-0"
       >
         <div className="flex items-center justify-between pb-3 mb-3 border-b border-gray-100 dark:border-gray-700">
           <h5 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
@@ -93,7 +93,7 @@ export default function NotificationDropdown() {
                   alt="User"
                   className="w-full overflow-hidden rounded-full"
                 />
-                <span className="absolute bottom-0 right-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-success-500 dark:border-gray-900"></span>
+                <span className="absolute bottom-0 end-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-success-500 dark:border-gray-900"></span>
               </span>
 
               <span className="block">
@@ -129,7 +129,7 @@ export default function NotificationDropdown() {
                   alt="User"
                   className="w-full overflow-hidden rounded-full"
                 />
-                <span className="absolute bottom-0 right-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-success-500 dark:border-gray-900"></span>
+                <span className="absolute bottom-0 end-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-success-500 dark:border-gray-900"></span>
               </span>
 
               <span className="block">
@@ -166,7 +166,7 @@ export default function NotificationDropdown() {
                   alt="User"
                   className="w-full overflow-hidden rounded-full"
                 />
-                <span className="absolute bottom-0 right-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-success-500 dark:border-gray-900"></span>
+                <span className="absolute bottom-0 end-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-success-500 dark:border-gray-900"></span>
               </span>
 
               <span className="block">
@@ -203,7 +203,7 @@ export default function NotificationDropdown() {
                   alt="User"
                   className="w-full overflow-hidden rounded-full"
                 />
-                <span className="absolute bottom-0 right-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-error-500 dark:border-gray-900"></span>
+                <span className="absolute bottom-0 end-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-error-500 dark:border-gray-900"></span>
               </span>
 
               <span className="block">
@@ -239,7 +239,7 @@ export default function NotificationDropdown() {
                   alt="User"
                   className="w-full overflow-hidden rounded-full"
                 />
-                <span className="absolute bottom-0 right-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-success-500 dark:border-gray-900"></span>
+                <span className="absolute bottom-0 end-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-success-500 dark:border-gray-900"></span>
               </span>
 
               <span className="block">
@@ -275,7 +275,7 @@ export default function NotificationDropdown() {
                   alt="User"
                   className="w-full overflow-hidden rounded-full"
                 />
-                <span className="absolute bottom-0 right-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-success-500 dark:border-gray-900"></span>
+                <span className="absolute bottom-0 end-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-success-500 dark:border-gray-900"></span>
               </span>
 
               <span className="block">
@@ -311,7 +311,7 @@ export default function NotificationDropdown() {
                   alt="User"
                   className="w-full overflow-hidden rounded-full"
                 />
-                <span className="absolute bottom-0 right-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-success-500 dark:border-gray-900"></span>
+                <span className="absolute bottom-0 end-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-success-500 dark:border-gray-900"></span>
               </span>
 
               <span className="block">
@@ -348,7 +348,7 @@ export default function NotificationDropdown() {
                   alt="User"
                   className="overflow-hidden rounded-full"
                 />
-                <span className="absolute bottom-0 right-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-error-500 dark:border-gray-900"></span>
+                <span className="absolute bottom-0 end-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-error-500 dark:border-gray-900"></span>
               </span>
 
               <span className="block">

@@ -1,4 +1,5 @@
 import { API_BASE_URL } from "@/lib/config";
+import { getLang } from "@/lib/i18n";
 
 // employee: a shared clock-in kiosk account that only sees /kiosk
 export type Role = "superadmin" | "admin" | "manager" | "employee";
@@ -21,6 +22,8 @@ export const FEATURE_LABELS: Record<Feature, string> = {
 };
 
 export interface CompanySettings {
+  /** Default language for people who haven't picked one */
+  language?: "en" | "fr" | "ar";
   currency: string;
   utcOffset: string;
   hoursPerDay: number;
@@ -229,6 +232,8 @@ export function installAuthFetch() {
     if (token && !headers.has("Authorization")) {
       headers.set("Authorization", `Bearer ${token}`);
     }
+    // The server answers in the user's language (errors, confirmations)
+    if (!headers.has("Accept-Language")) headers.set("Accept-Language", getLang());
     const acting = getActingCompanyId();
     if (acting && getStoredUser()?.role === "superadmin" && !headers.has("X-Company-Id")) {
       headers.set("X-Company-Id", acting);

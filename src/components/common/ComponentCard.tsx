@@ -1,4 +1,7 @@
+"use client";
+
 import React from "react";
+import { t } from "@/lib/i18n";
 
 interface ComponentCardProps {
   title: string;
@@ -20,11 +23,11 @@ const ComponentCard: React.FC<ComponentCardProps> = ({
       {/* Card Header */}
       <div className="px-6 py-5">
         <h3 className="text-base font-medium text-gray-800 dark:text-white/90">
-          {title}
+          {t(title)}
         </h3>
         {desc && (
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            {desc}
+            {t(desc)}
           </p>
         )}
       </div>

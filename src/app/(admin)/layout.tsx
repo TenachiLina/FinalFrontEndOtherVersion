@@ -9,6 +9,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { canOpen, homePathFor } from "@/lib/auth";
 import { getRememberedSlug } from "@/lib/branding";
+import { t } from "@/lib/i18n";
 
 export default function AdminLayout({
   children,
@@ -37,17 +38,17 @@ export default function AdminLayout({
   if (loading || !user || forbidden) {
     return (
       <div className="flex min-h-screen items-center justify-center text-sm text-gray-500 dark:text-gray-400">
-        Loading…
+        {t("Loading…")}
       </div>
     );
   }
 
   // Dynamic class for main content margin based on sidebar state
   const mainContentMargin = isMobileOpen
-    ? "ml-0"
+    ? "ms-0"
     : isExpanded || isHovered
-    ? "lg:ml-[290px]"
-    : "lg:ml-[90px]";
+    ? "lg:ms-[290px]"
+    : "lg:ms-[90px]";
 
   return (
     <div className="min-h-screen xl:flex">
@@ -63,14 +64,14 @@ export default function AdminLayout({
         {user.role === "superadmin" && company && (
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-warning-200 bg-warning-50 px-4 py-2 text-sm text-warning-700 dark:border-warning-500/30 dark:bg-warning-500/10 dark:text-warning-400 md:px-6">
             <span>
-              You are working inside <strong>{company.name}</strong> as its admin.
+              {t("You are working inside {company} as its admin.", { company: company.name })}
             </span>
             <button
               type="button"
               className="font-medium underline"
               onClick={() => switchCompany(null)}
             >
-              Back to all companies
+              {t("Back to all companies")}
             </button>
           </div>
         )}

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { Employee, WorktimeRow, DateRange, FilterMode } from "@/components/reporting/types";
 import { getLastWeekRange, fetchEmployees, fetchWorktimeRows, toLocalDateString } from "@/lib/reporting";
 import { friendlyError } from "@/lib/errors";
+import { t } from "@/lib/i18n";
 
 export interface AttendanceRow extends WorktimeRow {
   employeeName: string;
@@ -47,7 +48,7 @@ export function useAttendanceReport() {
   const fetchReport = useCallback(async () => {
     const range = computeRange();
     if (!range.start || !range.end) {
-      setError("Please provide a valid date range.");
+      setError(t("Please provide a valid date range."));
       return;
     }
 

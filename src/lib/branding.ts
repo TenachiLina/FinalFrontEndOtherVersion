@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { API_BASE_URL } from "@/lib/config";
+import { t } from "@/lib/i18n";
 
 export interface Branding {
   logo?: string;
@@ -98,7 +99,7 @@ export function displayBrand(brand: CompanyBrand | null) {
     name: brand?.name ?? DEFAULT_BRAND.name,
     logo: b.logo || DEFAULT_BRAND.logo,
     title: b.title || brand?.name || DEFAULT_BRAND.title,
-    subtitle: b.subtitle ?? (brand ? "" : DEFAULT_BRAND.subtitle),
+    subtitle: b.subtitle ?? (brand ? "" : t(DEFAULT_BRAND.subtitle)),
     color: b.color || DEFAULT_BRAND.color,
   };
 }

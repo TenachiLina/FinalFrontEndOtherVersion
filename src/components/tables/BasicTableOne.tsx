@@ -6,6 +6,7 @@ import { API_BASE_URL } from "@/lib/config";
 import { ensureOk, friendlyError } from "@/lib/errors";
 import { confirmDialog, toast } from "@/lib/notify";
 import { currency } from "@/lib/payrollConfig";
+import { t } from "@/lib/i18n";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -45,7 +46,7 @@ const EditIcon = () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="none"
 const PlusIcon = () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>);
 const CloseIcon = () => (<svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>);
 const SortIcon = ({ active, dir }: { active: boolean; dir: SortDir }) => (
-  <svg className={`inline ml-1 w-3 h-3 ${active ? "text-blue-500" : "text-gray-300 dark:text-gray-600"}`} viewBox="0 0 10 14" fill="none">
+  <svg className={`inline ms-1 w-3 h-3 ${active ? "text-blue-500" : "text-gray-300 dark:text-gray-600"}`} viewBox="0 0 10 14" fill="none">
     <path d={dir === "asc" && active ? "M5 1v12M1 5l4-4 4 4" : "M5 1v12M1 9l4 4 4-4"} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
@@ -66,7 +67,7 @@ const Field = ({
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }) => (
   <div className="flex flex-col gap-1">
-    <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">{label}</label>
+    <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">{t(label)}</label>
     <input type={type} name={name} value={value} onChange={onChange}
       className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 dark:border-white/[0.1] dark:bg-white/[0.05] dark:text-gray-200 transition"
     />
@@ -197,7 +198,7 @@ export default function BasicTableOne() {
   const handleDelete = async (id: string) => {
     const emp = data.find((e) => e._id === id);
     const ok = await confirmDialog({
-      title: `Delete ${emp ? `${emp.firstName} ${emp.lastName}` : "this employee"}?`,
+      title: emp ? t("Delete {name}?", { name: `${emp.firstName} ${emp.lastName}` }) : t("Delete this employee?"),
       message: "This removes the employee from the app. This can't be undone.",
       danger: true,
     });
@@ -220,9 +221,9 @@ export default function BasicTableOne() {
       {showForm && (
         <>
           <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm" onClick={() => setShowForm(false)} />
-          <div className="fixed right-0 top-0 z-50 h-full w-full max-w-md bg-white dark:bg-gray-900 shadow-2xl flex flex-col">
+          <div className="fixed end-0 top-0 z-50 h-full w-full max-w-md bg-white dark:bg-gray-900 shadow-2xl flex flex-col">
             <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 dark:border-white/[0.07]">
-              <h3 className="text-base font-semibold text-gray-800 dark:text-white">{isEditing ? "Edit Employee" : "Add Employee"}</h3>
+              <h3 className="text-base font-semibold text-gray-800 dark:text-white">{isEditing ? t("Edit Employee") : t("Add Employee")}</h3>
               <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"><CloseIcon /></button>
             </div>
             <div className="flex-1 overflow-y-auto px-6 py-5 flex flex-col gap-4">
@@ -237,9 +238,9 @@ export default function BasicTableOne() {
               <Field label="Phone" name="phoneNumber" value={form.phoneNumber} onChange={handleChange} />
             </div>
             <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 dark:border-white/[0.07]">
-              <button onClick={() => setShowForm(false)} className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:border-white/[0.1] dark:text-gray-300 dark:hover:bg-white/[0.05] transition-colors">Cancel</button>
+              <button onClick={() => setShowForm(false)} className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:border-white/[0.1] dark:text-gray-300 dark:hover:bg-white/[0.05] transition-colors">{t("Cancel")}</button>
               <button onClick={handleSave} disabled={saving} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 transition-colors">
-                {saving ? "Saving…" : isEditing ? "Save Changes" : "Save"}
+                {saving ? t("Saving…") : isEditing ? t("Save Changes") : t("Save")}
               </button>
             </div>
           </div>
@@ -251,20 +252,20 @@ export default function BasicTableOne() {
 
         {/* Toolbar */}
         <div className="flex items-center justify-between px-5 py-4 gap-4 flex-wrap border-b border-gray-100 dark:border-white/[0.05]">
-          <h2 className="text-base font-semibold text-gray-800 dark:text-white">Employees Management</h2>
+          <h2 className="text-base font-semibold text-gray-800 dark:text-white">{t("Employees Management")}</h2>
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-              <span>Show</span>
+              <span>{t("Show")}</span>
               <select value={showEntries} onChange={(e) => { setShowEntries(Number(e.target.value)); setCurrentPage(1); }}
                 className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm text-gray-700 dark:border-white/[0.1] dark:bg-white/[0.05] dark:text-gray-300 focus:outline-none">
                 {[5, 10, 25, 50].map((n) => <option key={n} value={n}>{n}</option>)}
               </select>
             </div>
             <div className="relative">
-              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
-              <input type="text" placeholder="Search..." value={search}
+              <svg className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
+              <input type="text" placeholder={t("Search...")} value={search}
                 onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
-                className="pl-9 pr-4 py-2 rounded-lg border border-gray-200 bg-white text-sm text-gray-700 placeholder-gray-400 dark:border-white/[0.1] dark:bg-white/[0.05] dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 w-48"
+                className="ps-9 pe-4 py-2 rounded-lg border border-gray-200 bg-white text-sm text-gray-700 placeholder-gray-400 dark:border-white/[0.1] dark:bg-white/[0.05] dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 w-48"
               />
             </div>
             <button onClick={openAdd} className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors">
@@ -290,20 +291,20 @@ export default function BasicTableOne() {
                 ] as { label: string; key: SortKey | null }[]).map(({ label, key }) => (
                   <th key={label}
                     onClick={() => key && handleSort(key)}
-                    className={`px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap ${key ? "cursor-pointer hover:text-gray-700 dark:hover:text-gray-200" : ""}`}
+                    className={`px-4 py-3 text-start text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap ${key ? "cursor-pointer hover:text-gray-700 dark:hover:text-gray-200" : ""}`}
                   >
-                    {label} {key && <SortIcon active={sortKey === key} dir={sortDir} />}
+                    {t(label)} {key && <SortIcon active={sortKey === key} dir={sortDir} />}
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
               {loading ? (
-                <tr><td colSpan={8} className="px-5 py-12 text-center text-sm text-gray-400 animate-pulse">Loading employees…</td></tr>
+                <tr><td colSpan={8} className="px-5 py-12 text-center text-sm text-gray-400 animate-pulse">{t("Loading employees…")}</td></tr>
               ) : apiError ? (
                 <tr><td colSpan={8} className="px-5 py-12 text-center text-sm text-red-400">⚠ {apiError}</td></tr>
               ) : paginated.length === 0 ? (
-                <tr><td colSpan={8} className="px-5 py-12 text-center text-sm text-gray-400">No employees found.</td></tr>
+                <tr><td colSpan={8} className="px-5 py-12 text-center text-sm text-gray-400">{t("No employees found.")}</td></tr>
               ) : paginated.map((emp) => (
                 <tr key={emp._id} className="hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors">
                   <td className="px-4 py-4 text-sm text-gray-600 dark:text-gray-400 font-mono">{emp.empNumber}</td>
@@ -322,8 +323,8 @@ export default function BasicTableOne() {
                   <td className="px-4 py-4 text-sm text-gray-600 dark:text-gray-400 font-mono">{emp.phoneNumber ?? "—"}</td>
                   <td className="px-4 py-4">
                     <div className="flex items-center gap-3 text-gray-400">
-                      <button onClick={() => handleDelete(emp._id)} className="hover:text-red-500 transition-colors" title="Delete"><TrashIcon /></button>
-                      <button onClick={() => openEdit(emp)} className="hover:text-blue-500 transition-colors" title="Edit"><EditIcon /></button>
+                      <button onClick={() => handleDelete(emp._id)} className="hover:text-red-500 transition-colors" title={t("Delete")}><TrashIcon /></button>
+                      <button onClick={() => openEdit(emp)} className="hover:text-blue-500 transition-colors" title={t("Edit")}><EditIcon /></button>
                     </div>
                   </td>
                 </tr>
@@ -334,11 +335,11 @@ export default function BasicTableOne() {
 
         {/* Pagination */}
         <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 dark:border-white/[0.05] text-sm text-gray-500 dark:text-gray-400 flex-wrap gap-3">
-          <span>Showing {sorted.length === 0 ? 0 : (currentPage - 1) * showEntries + 1}–{Math.min(currentPage * showEntries, sorted.length)} of {sorted.length} entries</span>
+          <span>{t("Showing {from}–{to} of {total} entries", { from: sorted.length === 0 ? 0 : (currentPage - 1) * showEntries + 1, to: Math.min(currentPage * showEntries, sorted.length), total: sorted.length })}</span>
           <div className="flex items-center gap-1">
             <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1}
               className="px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed dark:border-white/[0.1] dark:hover:bg-white/[0.05] transition-colors">
-              Previous
+              {t("Previous")}
             </button>
             {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
               <button key={p} onClick={() => setCurrentPage(p)}
@@ -348,7 +349,7 @@ export default function BasicTableOne() {
             ))}
             <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
               className="px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed dark:border-white/[0.1] dark:hover:bg-white/[0.05] transition-colors">
-              Next
+              {t("Next")}
             </button>
           </div>
         </div>

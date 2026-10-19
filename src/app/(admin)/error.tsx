@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { t } from "@/lib/i18n";
 
 // Shown instead of a blank page when something on a page crashes.
 export default function AdminError({
@@ -20,11 +21,10 @@ export default function AdminError({
         !
       </div>
       <h1 className="mb-2 text-xl font-semibold text-gray-800 dark:text-white/90">
-        This page ran into a problem
+        {t("This page ran into a problem")}
       </h1>
       <p className="mb-6 max-w-md text-sm text-gray-500 dark:text-gray-400">
-        Your data is safe. Try again, and if it keeps happening, reload the page or go back to the
-        previous page.
+        {t("Your data is safe. Try again, and if it keeps happening, reload the page or go back to the previous page.")}
       </p>
       <div className="flex gap-3">
         <button
@@ -32,14 +32,14 @@ export default function AdminError({
           onClick={reset}
           className="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600"
         >
-          Try again
+          {t("Try again")}
         </button>
         <button
           type="button"
           onClick={() => window.location.reload()}
           className="rounded-lg px-4 py-2.5 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700"
         >
-          Reload page
+          {t("Reload page")}
         </button>
       </div>
     </div>

@@ -2,6 +2,7 @@
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import Tooltip from "@/components/common/Tooltip";
 import { useShiftsManagement } from "@/hooks/ShiftsmanagmentHook";
+import { t } from "@/lib/i18n";
 
 export default function ShiftsManagementPage() {
   const {
@@ -53,7 +54,7 @@ export default function ShiftsManagementPage() {
                   : "border border-gray-300"
               }`}
             >
-              Active
+              {t("Active")}
             </button>
             </Tooltip>
             <Tooltip text="Display Other seasons' shifts (Not Active).">
@@ -65,7 +66,7 @@ export default function ShiftsManagementPage() {
                   : "border border-gray-300"
               }`}
             >
-              Archived
+              {t("Archived")}
             </button>
             </Tooltip>
           </div>
@@ -76,7 +77,7 @@ export default function ShiftsManagementPage() {
               onClick={openAddModal}
               className="rounded-lg bg-brand-500 px-4 py-2 text-white"
             >
-              Add Shift
+              {t("Add Shift")}
             </button>
             </Tooltip>
           )}
@@ -94,9 +95,9 @@ export default function ShiftsManagementPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b">
-                <th className="px-4 py-3 text-left">Start</th>
-                <th className="px-4 py-3 text-left">End</th>
-                <th className="px-4 py-3 text-right">Actions</th>
+                <th className="px-4 py-3 text-start">{t("Start")}</th>
+                <th className="px-4 py-3 text-start">{t("End")}</th>
+                <th className="px-4 py-3 text-end">{t("Actions")}</th>
               </tr>
             </thead>
 
@@ -104,13 +105,13 @@ export default function ShiftsManagementPage() {
               {loading ? (
                 <tr>
                   <td colSpan={3} className="p-6 text-center">
-                    Loading...
+                    {t("Loading...")}
                   </td>
                 </tr>
               ) : shifts.length === 0 ? (
                 <tr>
                   <td colSpan={3} className="p-6 text-center">
-                    No shifts found.
+                    {t("No shifts found.")}
                   </td>
                 </tr>
               ) : (
@@ -129,7 +130,7 @@ export default function ShiftsManagementPage() {
                               onClick={() => openEditModal(shift)}
                               className="rounded border border-yellow-500 px-3 py-1 text-yellow-500 hover:bg-orange-50"
                             >
-                              Edit
+                              {t("Edit")}
                             </button>
                             </Tooltip>
                             <Tooltip text="Move this shift from active to archived shifts (it won't be used for now)">
@@ -137,7 +138,7 @@ export default function ShiftsManagementPage() {
                               onClick={() => archiveShift(shift)}
                               className="rounded border border-orange-500 px-3 py-1 text-orange-500 hover:bg-orange-50"
                             >
-                              Archive
+                              {t("Archive")}
                             </button>
                             </Tooltip>
                           </>
@@ -148,7 +149,7 @@ export default function ShiftsManagementPage() {
                             onClick={() => restoreShift(shift)}
                             className="rounded border border-green-500 px-3 py-1 text-green-500 hover:bg-green-50"
                            >
-                            Restore
+                            {t("Restore")}
                            </button>
                            </Tooltip>
                            <Tooltip text="Remove this shift permanently (it will no longer exist).">
@@ -156,7 +157,7 @@ export default function ShiftsManagementPage() {
                             onClick={() => requestDelete(shift)}
                             className="rounded border border-red-300 px-3 py-1 text-red-600"
                            >
-                              Delete
+                              {t("Delete")}
                            </button>
                            </Tooltip>
                           </>                          
@@ -176,13 +177,13 @@ export default function ShiftsManagementPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="w-full max-w-md rounded-xl bg-white p-6">
             <h2 className="mb-5 text-lg font-semibold">
-              {modalMode === "add" ? "Add Shift" : "Edit Shift"}
+              {modalMode === "add" ? t("Add Shift") : t("Edit Shift")}
             </h2>
 
             <div className="space-y-3">
               <div>
                 <label htmlFor="shift-start-time" className="mb-1.5 block text-sm font-medium text-gray-700">
-                  Start time
+                  {t("Start time")}
                 </label>
                 <input
                   id="shift-start-time"
@@ -195,7 +196,7 @@ export default function ShiftsManagementPage() {
 
               <div>
                 <label htmlFor="shift-end-time" className="mb-1.5 block text-sm font-medium text-gray-700">
-                  End time
+                  {t("End time")}
                 </label>
                 <input
                   id="shift-end-time"
@@ -218,7 +219,7 @@ export default function ShiftsManagementPage() {
                 onClick={closeShiftModal}
                 className="rounded-lg border px-4 py-2"
               >
-                Cancel
+                {t("Cancel")}
               </button>
 
               <button
@@ -226,7 +227,7 @@ export default function ShiftsManagementPage() {
                 disabled={saving}
                 className="rounded-lg bg-brand-500 px-4 py-2 text-white"
               >
-                {saving ? "Saving..." : "Save"}
+                {saving ? t("Saving…") : t("Save")}
               </button>
             </div>
           </div>
@@ -238,11 +239,11 @@ export default function ShiftsManagementPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="w-full max-w-md rounded-xl bg-white p-6">
             <h2 className="mb-4 text-lg font-semibold">
-              Delete Shift
+              {t("Delete Shift")}
             </h2>
 
             <p className="mb-5">
-              Are you sure you want to permanently delete this shift?
+              {t("Are you sure you want to permanently delete this shift?")}
             </p>
 
             {pendingDelete.usageCount !== undefined && (
@@ -257,7 +258,7 @@ export default function ShiftsManagementPage() {
                 onClick={cancelDelete}
                 className="rounded-lg border px-4 py-2"
               >
-                Cancel
+                {t("Cancel")}
               </button>
 
               <button
@@ -269,7 +270,7 @@ export default function ShiftsManagementPage() {
                 }
                 className="rounded-lg bg-red-600 px-4 py-2 text-white"
               >
-                {deleting ? "Deleting..." : "Delete"}
+                {deleting ? t("Deleting…") : t("Delete")}
               </button>
             </div>
           </div>

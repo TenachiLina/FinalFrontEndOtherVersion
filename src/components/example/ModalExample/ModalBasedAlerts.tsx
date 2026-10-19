@@ -61,7 +61,7 @@ export default function ModalBasedAlerts() {
               />
             </svg>
 
-            <span className="absolute -translate-x-1/2 -translate-y-1/2 left-1/2 top-1/2">
+            <span className="absolute -translate-x-1/2 -translate-y-1/2 start-1/2 top-1/2">
               <svg
                 className="fill-success-600 dark:fill-success-500"
                 width="38"
@@ -120,7 +120,7 @@ export default function ModalBasedAlerts() {
               />
             </svg>
 
-            <span className="absolute -translate-x-1/2 -translate-y-1/2 left-1/2 top-1/2">
+            <span className="absolute -translate-x-1/2 -translate-y-1/2 start-1/2 top-1/2">
               <svg
                 className="fill-blue-light-500 dark:fill-blue-light-500"
                 width="38"
@@ -180,7 +180,7 @@ export default function ModalBasedAlerts() {
               />
             </svg>
 
-            <span className="absolute -translate-x-1/2 -translate-y-1/2 left-1/2 top-1/2">
+            <span className="absolute -translate-x-1/2 -translate-y-1/2 start-1/2 top-1/2">
               <svg
                 className="fill-warning-600 dark:fill-orange-400"
                 width="38"
@@ -240,7 +240,7 @@ export default function ModalBasedAlerts() {
               />
             </svg>
 
-            <span className="absolute -translate-x-1/2 -translate-y-1/2 left-1/2 top-1/2">
+            <span className="absolute -translate-x-1/2 -translate-y-1/2 start-1/2 top-1/2">
               <svg
                 className="fill-error-600 dark:fill-error-500"
                 width="38"

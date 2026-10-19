@@ -7,6 +7,7 @@ import { API_BASE_URL } from "@/lib/config";
 import { ensureOk, friendlyError } from "@/lib/errors";
 import { toast } from "@/lib/notify";
 import { sortShifts } from "@/lib/sortShifts";
+import { locale, t } from "@/lib/i18n";
 
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -280,7 +281,7 @@ export const useShiftGrid = () => {
   const goToToday = () => { const d = new Date(); setCurrentDate(d); setCalendarMonth(d); };
   const goPrev = () => setCurrentDate((d) => { const n = new Date(d); n.setDate(d.getDate() - 1); return n; });
   const goNext = () => setCurrentDate((d) => { const n = new Date(d); n.setDate(d.getDate() + 1); return n; });
-  const formattedDate = currentDate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+  const formattedDate = currentDate.toLocaleDateString(locale(), { month: "long", day: "numeric", year: "numeric" });
 
   // ── Add modal handlers ────────────────────────────────────────────────────
   const handleCellClick = useCallback(
@@ -704,7 +705,7 @@ export const useShiftGrid = () => {
 
     if (targetDates.length === 0) return;
 
-    const weekdayName = currentDate.toLocaleDateString("en-US", {
+    const weekdayName = currentDate.toLocaleDateString(locale(), {
       weekday: "long",
     });
 
@@ -749,11 +750,11 @@ export const useShiftGrid = () => {
       if (failures.length > 0) {
         console.error("Duplication failures:", failures.map((f) => f.reason));
         toast.error(
-          `Copied to ${targetDates.length - failures.length} of ${targetDates.length} ${weekdayName}s. ` +
-            friendlyError(failures[0].reason)
+          t("Copied to {done} of {total} days ({weekday}).", { done: targetDates.length - failures.length, total: targetDates.length, weekday: weekdayName }) +
+            " " + friendlyError(failures[0].reason)
         );
       } else {
-        toast.success(`Planning copied to ${targetDates.length} ${weekdayName}s.`);
+        toast.success(t("Planning copied to {n} days ({weekday}).", { n: targetDates.length, weekday: weekdayName }));
       }
     } catch (err) {
       toast.error(friendlyError(err, "Couldn't copy the planning"));
@@ -808,7 +809,7 @@ export const useShiftGrid = () => {
       date.setDate(date.getDate() + 7);
     }
 
-    const weekdayName = currentDate.toLocaleDateString("en-US", {
+    const weekdayName = currentDate.toLocaleDateString(locale(), {
       weekday: "long",
     });
 
@@ -851,14 +852,14 @@ export const useShiftGrid = () => {
       if (failures.length > 0) {
         console.error("Save to weekdays failures:", failures.map((f) => f.reason));
         toast.error(
-          `Saved to ${targetDates.length - failures.length} of ${targetDates.length} ${weekdayName}s. ` +
-            friendlyError(failures[0].reason)
+          t("Saved to {done} of {total} days ({weekday}).", { done: targetDates.length - failures.length, total: targetDates.length, weekday: weekdayName }) +
+            " " + friendlyError(failures[0].reason)
         );
         return;
       }
 
       toast.success(
-        `Planning saved to ${targetDates.length} ${weekdayName}(s), starting from the selected day.`
+        t("Planning saved to {n} days ({weekday}), starting from the selected day.", { n: targetDates.length, weekday: weekdayName })
       );
     } catch (err) {
       toast.error(friendlyError(err, "Couldn't save the planning to the next weeks"));
@@ -1380,8 +1381,7 @@ export const useShiftGrid = () => {
       if (notFound.length > 0) {
 
         toast.warning(
-          `Imported, but these employees weren't found and were skipped: ` +
-            [...new Set(notFound)].join(", ")
+          t("Imported, but these employees weren't found and were skipped: {names}", { names: [...new Set(notFound)].join(", ") })
         );
       }
 

@@ -11,6 +11,7 @@ import { readRange, rangeQuery } from "@/lib/rangeParams";
 import DateInput from "./DateInput";
 
 import { currency } from "@/lib/payrollConfig";
+import { locale, t } from "@/lib/i18n";
 interface EmployeeDetailViewProps {
   empId: string;
 }
@@ -51,21 +52,21 @@ const EmployeeDetailContent: React.FC<EmployeeDetailViewProps> = ({ empId }) => 
         </Link>
         <h1 className="mt-1 text-2xl font-bold text-gray-800 dark:text-white">
           {loadingEmployee
-            ? "Loading…"
+            ? t("Loading…")
             : employee
             ? `${employee.FirstName} ${employee.LastName}`
             : `Employee #${empId}`}
         </h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400">Payroll &amp; attendance detail.</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">{t("Payroll & attendance detail.")}</p>
       </div>
 
       {/* Tabs */}
       <div className="flex gap-1 rounded-xl border border-gray-200 bg-gray-50 p-1 dark:border-gray-800 dark:bg-white/[0.03] w-fit">
         <TabButton active={tab === "advance"} onClick={() => setTab("advance")}>
-          Weekly Advance
+          {t("Weekly Advance")}
         </TabButton>
         <TabButton active={tab === "payroll"} onClick={() => setTab("payroll")}>
-          Monthly Payroll
+          {t("Monthly Payroll")}
         </TabButton>
       </div>
 
@@ -121,7 +122,7 @@ const WeeklyAdvanceTab: React.FC<{ week: ReturnType<typeof useEmployeeReport>["w
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Week starting</label>
+          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{t("Week starting")}</label>
           <DateInput
             value={customStart}
             onChange={(val) => {
@@ -140,16 +141,16 @@ const WeeklyAdvanceTab: React.FC<{ week: ReturnType<typeof useEmployeeReport>["w
           {week.error}
         </div>
       )}
-      {week.loading && <div className="text-sm text-gray-500 dark:text-gray-400">Loading…</div>}
+      {week.loading && <div className="text-sm text-gray-500 dark:text-gray-400">{t("Loading…")}</div>}
 
       {/* The headline advance offer card */}
       <div className="rounded-2xl border border-brand-200 bg-gradient-to-br from-brand-50 to-white p-6 dark:border-brand-900 dark:from-brand-500/10 dark:to-transparent">
-        <div className="text-sm text-gray-500 dark:text-gray-400">Advance Offer This Week</div>
+        <div className="text-sm text-gray-500 dark:text-gray-400">{t("Advance Offer This Week")}</div>
         <div className="mt-1 text-3xl font-bold text-brand-600 dark:text-brand-400">
           {week.advanceOffer.toFixed(2)} {currency()}
         </div>
         <div className="mt-1 text-xs text-gray-400">
-          (hours × hourly rate − consumption) × weekly advance %
+          {t("(hours × hourly rate − consumption) × weekly advance %")}
         </div>
 
         <div className="mt-4 flex items-center gap-3">
@@ -163,12 +164,12 @@ const WeeklyAdvanceTab: React.FC<{ week: ReturnType<typeof useEmployeeReport>["w
                 disabled={week.isLoadingAdvance}
                 className="text-sm font-medium text-red-500 hover:text-red-600"
               >
-                Undo
+                {t("Undo")}
               </button>
             </>
           ) : (
             <Button size="md" variant="primary" onClick={week.giveAdvance} disabled={week.isLoadingAdvance}>
-              Give Advance
+              {t("Give Advance")}
             </Button>
           )}
         </div>
@@ -204,16 +205,16 @@ const MonthlyPayrollTab: React.FC<{ month: ReturnType<typeof useEmployeeReport>[
           {month.error}
         </div>
       )}
-      {month.loading && <div className="text-sm text-gray-500 dark:text-gray-400">Loading…</div>}
+      {month.loading && <div className="text-sm text-gray-500 dark:text-gray-400">{t("Loading…")}</div>}
 
       {/* Net payout — the headline number */}
       <div className="rounded-2xl border border-green-200 bg-gradient-to-br from-green-50 to-white p-6 dark:border-green-900 dark:from-green-500/10 dark:to-transparent">
-        <div className="text-sm text-gray-500 dark:text-gray-400">Net Payout (Take-Home)</div>
+        <div className="text-sm text-gray-500 dark:text-gray-400">{t("Net Payout (Take-Home)")}</div>
         <div className="mt-1 text-3xl font-bold text-green-600 dark:text-green-400">
           {month.payout.net.toFixed(2)} {currency()}
         </div>
         <div className="mt-1 text-xs text-gray-400">
-          gross − penalties − consumption − advances given this month + bonuses
+          {t("gross − penalties − consumption − advances given this month + bonuses")}
         </div>
       </div>
 
@@ -232,7 +233,7 @@ const MonthlyPayrollTab: React.FC<{ month: ReturnType<typeof useEmployeeReport>[
       {/* Advances breakdown — auditable list of what was deducted and why */}
       {month.advancesList.length > 0 && (
         <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
-          <h3 className="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-300">Advances Deducted This Month</h3>
+          <h3 className="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-300">{t("Advances Deducted This Month")}</h3>
           <ul className="flex flex-col gap-2">
             {month.advancesList.map((a, idx) => (
               <li key={idx} className="flex items-center justify-between text-sm">
@@ -263,7 +264,7 @@ const DayTable: React.FC<{ rows: WorktimeRow[] }> = ({ rows }) => {
           <TableRow>
             {headers.map((h) => (
               <TableCell key={h} isHeader className="p-3 text-center text-sm font-semibold text-gray-700 dark:text-gray-300">
-                {h}
+                {t(h)}
               </TableCell>
             ))}
           </TableRow>
@@ -272,11 +273,11 @@ const DayTable: React.FC<{ rows: WorktimeRow[] }> = ({ rows }) => {
           {rows.length ? (
             rows.map((r, idx) => {
               const dateObj = r.work_date ? new Date(`${r.work_date}T00:00:00`) : null;
-              const weekday = dateObj ? dateObj.toLocaleDateString("en-US", { weekday: "short" }) : "";
+              const weekday = dateObj ? dateObj.toLocaleDateString(locale(), { weekday: "short" }) : "";
               return (
                 <TableRow key={idx} className={r.is_empty ? "bg-gray-50/60 dark:bg-white/[0.01]" : ""}>
                   <TableCell className="p-3 text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {r.work_date ? `${weekday}, ${r.work_date}` : "Date unknown"}
+                    {r.work_date ? `${weekday}, ${r.work_date}` : t("Date unknown")}
                   </TableCell>
                   <TableCell className="p-3 text-center text-sm text-gray-600 dark:text-gray-400">
                     {r.work_hours ? `${r.work_hours}h` : "—"}
@@ -296,7 +297,7 @@ const DayTable: React.FC<{ rows: WorktimeRow[] }> = ({ rows }) => {
             })
           ) : (
             <TableRow key="empty">
-              <TableCell className="p-6 text-center text-sm text-gray-400">No data available</TableCell>
+              <TableCell className="p-6 text-center text-sm text-gray-400">{t("No data available")}</TableCell>
             </TableRow>
           )}
         </TableBody>
@@ -308,7 +309,7 @@ const DayTable: React.FC<{ rows: WorktimeRow[] }> = ({ rows }) => {
 const SummaryCard: React.FC<{ label: string; value: string; negative?: boolean }> = ({ label, value, negative }) => {
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-5 text-center dark:border-gray-800 dark:bg-white/[0.03]">
-      <div className="text-xs text-gray-500 dark:text-gray-400">{label}</div>
+      <div className="text-xs text-gray-500 dark:text-gray-400">{t(label)}</div>
       <div className={`mt-1 text-xl font-bold ${negative ? "text-red-500" : "text-gray-800 dark:text-white"}`}>{value}</div>
     </div>
   );
