@@ -138,7 +138,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const switchCompany = useCallback((companyId: string | null) => {
     setActingCompanyId(companyId);
     // A full reload makes every page refetch its data for the new company.
-    window.location.href = companyId ? "/" : "/companies";
+    window.location.href = companyId ? "/home" : "/companies";
   }, []);
 
   const refreshCompany = useCallback(async () => {

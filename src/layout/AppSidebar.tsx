@@ -34,6 +34,11 @@ type NavItem = {
 };
 
 const navItems: NavItem[] = [
+  {
+    icon: <GridIcon />,
+    name: "Home",
+    path: "/home",
+  },
 
   {
     icon: <PieChartIcon />,
@@ -135,6 +140,11 @@ const navItems: NavItem[] = [
     icon: <BoxCubeIcon />,
     name: "Companies",
     path: "/companies",
+  },
+  {
+    icon: <PageIcon />,
+    name: "Help & guides",
+    path: "/help",
   },
 ];
 
@@ -454,7 +464,7 @@ const AppSidebar: React.FC = () => {
         className={`py-8 flex ${!isExpanded && !isHovered ? "lg:justify-center" : "justify-start"
           }`}
       >
-        <Link href="/">
+        <Link href="/home">
           {/* The company's own logo and name once inside a company (see Companies > Edit) */}
           {isExpanded || isHovered || isMobileOpen ? (
             <div className="flex items-center gap-4">

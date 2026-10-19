@@ -20,6 +20,8 @@ const AppHeader: React.FC = () => {
 
   const pathname = usePathname();
   const pageTitles: Record<string, string> = {
+    "/home": "Home",
+    "/help": "Help & guides",
     "/": "Overview",
     "/reporting/weekly-advances": "Weekly Advances",
     "/reporting/monthly-payroll": "Monthly Payroll",
@@ -114,7 +116,7 @@ const AppHeader: React.FC = () => {
           </button>
 
           {/* Small screens: the company's logo and name (the sidebar is hidden) */}
-          <Link href="/" className="flex min-w-0 items-center gap-2 lg:hidden">
+          <Link href="/home" className="flex min-w-0 items-center gap-2 lg:hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img className="h-8 w-8 shrink-0 rounded-lg object-contain" src={brandLogo} alt={`${brandName} logo`} />
             <span className="truncate text-lg font-bold text-gray-800 dark:text-white">{brandName}</span>

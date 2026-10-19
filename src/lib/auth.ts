@@ -1,5 +1,6 @@
 import { API_BASE_URL } from "@/lib/config";
 import { getLang } from "@/lib/i18n";
+import { t } from "@/lib/i18n";
 
 // employee: a shared clock-in kiosk account that only sees /kiosk
 export type Role = "superadmin" | "admin" | "manager" | "employee";
@@ -68,7 +69,7 @@ const ADMIN_ONLY_PREFIXES = [
 ];
 
 // Pages a super admin can open without choosing a company.
-const NO_COMPANY_PATHS = ["/companies", "/account"];
+const NO_COMPANY_PATHS = ["/companies", "/account", "/help"];
 
 // Page prefix → feature it needs. The first match wins.
 const PATH_FEATURES: [string, Feature][] = [
@@ -128,7 +129,8 @@ export function canOpen(
 export function homePathFor(user: AuthUser, company: CompanyInfo | null): string {
   if (!company) return user.role === "superadmin" ? "/companies" : "/account";
   if (user.role === "employee") return "/kiosk";
-  const candidates = ["/", "/calendar/ViewPlanning", "/clockinpage", "/basic-tables"];
+  // Everyone with a company lands on the welcome home page
+  const candidates = ["/home", "/", "/calendar/ViewPlanning", "/clockinpage", "/basic-tables"];
   return candidates.find((p) => canOpen(p, user, company)) ?? "/account";
 }
 
