@@ -26,6 +26,26 @@ const REFRESH_MS = 30_000;
 // Go back to the list after a clock-in so the next person can use the screen
 const AUTO_CLOSE_MS = 4_000;
 
+// Clock-outs done on this screen today, kept so the label survives a reload
+const clockOutsKey = () => {
+  const d = new Date();
+  return `kiosk_clockouts_${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+};
+function loadClockOuts(): Record<number, string> {
+  try {
+    return JSON.parse(localStorage.getItem(clockOutsKey()) ?? "{}");
+  } catch {
+    return {};
+  }
+}
+function storeClockOuts(value: Record<number, string>) {
+  try {
+    localStorage.setItem(clockOutsKey(), JSON.stringify(value));
+  } catch {
+    /* storage unavailable: the label only lasts until reload */
+  }
+}
+
 const timeOf = (iso: string) =>
   new Date(iso).toLocaleTimeString(locale(), { hour: "2-digit", minute: "2-digit" });
 
@@ -84,6 +104,13 @@ export default function KioskView() {
   const [selected, setSelected] = useState<KioskEmployee | null>(null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<{ name: string; action: "in" | "out"; time: string } | null>(null);
+  // empNumber → time of the clock-out saved today from this kiosk
+  const [clockOuts, setClockOuts] = useState<Record<number, string>>({});
+
+  useEffect(() => {
+    const id = window.setTimeout(() => setClockOuts(loadClockOuts()), 0);
+    return () => window.clearTimeout(id);
+  }, []);
 
   const allowed = !!user && canOpen("/kiosk", user, company);
 
@@ -148,6 +175,13 @@ export default function KioskView() {
         }
       );
       setDone({ name: res.employee.name, action, time: res.time });
+      setClockOuts((prev) => {
+        const next = { ...prev };
+        if (action === "out") next[selected.empNumber] = res.time;
+        else delete next[selected.empNumber];
+        storeClockOuts(next);
+        return next;
+      });
       load();
     } catch (err) {
       toast.error(friendlyError(err, action === "in" ? "Couldn't clock in" : "Couldn't clock out"));
@@ -224,32 +258,51 @@ export default function KioskView() {
         )}
 
         <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((e) => (
-            <li key={e.id}>
-              <button
-                type="button"
-                onClick={() => setSelected(e)}
-                className="flex w-full items-center gap-4 rounded-2xl border border-gray-200 bg-white p-4 text-left transition hover:border-brand-300 hover:shadow-theme-md dark:border-gray-800 dark:bg-gray-900 dark:hover:border-brand-500/50"
-              >
-                <Avatar e={e} size="h-12 w-12" />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate font-semibold text-gray-800 dark:text-white/90">
-                    {e.firstName} {e.lastName}
-                  </span>
-                  <span className="text-sm text-gray-500 dark:text-gray-400">#{e.empNumber}</span>
-                </span>
-                <span
-                  className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${
-                    e.clockedIn
-                      ? "bg-success-50 text-success-700 dark:bg-success-500/15 dark:text-success-500"
-                      : "bg-gray-100 text-gray-600 dark:bg-white/5 dark:text-gray-400"
-                  }`}
+          {filtered.map((e) => {
+            const savedOut = !e.clockedIn ? clockOuts[e.empNumber] : undefined;
+            return (
+              <li key={e.id}>
+                <button
+                  type="button"
+                  onClick={() => setSelected(e)}
+                  className="flex w-full items-center gap-4 rounded-2xl border border-gray-200 bg-white p-4 text-left transition hover:border-brand-300 hover:shadow-theme-md dark:border-gray-800 dark:bg-gray-900 dark:hover:border-brand-500/50"
                 >
-                  {e.clockedIn && e.since ? t("In since {time}", { time: timeOf(e.since) }) : t("Out")}
-                </span>
-              </button>
-            </li>
-          ))}
+                  <Avatar e={e} size="h-12 w-12" />
+                  <span className="min-w-0 flex-1">
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="truncate font-semibold text-gray-800 dark:text-white/90">
+                        {e.firstName} {e.lastName}
+                      </span>
+                      {savedOut && (
+                        <span
+                          className="inline-flex shrink-0 items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-600 dark:bg-brand-500/15 dark:text-brand-400"
+                          title={t("Clock-out at {time} saved", { time: timeOf(savedOut) })}
+                        >
+                          <span aria-hidden>✓</span>
+                          {t("Clocked out · saved")}
+                        </span>
+                      )}
+                    </span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      #{e.empNumber}
+                      {savedOut && ` · ${t("Out at {time}", { time: timeOf(savedOut) })}`}
+                    </span>
+                  </span>
+                  {!savedOut && (
+                    <span
+                      className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${
+                        e.clockedIn
+                          ? "bg-success-50 text-success-700 dark:bg-success-500/15 dark:text-success-500"
+                          : "bg-gray-100 text-gray-600 dark:bg-white/5 dark:text-gray-400"
+                      }`}
+                    >
+                      {e.clockedIn && e.since ? t("In since {time}", { time: timeOf(e.since) }) : t("Out")}
+                    </span>
+                  )}
+                </button>
+              </li>
+            );
+          })}
         </ul>
       </main>
 
