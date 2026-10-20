@@ -66,10 +66,12 @@ const ADMIN_ONLY_PREFIXES = [
   "/basic-tables",
   "/users",
   "/company-settings",
+  "/activity-log",
 ];
 
 // Pages a super admin can open without choosing a company.
-const NO_COMPANY_PATHS = ["/companies", "/account", "/help"];
+// (The activity log then shows every company.)
+const NO_COMPANY_PATHS = ["/companies", "/account", "/help", "/activity-log"];
 
 // Page prefix → feature it needs. The first match wins.
 const PATH_FEATURES: [string, Feature][] = [
@@ -96,8 +98,11 @@ export function featureForPath(pathname: string): Feature | null {
   return PATH_FEATURES.find(([p]) => matches(pathname, p))?.[1] ?? null;
 }
 
+// Pages only the super admin can open, inside a company or not.
+const SUPER_ADMIN_ONLY_PREFIXES = ["/companies", "/system-errors"];
+
 export function isSuperAdminOnlyPath(pathname: string): boolean {
-  return matches(pathname, "/companies");
+  return SUPER_ADMIN_ONLY_PREFIXES.some((p) => matches(pathname, p));
 }
 
 /** Whether this user may open this page in the current company. */

@@ -10,7 +10,9 @@ import { t } from "@/lib/i18n";
 export class ApiError extends Error {
   constructor(
     public status: number,
-    message: string
+    message: string,
+    // Code of the error in the system error log (server errors only)
+    public reference?: string
   ) {
     super(message);
     this.name = "ApiError";
@@ -21,27 +23,31 @@ const NETWORK = "Can't reach the server. Check your internet connection and try 
 const SERVER = "Something went wrong on our side. Please try again in a moment.";
 // All messages below are English and translated on the way out (see friendlyError)
 
-/** Reads the backend's message from a failed response. */
-async function messageFrom(res: Response): Promise<string> {
+/** Reads the backend's message (and error reference) from a failed response. */
+async function messageFrom(res: Response): Promise<{ message: string; reference?: string }> {
   try {
     const text = await res.text();
     try {
       const body = JSON.parse(text);
       const msg = body?.message;
-      if (Array.isArray(msg)) return msg.join(". ");
-      if (typeof msg === "string") return msg;
+      const reference = typeof body?.reference === "string" ? body.reference : undefined;
+      if (Array.isArray(msg)) return { message: msg.join(". "), reference };
+      if (typeof msg === "string") return { message: msg, reference };
     } catch {
       /* not JSON */
     }
-    return text.length < 200 ? text : "";
+    return { message: text.length < 200 ? text : "" };
   } catch {
-    return "";
+    return { message: "" };
   }
 }
 
 /** Throws an ApiError when the response is not OK; returns it otherwise. */
 export async function ensureOk(res: Response): Promise<Response> {
-  if (!res.ok) throw new ApiError(res.status, await messageFrom(res));
+  if (!res.ok) {
+    const { message, reference } = await messageFrom(res);
+    throw new ApiError(res.status, message, reference);
+  }
   return res;
 }
 
@@ -92,6 +98,8 @@ export function friendlyError(err: unknown, context?: string): string {
 
   if (err instanceof ApiError) {
     reason = byStatus(err.status, err.message);
+    // Lets support find this exact error in System errors
+    if (err.reference) reason = `${t(reason)} ${t("(Error code: {code})", { code: err.reference })}`;
   } else if (err instanceof TypeError && /fetch|network/i.test(err.message)) {
     reason = NETWORK;
   } else if (err instanceof Error) {
@@ -99,13 +107,16 @@ export function friendlyError(err: unknown, context?: string): string {
     const m = /^(\d{3})\b\s*([\s\S]*)$/.exec(err.message);
     if (m) {
       let serverMessage = m[2];
+      let reference: string | undefined;
       try {
         const body = JSON.parse(m[2]);
         serverMessage = Array.isArray(body?.message) ? body.message.join(". ") : body?.message ?? "";
+        if (typeof body?.reference === "string") reference = body.reference;
       } catch {
         /* not JSON */
       }
       reason = byStatus(Number(m[1]), serverMessage);
+      if (reference) reason = `${t(reason)} ${t("(Error code: {code})", { code: reference })}`;
     } else if (/^(failed to|error)/i.test(err.message) || err.message.length > 160) {
       // Technical wording ("Failed to fetch employees"): don't show it as is
       reason = SERVER;
