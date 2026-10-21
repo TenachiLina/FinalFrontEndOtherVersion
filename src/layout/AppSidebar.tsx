@@ -7,6 +7,7 @@ import { useAuth } from "../context/AuthContext";
 import { AuthUser, CompanyInfo, canOpen } from "../lib/auth";
 import { DEFAULT_BRAND } from "../lib/branding";
 import {
+  AlertIcon,
   BoxCubeIcon,
   CalenderIcon,
   ChevronDownIcon,
@@ -140,6 +141,16 @@ const navItems: NavItem[] = [
     icon: <BoxCubeIcon />,
     name: "Companies",
     path: "/companies",
+  },
+  {
+    icon: <ListIcon />,
+    name: "Activity log",
+    path: "/activity-log",
+  },
+  {
+    icon: <AlertIcon />,
+    name: "System errors",
+    path: "/system-errors",
   },
   {
     icon: <PageIcon />,

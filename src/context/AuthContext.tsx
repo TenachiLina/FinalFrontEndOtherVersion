@@ -23,9 +23,11 @@ import {
 import { applyCompanySettings } from "@/lib/payrollConfig";
 import { applyDefaultLang } from "@/lib/i18n";
 import { getRememberedSlug, rememberCompanySlug, signInPathFor } from "@/lib/branding";
+import { installErrorReporting } from "@/lib/reportError";
 
 // Install before any component fetches data.
 installAuthFetch();
+installErrorReporting();
 
 interface AuthContextValue {
   user: AuthUser | null;

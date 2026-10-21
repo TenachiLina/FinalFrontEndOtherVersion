@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { t } from "@/lib/i18n";
+import { reportClientError } from "@/lib/reportError";
 
 // Shown instead of a blank page when something on a page crashes.
 export default function AdminError({
@@ -13,6 +14,7 @@ export default function AdminError({
 }) {
   useEffect(() => {
     console.error("Page crashed", error);
+    reportClientError(error, { digest: error.digest });
   }, [error]);
 
   return (
