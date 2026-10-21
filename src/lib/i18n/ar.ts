@@ -96,7 +96,7 @@ const ar: Record<string, string> = {
   "Clock in / out": "تسجيل الحضور والانصراف",
   "Face-recognition clock-in": "الحضور بالتعرف على الوجه",
   "Reporting & payroll": "التقارير والرواتب",
-  "Admins have full access. Managers can use planning, shifts and clock-in, but not reporting, payroll, bonuses, advances or employee management. A clock-in kiosk account only sees the kiosk, where staff pick their name and clock in or out.": "يتمتع المديرون بصلاحيات كاملة. يمكن للمسؤولين استخدام التخطيط والفترات وتسجيل الحضور، دون التقارير والرواتب والمكافآت والتسبيقات وإدارة الموظفين. حساب جهاز تسجيل الحضور يرى الجهاز فقط، حيث يختار الموظفون أسماءهم ويسجلون حضورهم أو انصرافهم.",
+  "Admins have full access. Managers can use every feature, but not Users, Company settings or the Activity log, so they can't see other users' details. A clock-in kiosk account only sees the kiosk, where staff pick their name and clock in or out.": "يتمتع المديرون بصلاحيات كاملة. يمكن للمسؤولين استخدام كل الميزات، ما عدا المستخدمين وإعدادات الشركة وسجل النشاط، فلا يرون معلومات المستخدمين الآخرين. حساب جهاز تسجيل الحضور يرى الجهاز فقط، حيث يختار الموظفون أسماءهم ويسجلون حضورهم أو انصرافهم.",
   "Add user": "إضافة مستخدم",
   "Name": "الاسم",
   "Role": "الدور",
@@ -765,6 +765,11 @@ const ar: Record<string, string> = {
   "Query parameters": "معاملات الطلب",
   "Data sent": "البيانات المرسلة",
   "Stack trace (for developers)": "تتبع الاستدعاءات (للمطورين)",
+  // Users: manager ↔ employee link
+  "Not linked": "غير مرتبط",
+  "Employee record of {name}": "ملف الموظف الخاص بـ {name}",
+  "This manager is the employee": "هذا المسؤول هو الموظف",
+  "Other managers won't see this employee's salary, advances, bonuses or payroll.": "لن يرى المسؤولون الآخرون راتب هذا الموظف ولا تسبيقاته ولا مكافآته ولا كشف راتبه.",
 };
 
 export default ar;

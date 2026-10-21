@@ -19,6 +19,8 @@ interface Employee {
   address?: string;
   phoneNumber?: string;
   personalImage?: string;
+  // Set by the API, for a manager, on other managers' records.
+  otherManager?: boolean;
 }
 
 type SortKey = "empNumber" | "name" | "baseSalary" | "address" | "phoneNumber";
@@ -97,7 +99,8 @@ export default function BasicTableOne() {
   useEffect(() => {
     setLoading(true);
     getEmployees()
-      .then(setData)
+      // Other managers are listed for planning only; a manager doesn't see them here.
+      .then((list) => setData(list.filter((e) => !e.otherManager)))
       .catch((e) => setApiError(friendlyError(e, "Couldn't load the employees")))
       .finally(() => setLoading(false));
   }, []);

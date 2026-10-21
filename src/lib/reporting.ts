@@ -205,11 +205,18 @@ export function getCalendarMonthRange(year: number, monthIndex: number): DateRan
 // Shared fetchers
 // ─────────────────────────────────────────────────────────────────────────
 
-export async function fetchEmployees(): Promise<Employee[]> {
+// For a manager, the API also lists the other managers (planning and clock-in
+// need them) but flags them `otherManager`: salary pages leave them out.
+async function fetchEmployeesRaw(): Promise<EmployeeRaw[]> {
   const res = await fetch(`${API_BASE_URL}/employees`);
   await ensureOk(res);
-  const data = await res.json();
-  return (data as EmployeeRaw[]).map(normalizeEmployee);
+  return (await res.json()) as EmployeeRaw[];
+}
+
+export async function fetchEmployees(): Promise<Employee[]> {
+  return (await fetchEmployeesRaw())
+    .filter((e) => !e.otherManager)
+    .map(normalizeEmployee);
 }
 
 export async function fetchWorktimeRows(
@@ -221,14 +228,22 @@ export async function fetchWorktimeRows(
     params.set("empId", String(empId));
   }
 
-  const res = await fetch(`${API_BASE_URL}/worktime?${params.toString()}`);
+  const [res, employees] = await Promise.all([
+    fetch(`${API_BASE_URL}/worktime?${params.toString()}`),
+    fetchEmployeesRaw(),
+  ]);
   await ensureOk(res);
+  const hidden = new Set(
+    employees.filter((e) => e.otherManager).map((e) => String(e.empNumber))
+  );
 
   const data = await res.json();
   const list: WorktimeRowRaw[] = Array.isArray(data) ? data : data.rows || [];
 
   return list
     .map(normalizeRow)
+    // Other managers' hours stay out of a manager's reports.
+    .filter((r) => !hidden.has(String(r.emp_id)))
     // The API ignores ?empId and returns every employee's rows, so keep only this employee's.
     .filter((r) => empId === undefined || empId === null || String(r.emp_id) === String(empId))
     // The API can also return rows outside the requested range, so keep only the days inside it.
