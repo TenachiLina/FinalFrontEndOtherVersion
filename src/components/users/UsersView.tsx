@@ -14,7 +14,18 @@ interface UserRow extends Omit<AuthUser, "id"> {
   _id: string;
   active: boolean;
   createdAt?: string;
+  // For a manager: the employee record that is this person.
+  employeeId?: string | null;
 }
+
+interface EmployeeOption {
+  _id: string;
+  empNumber: number;
+  firstName: string;
+  lastName: string;
+}
+
+const employeeLabel = (e: EmployeeOption) => `${e.firstName} ${e.lastName} (#${e.empNumber})`;
 
 const inputClass =
   "h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30";
@@ -41,11 +52,13 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 export default function UsersView() {
   const { user: me } = useAuth();
   const [users, setUsers] = useState<UserRow[]>([]);
+  const [employees, setEmployees] = useState<EmployeeOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [createOpen, setCreateOpen] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", password: "", role: "manager" as Role });
+  const emptyForm = { name: "", email: "", password: "", role: "manager" as Role, employeeId: "" };
+  const [form, setForm] = useState(emptyForm);
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -54,7 +67,14 @@ export default function UsersView() {
 
   const load = useCallback(async () => {
     try {
-      setUsers(await api<UserRow[]>("/users"));
+      const [userRows, employeeRows] = await Promise.all([
+        api<UserRow[]>("/users"),
+        api<EmployeeOption[]>("/employees").catch(() => [] as EmployeeOption[]),
+      ]);
+      setUsers(userRows);
+      setEmployees(
+        [...employeeRows].sort((a, b) => employeeLabel(a).localeCompare(employeeLabel(b)))
+      );
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : t("Could not load users"));
@@ -81,9 +101,15 @@ export default function UsersView() {
     setSaving(true);
     setFormError(null);
     try {
-      await api("/users", { method: "POST", body: JSON.stringify(form) });
+      await api("/users", {
+        method: "POST",
+        body: JSON.stringify({
+          ...form,
+          employeeId: form.role === "manager" && form.employeeId ? form.employeeId : null,
+        }),
+      });
       setCreateOpen(false);
-      setForm({ name: "", email: "", password: "", role: "manager" });
+      setForm(emptyForm);
       await load();
     } catch (err) {
       setFormError(err instanceof Error ? err.message : t("Could not create user"));
@@ -107,6 +133,21 @@ export default function UsersView() {
       toast.error(friendlyError(err, "Couldn't reset the password"));
     }
   };
+
+  // An employee can be linked to one user only.
+  const linkedTo = (employeeId: string) => users.find((u) => u.employeeId === employeeId);
+
+  const employeeOptions = (forUserId?: string) =>
+    employees.map((e) => {
+      const other = linkedTo(e._id);
+      const taken = !!other && other._id !== forUserId;
+      return (
+        <option key={e._id} value={e._id} disabled={taken}>
+          {employeeLabel(e)}
+          {taken ? ` — ${other!.name}` : ""}
+        </option>
+      );
+    });
 
   return (
     <div className="space-y-4">
@@ -132,6 +173,7 @@ export default function UsersView() {
               <th className="px-4 py-3 font-medium">{t("Name")}</th>
               <th className="px-4 py-3 font-medium">{t("Email")}</th>
               <th className="px-4 py-3 font-medium">{t("Role")}</th>
+              <th className="px-4 py-3 font-medium">{t("Employee")}</th>
               <th className="px-4 py-3 font-medium">{t("Status")}</th>
               <th className="px-4 py-3 font-medium text-end">{t("Actions")}</th>
             </tr>
@@ -139,7 +181,7 @@ export default function UsersView() {
           <tbody className="divide-y divide-gray-100 text-gray-800 dark:divide-gray-800 dark:text-white/90">
             {loading && (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-gray-500">{t("Loading…")}</td>
+                <td colSpan={6} className="px-4 py-6 text-center text-gray-500">{t("Loading…")}</td>
               </tr>
             )}
             {users.map((u) => {
@@ -164,6 +206,28 @@ export default function UsersView() {
                       <option value="manager">{t("Manager")}</option>
                       <option value="employee">{t("Clock-in kiosk")}</option>
                     </select>
+                  </td>
+                  <td className="px-4 py-3">
+                    {u.role === "manager" ? (
+                      <select
+                        aria-label={t("Employee record of {name}", { name: u.name })}
+                        className="max-w-[220px] rounded-lg border border-gray-300 bg-transparent px-2 py-1 dark:border-gray-700 dark:bg-gray-900"
+                        value={u.employeeId ?? ""}
+                        onChange={(e) =>
+                          run(() =>
+                            api(`/users/${u._id}`, {
+                              method: "PATCH",
+                              body: JSON.stringify({ employeeId: e.target.value || null }),
+                            })
+                          )
+                        }
+                      >
+                        <option value="">{t("Not linked")}</option>
+                        {employeeOptions(u._id)}
+                      </select>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <span
@@ -238,6 +302,18 @@ export default function UsersView() {
               <option value="admin">{t("Admin")}</option>
             </select>
           </div>
+          {form.role === "manager" && (
+            <div>
+              <label className={labelClass} htmlFor="new-employee">{t("This manager is the employee")}</label>
+              <select id="new-employee" className={inputClass} value={form.employeeId} onChange={(e) => setForm({ ...form, employeeId: e.target.value })}>
+                <option value="">{t("Not linked")}</option>
+                {employeeOptions()}
+              </select>
+              <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                {t("Other managers won't see this employee's salary, advances, bonuses or payroll.")}
+              </p>
+            </div>
+          )}
           {formError && <p role="alert" className="text-sm text-error-500">{formError}</p>}
           <div className="flex justify-end gap-3">
             <button type="button" className="rounded-lg px-4 py-3 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-400 dark:ring-gray-700 dark:hover:bg-white/[0.03]" onClick={() => setCreateOpen(false)}>

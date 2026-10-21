@@ -765,6 +765,11 @@ const fr: Record<string, string> = {
   "Query parameters": "Paramètres de la requête",
   "Data sent": "Données envoyées",
   "Stack trace (for developers)": "Trace d'appels (pour les développeurs)",
+  // Users: manager ↔ employee link
+  "Not linked": "Non lié",
+  "Employee record of {name}": "Fiche employé de {name}",
+  "This manager is the employee": "Ce responsable est l'employé",
+  "Other managers won't see this employee's salary, advances, bonuses or payroll.": "Les autres responsables ne verront pas le salaire, les avances, les primes ni la paie de cet employé.",
 };
 
 export default fr;
