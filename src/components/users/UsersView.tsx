@@ -112,7 +112,7 @@ export default function UsersView() {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          {t("Admins have full access. Managers can use planning, shifts and clock-in, but not reporting, payroll, bonuses, advances or employee management. A clock-in kiosk account only sees the kiosk, where staff pick their name and clock in or out.")}
+          {t("Admins have full access. Managers can use every feature, but not Users, Company settings or the Activity log, so they can't see other users' details. A clock-in kiosk account only sees the kiosk, where staff pick their name and clock in or out.")}
         </p>
         <Button size="sm" className="shrink-0 whitespace-nowrap" onClick={() => setCreateOpen(true)}>
           {t("Add user")}

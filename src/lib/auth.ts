@@ -58,12 +58,9 @@ const ACTING_COMPANY_KEY = "acting_company_id";
 
 // ── Access rules: which pages need which role / feature ─────────────────────
 
-// Pages only company admins can open. Managers get planning and clock-in.
+// Pages only company admins can open. Managers get every feature except
+// these: users (and so other managers' details), company settings and the log.
 const ADMIN_ONLY_PREFIXES = [
-  "/reporting",
-  "/addEmployeeForm",
-  "/add-employee",
-  "/basic-tables",
   "/users",
   "/company-settings",
   "/activity-log",

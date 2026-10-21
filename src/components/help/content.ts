@@ -369,19 +369,19 @@ export const GUIDES: Guide[] = [
     steps: {
       en: [
         "Open Users and click Add user.",
-        "Admin: full access. Manager: planning, shifts and clock-in, but no payroll or employee management. Clock-in kiosk: only the kiosk.",
+        "Admin: full access. Manager: every feature, but not Users, Company settings or the Activity log. Clock-in kiosk: only the kiosk.",
         "Give them a temporary password; they can change it after signing in.",
         "Disable a user to block access without deleting them; use Reset password if they forget theirs.",
       ],
       fr: [
         "Ouvrez Utilisateurs et cliquez sur Ajouter un utilisateur.",
-        "Administrateur : accès complet. Responsable : planning, créneaux et pointage, sans paie ni gestion des employés. Borne de pointage : uniquement la borne.",
+        "Administrateur : accès complet. Responsable : toutes les fonctionnalités, sauf Utilisateurs, Paramètres de l'entreprise et Journal d'activité. Borne de pointage : uniquement la borne.",
         "Donnez un mot de passe temporaire ; la personne pourra le changer après connexion.",
         "Désactivez un utilisateur pour bloquer l'accès sans le supprimer ; utilisez Réinitialiser le mot de passe en cas d'oubli.",
       ],
       ar: [
         "افتح المستخدمون واضغط «إضافة مستخدم».",
-        "المدير: صلاحيات كاملة. المسؤول: التخطيط والفترات والحضور دون الرواتب وإدارة الموظفين. جهاز الحضور: شاشة الحضور فقط.",
+        "المدير: صلاحيات كاملة. المسؤول: كل الميزات، ما عدا المستخدمين وإعدادات الشركة وسجل النشاط. جهاز الحضور: شاشة الحضور فقط.",
         "أعطه كلمة مرور مؤقتة يمكنه تغييرها بعد تسجيل الدخول.",
         "عطّل المستخدم لمنع الدخول دون حذفه؛ واستخدم «إعادة تعيين كلمة المرور» عند النسيان.",
       ],
@@ -473,9 +473,9 @@ export const FAQ: Faq[] = [
     id: "missing-menu",
     q: { en: "Why can't I see some menus (like Payroll)?", fr: "Pourquoi certains menus (comme la Paie) n'apparaissent pas ?", ar: "لماذا لا أرى بعض القوائم (مثل الرواتب)؟" },
     a: {
-      en: "Menus depend on your role: managers don't see payroll, reports or employee management. Some features may also be switched off for your company.",
-      fr: "Les menus dépendent de votre rôle : les responsables ne voient pas la paie, les rapports ni la gestion des employés. Certaines fonctionnalités peuvent aussi être désactivées pour votre entreprise.",
-      ar: "تعتمد القوائم على دورك: لا يرى المسؤول الرواتب والتقارير وإدارة الموظفين. وقد تكون بعض الميزات غير مفعّلة لشركتك.",
+      en: "Menus depend on your role: managers don't see Users, Company settings or the Activity log. Some features may also be switched off for your company.",
+      fr: "Les menus dépendent de votre rôle : les responsables ne voient pas Utilisateurs, Paramètres de l'entreprise ni le Journal d'activité. Certaines fonctionnalités peuvent aussi être désactivées pour votre entreprise.",
+      ar: "تعتمد القوائم على دورك: لا يرى المسؤول المستخدمين وإعدادات الشركة وسجل النشاط. وقد تكون بعض الميزات غير مفعّلة لشركتك.",
     },
   },
   {
