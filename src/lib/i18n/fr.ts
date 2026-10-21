@@ -96,7 +96,7 @@ const fr: Record<string, string> = {
   "Clock in / out": "Pointage",
   "Face-recognition clock-in": "Pointage par reconnaissance faciale",
   "Reporting & payroll": "Rapports et paie",
-  "Admins have full access. Managers can use planning, shifts and clock-in, but not reporting, payroll, bonuses, advances or employee management. A clock-in kiosk account only sees the kiosk, where staff pick their name and clock in or out.": "Les administrateurs ont un accès complet. Les responsables peuvent utiliser le planning, les créneaux et le pointage, mais pas les rapports, la paie, les primes, les avances ni la gestion des employés. Un compte borne de pointage ne voit que la borne, où le personnel choisit son nom et pointe son arrivée ou son départ.",
+  "Admins have full access. Managers can use every feature, but not Users, Company settings or the Activity log, so they can't see other users' details. A clock-in kiosk account only sees the kiosk, where staff pick their name and clock in or out.": "Les administrateurs ont un accès complet. Les responsables peuvent utiliser toutes les fonctionnalités, sauf Utilisateurs, Paramètres de l'entreprise et Journal d'activité, et ne voient donc pas les informations des autres utilisateurs. Un compte borne de pointage ne voit que la borne, où le personnel choisit son nom et pointe son arrivée ou son départ.",
   "Add user": "Ajouter un utilisateur",
   "Name": "Nom",
   "Role": "Rôle",
@@ -818,6 +818,12 @@ const fr: Record<string, string> = {
   "Clocked in at {in} and out at {out}": "Arrivée pointée à {in} et départ à {out}",
   "1 change, click to see it": "1 modification, cliquez pour la voir",
   "{count} changes, click to see them": "{count} modifications, cliquez pour les voir",
+
+  // Users: manager ↔ employee link
+  "Not linked": "Non lié",
+  "Employee record of {name}": "Fiche employé de {name}",
+  "This manager is the employee": "Ce responsable est l'employé",
+  "Other managers won't see this employee's salary, advances, bonuses or payroll.": "Les autres responsables ne verront pas le salaire, les avances, les primes ni la paie de cet employé.",
 };
 
 export default fr;
