@@ -45,10 +45,11 @@ async function request<T>(
 ): Promise<T> {
 
   const res = await fetch(`${API_BASE_URL}${path}`, {
+    ...init,
     headers: {
       "Content-Type": "application/json",
+      ...(init?.headers ?? {}),
     },
-    ...init,
   });
 
   const text = await res.text();
@@ -88,6 +89,17 @@ async function request<T>(
 
 // ─── CRUD ─────────────────────────────────────────────────────────────────────
 
+/**
+ * Tells the activity log what kind of save this is:
+ * "clock" = someone clocked in or out (clock buttons, clocking machine),
+ * logged as "Clocked in at 08:00"; "edit" = a manager changed the times,
+ * logged with what changed. Left out, the server guesses.
+ */
+export type AuditAs = "clock" | "edit";
+
+const auditHeaders = (auditAs?: AuditAs): Record<string, string> =>
+  auditAs ? { "X-Audit-As": auditAs } : {};
+
 export const getWorktimes = (
   params?: Record<string, string>
 ) => {
@@ -116,25 +128,29 @@ export const getWorktime = (
   );
 
 export const createWorktime = (
-  body: WorktimePayload
+  body: WorktimePayload,
+  auditAs?: AuditAs
 ) =>
   request<WorktimeRecord>(
     "/worktime",
     {
       method: "POST",
       body: JSON.stringify(body),
+      headers: auditHeaders(auditAs),
     }
   );
 
 export const updateWorktime = (
   id: string,
-  body: Partial<WorktimePayload>
+  body: Partial<WorktimePayload>,
+  auditAs?: AuditAs
 ) =>
   request<WorktimeRecord>(
     `/worktime/${id}`,
     {
       method: "PUT",
       body: JSON.stringify(body),
+      headers: auditHeaders(auditAs),
     }
   );
 
@@ -167,7 +183,8 @@ export const deleteWorktime = (
 
 export async function upsertWorktime(
   payload: WorktimePayload,
-  existingId?: string | null
+  existingId?: string | null,
+  auditAs?: AuditAs
 ): Promise<WorktimeRecord> {
   console.log("🔵 UPSERT WORKTIME START");
   console.log("Payload:", payload);
@@ -186,7 +203,8 @@ export async function upsertWorktime(
 
       const updated = await updateWorktime(
         existingId,
-        payload
+        payload,
+        auditAs
       );
 
       console.log(
@@ -245,7 +263,8 @@ export async function upsertWorktime(
 
     const updated = await updateWorktime(
       existingRecord._id,
-      payload
+      payload,
+      auditAs
     );
 
     console.log(
@@ -268,7 +287,8 @@ export async function upsertWorktime(
   );
 
   const created = await createWorktime(
-    payload
+    payload,
+    auditAs
   );
 
   console.log(

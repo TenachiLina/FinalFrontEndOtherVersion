@@ -6,6 +6,7 @@ import Badge from "../ui/badge/Badge";
 import {
   getWorktimesByDate,
   upsertWorktime,
+  type AuditAs,
   type WorktimeRecord,
   type WorktimePayload,
 } from "./worktime.api";
@@ -42,6 +43,8 @@ interface EmployeeTimeEntry {
   workTimeId: string | null;
   _dirty?: boolean;
   _saving?: boolean;
+  // How the activity log should describe the next save (clock button or edit)
+  _auditAs?: AuditAs;
 }
 interface ManualInputState {
   employee: number | null;
@@ -367,7 +370,7 @@ useEffect(() => {
   shift?.start_time ?? "",
   shift?.end_time ?? ""
 );
-        const saved = await upsertWorktime(payload, updatedEntry.workTimeId ?? null);
+        const saved = await upsertWorktime(payload, updatedEntry.workTimeId ?? null, updatedEntry._auditAs);
         setEntries((prev) => ({ ...prev, [k]: { ...prev[k], workTimeId: saved._id, _saving: false } }));
       } catch (e) {
         setApiError(friendlyError(e, `Couldn't save the times for employee ${empNum}`));
@@ -379,7 +382,7 @@ useEffect(() => {
   if (!currentTab) return;
   const k = entryKey(empNum);
   setEntries((prev) => {
-    const updated = { ...(prev[k] ?? getEntry(empNum)), ...patch, _dirty: true };
+    const updated = { ...(prev[k] ?? getEntry(empNum)), _auditAs: undefined, ...patch, _dirty: true };
     scheduleSave(empNum, currentTab, updated);
     const next = { ...prev, [k]: updated };
     saveEntriesToStorage(currentDate, next); // ← save to localStorage
@@ -389,15 +392,15 @@ useEffect(() => {
 
 
   // ── Actions ───────────────────────────────────────────────────────────────
-  const handleClockIn  = (empNum: number) => updateEntry(empNum, { clockIn:  nowTime() });
-  const handleClockOut = (empNum: number) => updateEntry(empNum, { clockOut: nowTime() });
+  const handleClockIn  = (empNum: number) => updateEntry(empNum, { clockIn:  nowTime(), _auditAs: "clock" });
+  const handleClockOut = (empNum: number) => updateEntry(empNum, { clockOut: nowTime(), _auditAs: "clock" });
   const openManualInput = (empNum: number, type: "clockIn" | "clockOut") =>
     setManualInput({ employee: empNum, type, value: getEntry(empNum)[type] });
   const saveManualTime = () => {
     const { employee, type, value } = manualInput;
     if (!employee || !type) return;
     if (!value.match(/^\d{2}:\d{2}$/)) { toast.warning("Enter the time as HH:MM, for example 08:30."); return; }
-    updateEntry(employee, { [type]: value });
+    updateEntry(employee, { [type]: value, _auditAs: "edit" });
     setManualInput({ employee: null, type: null, value: "" });
   };
   // const toggleAbsent = (empNum: number, absent: boolean) =>

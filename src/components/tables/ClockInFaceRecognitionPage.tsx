@@ -15,6 +15,7 @@ import Badge from "../ui/badge/Badge";
 import {
   getWorktimesByDate,
   upsertWorktime,
+  type AuditAs,
   type WorktimeRecord,
   type WorktimePayload,
 } from "./worktime.api";
@@ -701,6 +702,8 @@ interface EmployeeTimeEntry {
 
   _dirty?: boolean;
   _saving?: boolean;
+  // How the activity log should describe the next save (see worktime.api)
+  _auditAs?: AuditAs;
   
   backupEmpNum?: number | null;
 }
@@ -2174,7 +2177,8 @@ const [deviceEntries, setDeviceEntries] =
                   await upsertWorktime(
                     payload,
                     updatedEntry.workTimeId ??
-                      null
+                      null,
+                    updatedEntry._auditAs
                   );
 
                 setEntries(
@@ -2586,10 +2590,12 @@ const [deviceEntries, setDeviceEntries] =
              *
              * This is safer than trusting the React `entries` state.
              */
+            // Punches from the machine are normal clock-ins/outs.
             const saved =
               await upsertWorktime(
                 payload,
-                null
+                null,
+                "clock"
               );
 
             console.log(
@@ -2772,6 +2778,8 @@ const [deviceEntries, setDeviceEntries] =
             const updated = {
               ...current,
 
+              _auditAs: undefined,
+
               ...patch,
 
               _dirty:
@@ -2863,6 +2871,7 @@ const [deviceEntries, setDeviceEntries] =
         {
           [type]:
             value,
+          _auditAs: "edit",
         }
       );
 
