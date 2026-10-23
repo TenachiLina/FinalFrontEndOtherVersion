@@ -50,6 +50,10 @@ interface Actor {
 const ACTION_LABELS: Record<string, string> = {
   "auth.login": "Signed in",
   "auth.changePassword": "Changed their password",
+  "auth.logout": "Signed out",
+  "auth.logoutOthers": "Signed out of their other devices",
+  "session.revoke": "Ended one of their sessions",
+  "session.revokeByAdmin": "Ended a user's session",
   "user.create": "Added a user",
   "user.update": "Edited a user",
   "user.resetPassword": "Reset a user's password",
@@ -94,6 +98,7 @@ const ACTION_LABELS: Record<string, string> = {
 
 const ACTION_GROUPS: [string, string][] = [
   ["auth", "Sign-in & password"],
+  ["session", "Login sessions"],
   ["user", "Users"],
   ["employee", "Employees"],
   ["planning", "Planning"],

@@ -18,6 +18,7 @@ import {
   installAuthFetch,
   saveIdentity,
   saveSession,
+  serverLogout,
   setActingCompanyId,
 } from "@/lib/auth";
 import { applyCompanySettings } from "@/lib/payrollConfig";
@@ -121,10 +122,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       const data = (await res.json()) as {
         accessToken: string;
+        refreshToken: string;
         user: AuthUser;
         company: CompanyInfo | null;
       };
-      saveSession(data.accessToken, data.user, data.company);
+      saveSession(data.accessToken, data.user, data.company, data.refreshToken);
       setIdentity(data.user, data.company);
       return { user: data.user, company: data.company };
     },
@@ -132,9 +134,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const logout = useCallback(() => {
-    clearSession();
-    setIdentity(null, null);
-    window.location.href = signInPathFor(getRememberedSlug());
+    // Ends the session on the server too, so its tokens stop working at once
+    void serverLogout().finally(() => {
+      setIdentity(null, null);
+      window.location.href = signInPathFor(getRememberedSlug());
+    });
   }, [setIdentity]);
 
   const switchCompany = useCallback((companyId: string | null) => {
