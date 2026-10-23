@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   BookOpenIcon,
   ChatBubbleLeftRightIcon,
@@ -15,6 +15,8 @@ import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
 import { canOpen } from "@/lib/auth";
 import { FAQ, GUIDES, SUPPORT, Steps, Text } from "./content";
+import GuideVideo from "./GuideVideo";
+import { SCENES } from "./scenes";
 
 /** Collapsible section; native <details> keeps it keyboard-friendly. */
 function Item({ id, title, children, open }: { id: string; title: React.ReactNode; children: React.ReactNode; open?: boolean }) {
@@ -38,6 +40,20 @@ export default function HelpView() {
   const { user, company } = useAuth();
   const { lang, t } = useI18n();
   const [query, setQuery] = useState("");
+  // A link like /help#guide-plan-week opens that guide and plays it
+  const [linked, setLinked] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fromHash = () => {
+      const id = decodeURIComponent(window.location.hash.replace(/^#guide-/, ""));
+      if (!GUIDES.some((g) => g.id === id)) return;
+      setLinked(id);
+      window.setTimeout(() => document.getElementById(`guide-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+    };
+    fromHash();
+    window.addEventListener("hashchange", fromHash);
+    return () => window.removeEventListener("hashchange", fromHash);
+  }, []);
 
   const tx = (x: Text) => x[lang];
   const steps = (x: Steps) => x[lang];
@@ -68,7 +84,7 @@ export default function HelpView() {
           <h1 className="text-2xl font-semibold">{t("Help & guides")}</h1>
         </div>
         <p className="mt-2 max-w-2xl text-white/80">
-          {t("Step-by-step guides for everything you can do, answers to common questions, and how to reach us.")}
+          {t("Short video guides for everything you can do, answers to common questions, and how to reach us.")}
         </p>
         <label className="relative mt-5 block max-w-xl">
           <span className="sr-only">{t("Search the help")}</span>
@@ -97,7 +113,7 @@ export default function HelpView() {
               <Item
                 key={g.id}
                 id={`guide-${g.id}`}
-                open={!!q || (i === 0 && !q)}
+                open={!!q || linked === g.id || (i === 0 && !q && !linked)}
                 title={
                   <span>
                     {tx(g.title)}
@@ -105,16 +121,32 @@ export default function HelpView() {
                   </span>
                 }
               >
-                <ol className="mt-1 space-y-2">
-                  {steps(g.steps).map((s, n) => (
-                    <li key={n} className="flex gap-3">
-                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-50 text-xs font-semibold text-brand-600 dark:bg-brand-500/15 dark:text-brand-400">
-                        {n + 1}
-                      </span>
-                      <span className="pt-0.5">{s}</span>
-                    </li>
-                  ))}
-                </ol>
+                {SCENES[g.id] && (
+                  <div className="mt-1">
+                    <GuideVideo
+                      key={`${g.id}-${lang}-${linked === g.id}`}
+                      title={tx(g.title)}
+                      scenes={SCENES[g.id]}
+                      captions={steps(g.steps)}
+                      autoPlay={linked === g.id}
+                    />
+                  </div>
+                )}
+                <details className="group/steps mt-3" open={!SCENES[g.id] || !!q}>
+                  <summary className="cursor-pointer list-none text-sm font-medium text-brand-500 hover:underline [&::-webkit-details-marker]:hidden">
+                    {t("Read the steps")}
+                  </summary>
+                  <ol className="mt-2 space-y-2">
+                    {steps(g.steps).map((s, n) => (
+                      <li key={n} className="flex gap-3">
+                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-50 text-xs font-semibold text-brand-600 dark:bg-brand-500/15 dark:text-brand-400">
+                          {n + 1}
+                        </span>
+                        <span className="pt-0.5">{s}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </details>
               </Item>
             ))}
           </div>
