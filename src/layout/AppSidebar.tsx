@@ -14,6 +14,7 @@ import {
   GridIcon,
   HorizontaLDots,
   ListIcon,
+  LockIcon,
   PageIcon,
   PieChartIcon,
   PlugInIcon,
@@ -146,6 +147,11 @@ const navItems: NavItem[] = [
     icon: <ListIcon />,
     name: "Activity log",
     path: "/activity-log",
+  },
+  {
+    icon: <LockIcon />,
+    name: "Login sessions",
+    path: "/login-sessions",
   },
   {
     icon: <AlertIcon />,

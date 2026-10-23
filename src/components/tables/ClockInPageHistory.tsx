@@ -988,7 +988,8 @@ if (shift && clockOut !== "00:00" && clockOut !== "—") {
     // The backend and WorktimePayload type must also allow null.
     await upsertWorktime(
       worktimePayload as any,
-      null
+      null,
+      "edit"
     );
 
     // ---------------------------------------------------------
@@ -1340,7 +1341,8 @@ shift_id: shiftId,
     // The backend and WorktimePayload type must also allow null.
     await upsertWorktime(
       worktimePayload as any,
-      existingWorktime?._id ?? null
+      existingWorktime?._id ?? null,
+      "edit"
     );
 
     // 11. Refresh the history.

@@ -16,6 +16,7 @@ interface LogEntry {
   action: string;
   target?: string;
   targetId?: string;
+  changes?: Change[];
   details?: unknown;
   method: string;
   path: string;
@@ -23,6 +24,13 @@ interface LogEntry {
   statusCode?: number;
   error?: string;
   ip?: string;
+}
+
+// One changed field: no "before" = added, no "after" = removed
+interface Change {
+  label: string;
+  before?: string;
+  after?: string;
 }
 
 interface LogPage {
@@ -42,6 +50,10 @@ interface Actor {
 const ACTION_LABELS: Record<string, string> = {
   "auth.login": "Signed in",
   "auth.changePassword": "Changed their password",
+  "auth.logout": "Signed out",
+  "auth.logoutOthers": "Signed out of their other devices",
+  "session.revoke": "Ended one of their sessions",
+  "session.revokeByAdmin": "Ended a user's session",
   "user.create": "Added a user",
   "user.update": "Edited a user",
   "user.resetPassword": "Reset a user's password",
@@ -61,17 +73,20 @@ const ACTION_LABELS: Record<string, string> = {
   "task.update": "Edited a task",
   "task.delete": "Deleted a task",
   "planning.create": "Added a planning entry",
-  "planning.saveDay": "Saved a day's planning",
+  "planning.saveDay": "Changed the planning of a day",
   "planning.copyMonth": "Copied a month's planning",
   "planning.update": "Edited a planning entry",
   "planning.delete": "Deleted a planning entry",
-  "worktime.create": "Recorded work time",
-  "worktime.update": "Edited work time",
-  "worktime.delete": "Deleted work time",
+  "worktime.create": "Added a day of clock-in/out (work time)",
+  "worktime.update": "Changed a day of clock-in/out (work time)",
+  "worktime.delete": "Deleted a day of clock-in/out (work time)",
+  "worktime.clockIn": "Clocked in",
+  "worktime.clockOut": "Clocked out",
+  "worktime.clockInOut": "Clocked in and out",
   "attendance.sync": "Synced the clocking machine",
-  "punch.create": "Added a punch",
-  "punch.update": "Edited a punch",
-  "punch.delete": "Deleted a punch",
+  "punch.create": "Added a clock punch by hand",
+  "punch.update": "Changed the time of a clock punch",
+  "punch.delete": "Deleted a clock punch",
   "kiosk.clockIn": "Clocked in at the kiosk",
   "kiosk.clockOut": "Clocked out at the kiosk",
   "advance.create": "Gave an advance",
@@ -83,6 +98,7 @@ const ACTION_LABELS: Record<string, string> = {
 
 const ACTION_GROUPS: [string, string][] = [
   ["auth", "Sign-in & password"],
+  ["session", "Login sessions"],
   ["user", "Users"],
   ["employee", "Employees"],
   ["planning", "Planning"],
@@ -122,6 +138,48 @@ function formatWhen(iso: string) {
     minute: "2-digit",
     second: "2-digit",
   });
+}
+
+const CLOCK_ACTIONS = new Set(["worktime.clockIn", "worktime.clockOut", "worktime.clockInOut"]);
+
+/** "Clocked out at 13:02" for a normal clock, the action's name otherwise. */
+function actionText(entry: LogEntry) {
+  if (CLOCK_ACTIONS.has(entry.action)) {
+    const time = (label: string) => entry.changes?.find((c) => c.label === label)?.after ?? "";
+    const clockIn = time("Clock-in time");
+    const clockOut = time("Clock-out time");
+    if (entry.action === "worktime.clockIn") return t("Clocked in at {time}", { time: clockIn });
+    if (entry.action === "worktime.clockOut") return t("Clocked out at {time}", { time: clockOut });
+    return t("Clocked in at {in} and out at {out}", { in: clockIn, out: clockOut });
+  }
+  return t(ACTION_LABELS[entry.action] ?? ACTION_LABELS.other);
+}
+
+/** "Clock-out time: 17:00 → 18:30", "+ Sara Benali · Shift 08:00–16:00", … */
+function ChangeList({ changes }: { changes: Change[] }) {
+  return (
+    <ul className="mt-2 space-y-1.5 rounded-lg bg-gray-50 p-3 text-sm dark:bg-white/[0.03]">
+      {changes.map((c, i) => {
+        const added = c.before === undefined && c.after !== undefined;
+        const removed = c.after === undefined && c.before !== undefined;
+        return (
+          <li key={i} className="leading-relaxed">
+            <span className="font-medium text-gray-700 dark:text-gray-300">{t(c.label)}</span>
+            {(c.before !== undefined || c.after !== undefined) && <span className="text-gray-500">: </span>}
+            {added && <span className="text-success-600 dark:text-success-500">{t(c.after!)}</span>}
+            {removed && <span className="text-error-600 line-through decoration-error-300 dark:text-error-500">{t(c.before!)}</span>}
+            {!added && !removed && c.before !== undefined && (
+              <>
+                <span className="text-gray-500 line-through decoration-gray-300 dark:text-gray-400">{t(c.before)}</span>
+                <span className="mx-1 text-gray-400">→</span>
+                <span className="font-medium text-gray-800 dark:text-white/90">{t(c.after ?? "")}</span>
+              </>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  );
 }
 
 export default function ActivityLogView() {
@@ -266,20 +324,19 @@ export default function ActivityLogView() {
             <tr>
               <th className="px-4 py-3 text-start font-medium">{t("When")}</th>
               <th className="px-4 py-3 text-start font-medium">{t("User")}</th>
-              <th className="px-4 py-3 text-start font-medium">{t("Action")}</th>
-              <th className="px-4 py-3 text-start font-medium">{t("Record")}</th>
+              <th className="px-4 py-3 text-start font-medium">{t("What happened")}</th>
               <th className="px-4 py-3 text-start font-medium">{t("Result")}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 text-gray-800 dark:divide-gray-800 dark:text-white/90">
             {loading && !data && (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-gray-500">{t("Loading…")}</td>
+                <td colSpan={4} className="px-4 py-6 text-center text-gray-500">{t("Loading…")}</td>
               </tr>
             )}
             {data && data.items.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-gray-500">
+                <td colSpan={4} className="px-4 py-6 text-center text-gray-500">
                   {hasFilters ? t("No activity matches these filters.") : t("No activity recorded yet.")}
                 </td>
               </tr>
@@ -302,8 +359,21 @@ export default function ActivityLogView() {
                           .join(" · ")}
                       </div>
                     </td>
-                    <td className="px-4 py-3">{t(ACTION_LABELS[entry.action] ?? ACTION_LABELS.other)}</td>
-                    <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{entry.target ?? "—"}</td>
+                    <td className="max-w-xl px-4 py-3">
+                      <div>{actionText(entry)}</div>
+                      {entry.target && <div className="font-medium">{entry.target}</div>}
+                      {/* What changed stays hidden until the row is clicked */}
+                      {!CLOCK_ACTIONS.has(entry.action) && entry.changes && entry.changes.length > 0 &&
+                        (isOpen ? (
+                          <ChangeList changes={entry.changes} />
+                        ) : (
+                          <div className="mt-1 text-xs text-brand-500">
+                            {entry.changes.length === 1
+                              ? t("1 change, click to see it")
+                              : t("{count} changes, click to see them", { count: entry.changes.length })}
+                          </div>
+                        ))}
+                    </td>
                     <td className="px-4 py-3">
                       <span
                         className={`rounded-full px-2 py-0.5 text-xs ${
@@ -316,25 +386,10 @@ export default function ActivityLogView() {
                       </span>
                     </td>
                   </tr>
-                  {isOpen && (
+                  {isOpen && entry.error && (
                     <tr className="bg-gray-50/60 dark:bg-white/[0.02]">
-                      <td colSpan={5} className="space-y-2 px-4 py-3 text-xs text-gray-600 dark:text-gray-400">
-                        {entry.error && (
-                          <p className="text-error-600 dark:text-error-500">
-                            <span className="font-medium">{t("Error")}:</span> {entry.error}
-                          </p>
-                        )}
-                        <p>
-                          <span className="font-medium">{t("Request")}:</span>{" "}
-                          <code>{entry.method} {entry.path}</code>
-                          {entry.statusCode ? ` (${entry.statusCode})` : ""}
-                          {entry.ip && <> · {t("IP address")}: {entry.ip}</>}
-                        </p>
-                        {entry.details !== undefined && entry.details !== null && Object.keys(entry.details as object).length > 0 && (
-                          <pre className="max-h-64 overflow-auto rounded-lg bg-white p-3 text-gray-700 ring-1 ring-gray-200 dark:bg-gray-900 dark:text-gray-300 dark:ring-gray-800">
-                            {JSON.stringify(entry.details, null, 2)}
-                          </pre>
-                        )}
+                      <td colSpan={4} className="px-4 py-3 text-sm text-error-600 dark:text-error-500">
+                        <span className="font-medium">{t("Error")}:</span> {entry.error}
                       </td>
                     </tr>
                   )}
