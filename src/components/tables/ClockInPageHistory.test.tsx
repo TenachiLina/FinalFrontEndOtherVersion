@@ -763,7 +763,7 @@ describe("ClockInPageHistory – editing a punch", () => {
     db.shifts = [snakeShift("08:00", "16:00")];
     db.worktimes = [{ _id: "w1", worktime_id: 1, emp_id: 101, work_date: "2026-03-09", penalty: 300, consomation: 120, bonus: 40, absent: false, absent_comment: "x" }];
     const { user } = await renderHistory();
-    await user.dblClick(screen.getByText("08:00"));
+    await user.click(screen.getByText("08:00"));
     const row = rowWith("Zerrouki");
     await pickTime(user, row, "09:00");
     await user.click(within(row).getByRole("button", { name: "✓" }));
@@ -799,7 +799,7 @@ describe("ClockInPageHistory – editing a punch", () => {
   it("changes a clock-out time", async () => {
     db.shifts = [snakeShift("08:00", "16:00")];
     const { user } = await renderHistory();
-    await user.dblClick(screen.getByText("16:30"));
+    await user.click(screen.getByText("16:30"));
     const row = rowWith("Zerrouki");
     await pickTime(user, row, "17:45");
     await user.click(within(row).getByRole("button", { name: "✓" }));
@@ -811,7 +811,7 @@ describe("ClockInPageHistory – editing a punch", () => {
     db.shifts = [snakeShift("22:00", "06:00")];
     db.logs = [punch(ali, "2026-03-09 22:15"), punch(ali, "2026-03-09 23:30")];
     const { user } = await renderHistory();
-    await user.dblClick(screen.getByText("23:30"));
+    await user.click(screen.getByText("23:30"));
     const row = rowWith("Zerrouki");
     await pickTime(user, row, "23:50");
     await user.click(within(row).getByRole("button", { name: "✓" }));
@@ -820,10 +820,10 @@ describe("ClockInPageHistory – editing a punch", () => {
 
   it("cancels an edit with ✕", async () => {
     const { user } = await renderHistory();
-    await user.dblClick(screen.getByText("08:00"));
+    await user.click(screen.getByText("08:00"));
     await user.click(within(rowWith("Zerrouki")).getByRole("button", { name: "✕" }));
     expect(within(rowWith("Zerrouki")).queryByLabelText("Hour")).not.toBeInTheDocument();
-    await user.dblClick(screen.getByText("16:30"));
+    await user.click(screen.getByText("16:30"));
     await user.click(within(rowWith("Zerrouki")).getByRole("button", { name: "✕" }));
     expect(within(rowWith("Zerrouki")).queryByLabelText("Hour")).not.toBeInTheDocument();
     expect(writes()).toEqual([]);
@@ -831,7 +831,7 @@ describe("ClockInPageHistory – editing a punch", () => {
 
   it("adds a missing clock-out", async () => {
     const { user } = await renderHistory();
-    await user.dblClick(within(rowWith("Amrani")).getByText("—", { selector: "span" }));
+    await user.click(within(rowWith("Amrani")).getByText("—", { selector: "button" }));
     const row = rowWith("Amrani");
     await user.click(within(row).getByRole("button", { name: "✓" }));
     expect(await screen.findByText("Enter a time.")).toBeInTheDocument();
@@ -847,7 +847,7 @@ describe("ClockInPageHistory – editing a punch", () => {
 
   it("cancels adding a clock-out", async () => {
     const { user } = await renderHistory();
-    await user.dblClick(within(rowWith("Amrani")).getByText("—", { selector: "span" }));
+    await user.click(within(rowWith("Amrani")).getByText("—", { selector: "button" }));
     await user.click(within(rowWith("Amrani")).getByRole("button", { name: "✕" }));
     expect(within(rowWith("Amrani")).queryByLabelText("Hour")).not.toBeInTheDocument();
   });
@@ -855,7 +855,7 @@ describe("ClockInPageHistory – editing a punch", () => {
   it("doesn't open an editor for a clock-out without an id", async () => {
     db.logs = [punch(ali, "2026-03-09 08:00"), punch(ali, "2026-03-09 16:00", { _id: undefined })];
     const { user } = await renderHistory();
-    await user.dblClick(screen.getByText("16:00"));
+    await user.click(screen.getByText("16:00"));
     expect(screen.queryByLabelText("Hour")).not.toBeInTheDocument();
   });
 
@@ -870,7 +870,7 @@ describe("ClockInPageHistory – editing a punch", () => {
   it("warns when the employee isn't in the planning", async () => {
     db.planning = [];
     const { user } = await renderHistory();
-    await user.dblClick(screen.getByText("16:30"));
+    await user.click(screen.getByText("16:30"));
     const row = rowWith("Zerrouki");
     await pickTime(user, row, "16:00");
     await user.click(within(row).getByRole("button", { name: "✓" }));
@@ -891,7 +891,7 @@ describe("ClockInPageHistory – editing a punch", () => {
         HttpResponse.json(new URL(request.url).searchParams.get("from") === "2026-03-09" ? { data: db.logs } : db.logs)
       )
     );
-    await user.dblClick(screen.getByText("16:30"));
+    await user.click(screen.getByText("16:30"));
     const row = rowWith("Zerrouki");
     await pickTime(user, row, "16:00");
     await user.click(within(row).getByRole("button", { name: "✓" }));
@@ -905,7 +905,7 @@ describe("ClockInPageHistory – editing a punch", () => {
     );
     const { user } = await renderHistory();
     server.use(http.get(`${API}/employees`, () => HttpResponse.json({ nope: 1 })));
-    await user.dblClick(screen.getByText("16:30"));
+    await user.click(screen.getByText("16:30"));
     const row = rowWith("Zerrouki");
     await pickTime(user, row, "16:00");
     await user.click(within(row).getByRole("button", { name: "✓" }));
@@ -915,7 +915,7 @@ describe("ClockInPageHistory – editing a punch", () => {
   it("explains a refused change, keeping the editor open", async () => {
     server.use(http.patch(`${API}/attendance/device-logs/:id`, () => HttpResponse.json({ message: "Too late to change" }, { status: 403 })));
     const { user } = await renderHistory();
-    await user.dblClick(screen.getByText("08:00"));
+    await user.click(screen.getByText("08:00"));
     const row = rowWith("Zerrouki");
     await pickTime(user, row, "09:00");
     await user.click(within(row).getByRole("button", { name: "✓" }));
@@ -929,13 +929,13 @@ describe("ClockInPageHistory – editing a punch", () => {
       http.post(`${API}/attendance/device-logs`, () => new HttpResponse("oops", { status: 500 }))
     );
     const { user } = await renderHistory();
-    await user.dblClick(screen.getByText("08:00"));
+    await user.click(screen.getByText("08:00"));
     await pickTime(user, rowWith("Zerrouki"), "09:00");
     await user.click(within(rowWith("Zerrouki")).getByRole("button", { name: "✓" }));
     expect(await screen.findByText(/The clock-in couldn't be changed/)).toBeInTheDocument();
     await user.click(within(rowWith("Zerrouki")).getByRole("button", { name: "✕" }));
 
-    await user.dblClick(within(rowWith("Amrani")).getByText("—", { selector: "span" }));
+    await user.click(within(rowWith("Amrani")).getByText("—", { selector: "button" }));
     await pickTime(user, rowWith("Amrani"), "17:00");
     await user.click(within(rowWith("Amrani")).getByRole("button", { name: "✓" }));
     expect(await screen.findByText(/The clock-out couldn't be added/)).toBeInTheDocument();
@@ -944,7 +944,7 @@ describe("ClockInPageHistory – editing a punch", () => {
   it("reports when no punches are found to recalculate", async () => {
     const { user } = await renderHistory();
     server.use(http.get(`${API}/attendance/device-logs`, () => HttpResponse.json([])));
-    await user.dblClick(screen.getByText("08:00"));
+    await user.click(screen.getByText("08:00"));
     await pickTime(user, rowWith("Zerrouki"), "09:00");
     await user.click(within(rowWith("Zerrouki")).getByRole("button", { name: "✓" }));
     expect(await screen.findByText(/No records were found to recalculate the worked hours/)).toBeInTheDocument();
@@ -953,7 +953,7 @@ describe("ClockInPageHistory – editing a punch", () => {
   // BUG-221: the editor shows the punch's UTC time, so saving it unchanged moves the punch an hour earlier
   it.fails("opens the editor on the time shown in the table", async () => {
     const { user } = await renderHistory();
-    await user.dblClick(screen.getByText("08:00"));
+    await user.click(screen.getByText("08:00"));
     expect(within(rowWith("Zerrouki")).getByLabelText("Hour")).toHaveValue("08");
   });
 });

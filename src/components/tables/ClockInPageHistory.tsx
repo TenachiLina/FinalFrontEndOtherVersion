@@ -1691,8 +1691,9 @@ onClick={() => {
       </button>
     </div>
   ) : (
-    <span
-      onDoubleClick={() => {
+    <button
+      type="button"
+      onClick={() => {
         const rawLog = log.logs[0];
 
         if (!rawLog?._id) return;
@@ -1703,11 +1704,11 @@ onClick={() => {
   mode: "edit",
 });
       }}
-      title={t("Double-click to edit")}
+      title={t("Tap to edit")}
       className="inline-flex cursor-pointer rounded-md bg-green-100 px-2 py-1 text-xs font-medium text-green-700 hover:ring-2 hover:ring-green-300"
     >
       {formatTime(log.clockIn)}
-    </span>
+    </button>
   )}
 </td>
 
@@ -1772,8 +1773,9 @@ onClick={() => {
         </button>
       </div>
     ) : (
-      <span
-        onDoubleClick={() => {
+      <button
+        type="button"
+        onClick={() => {
           const rawLog = log.logs[1];
           if (!rawLog?._id) return;
 
@@ -1783,15 +1785,16 @@ onClick={() => {
             mode: "edit",
           });
         }}
-        title={t("Double-click to edit")}
+        title={t("Tap to edit")}
         className="inline-flex cursor-pointer rounded-md bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700 hover:ring-2 hover:ring-blue-300"
       >
         {formatTime(log.clockOut)}
-      </span>
+      </button>
     )
   ) : (
-    <span
-      onDoubleClick={() => {
+    <button
+      type="button"
+      onClick={() => {
         const clockInLog = log.logs[0];
         if (!clockInLog?._id) return;
 
@@ -1804,11 +1807,12 @@ onClick={() => {
           workDate: log.date,
         });
       }}
-      title={t("Double-click to add a clock-out")}
+      title={t("Tap to add a clock-out")}
+      aria-label={t("Tap to add a clock-out")}
       className="inline-flex cursor-pointer rounded-md border border-dashed border-orange-300 px-2 py-1 text-xs font-medium text-orange-600 hover:bg-orange-50 hover:ring-2 hover:ring-orange-200"
     >
       —
-    </span>
+    </button>
   )}
 </td>
 

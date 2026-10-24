@@ -314,7 +314,7 @@ const ShiftGrid: React.FC = () => {
           <div className="overflow-x-auto">
             {/* Date navigation */}
             {!showTableOnly && (
-              <div className="grid grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-3 p-4 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex flex-wrap items-center gap-3 p-4 border-b border-gray-200 dark:border-gray-700">
                 {/* Today */}
                 <Tooltip text="Go to today">
                   <button
@@ -380,8 +380,8 @@ const ShiftGrid: React.FC = () => {
                   </span>
                 </div> */}
 
-                {/* Buttons */}
-                <div className="flex shrink-0 flex-nowrap justify-end gap-2">
+                {/* Buttons: wrap onto a second line on narrow (tablet) screens instead of being cut off */}
+                <div className="ms-auto flex flex-wrap justify-end gap-2">
 
                   {/* Save */}
                   <Tooltip text="Save this planning to only the selected day in the calendar.">

@@ -126,7 +126,7 @@ describe("day selection", () => {
 
   it("moves one day back or forward and back to today", async () => {
     const { user, api } = await renderPlanning();
-    const nav = screen.getByRole("button", { name: "Today" }).closest("div.grid") as HTMLElement;
+    const nav = screen.getByRole("button", { name: "Today" }).closest("div.flex-wrap") as HTMLElement;
     const [, prev, next] = within(nav).getAllByRole("button");
 
     await user.click(next);
