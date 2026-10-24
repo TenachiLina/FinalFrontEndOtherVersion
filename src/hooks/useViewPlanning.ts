@@ -122,6 +122,8 @@ export const useViewPlanning = () => {
       const shiftId = item.shiftId._id;
 
       if (newGrid[taskId]?.[shiftId] !== undefined) {
+        // The same employee saved twice in one cell is shown once
+        if (newGrid[taskId][shiftId].some((c) => c.id === item.empId._id)) return;
         newGrid[taskId][shiftId].push({
           id: item.empId._id,
           title: `${item.empId.firstName} ${item.empId.lastName}`,
