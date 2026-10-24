@@ -37,7 +37,7 @@ export default function ChangePasswordForm() {
       setCurrent("");
       setNext("");
       setConfirmNext("");
-      setMessage({ ok: true, text: t("Your password has been changed.") });
+      setMessage({ ok: true, text: t("Your password has been changed. Your other devices were signed out.") });
     } catch (err) {
       setMessage({ ok: false, text: err instanceof Error ? err.message : t("Could not change password") });
     } finally {
@@ -52,7 +52,7 @@ export default function ChangePasswordForm() {
         <input id="current-password" type="password" autoComplete="current-password" className={inputClass} value={current} onChange={(e) => setCurrent(e.target.value)} />
       </div>
       <div>
-        <label className={labelClass} htmlFor="new-password">{t("New password (min 8 characters)")}</label>
+        <label className={labelClass} htmlFor="new-password">{t("New password (min 8 characters, with letters and numbers)")}</label>
         <input id="new-password" type="password" autoComplete="new-password" className={inputClass} value={next} onChange={(e) => setNext(e.target.value)} />
       </div>
       <div>
