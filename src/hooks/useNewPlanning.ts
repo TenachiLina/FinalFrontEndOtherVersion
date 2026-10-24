@@ -224,7 +224,10 @@ export const useShiftGrid = () => {
         };
 
         records.forEach((record: any) => {
-          if (newGrid[record.taskId]?.[record.shiftId] === undefined) return;
+          const cell = newGrid[record.taskId]?.[record.shiftId];
+          if (cell === undefined) return;
+          // The same employee saved twice in one cell is shown (and saved back) once
+          if (cell.some((c) => c.id === record.empId)) return;
 
           let backups: BackupRef[] = [];
 
@@ -1408,6 +1411,23 @@ export const useShiftGrid = () => {
     },
     [loadPlanningForDate]
   );
+
+  // ── One save at a time ────────────────────────────────────────────────────
+  // A second click while saving would send the same day twice (stored twice).
+  const savingRef = useRef(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const oneSaveAtATime = useCallback(async (save: () => Promise<void>) => {
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setIsSaving(true);
+    try {
+      await save();
+    } finally {
+      savingRef.current = false;
+      setIsSaving(false);
+    }
+  }, []);
+
   return {
     posts, shifts, employees, filteredEmployees, loadingMeta, metaError, loadingGrid,
     grid,
@@ -1424,10 +1444,13 @@ export const useShiftGrid = () => {
     openEditModal, handleEdit, handleCloseEditModal,
     isListModalOpen, setIsListModalOpen,
     listCell, setListCell, listEmployees,
-    handleDelete, handleSavePlanning,
+    handleDelete,
+    handleSavePlanning: () => oneSaveAtATime(handleSavePlanning),
+    isSaving,
     excelInputRef, pdfInputRef, handleImportClick, handleExcelImportClick, handlePdfImportClick, handleImportFile,
     showImportMenu, setShowImportMenu,
-    handleSaveToAllWeekdays, handleSaveToNextWeekdays,
+    handleSaveToAllWeekdays: () => oneSaveAtATime(handleSaveToAllWeekdays),
+    handleSaveToNextWeekdays: () => oneSaveAtATime(handleSaveToNextWeekdays),
     addTasks, setAddTasks, addTask, updateTask, removeTask,
     editTasks, addEditTask, updateEditTask, removeEditTask,
     isImportModalOpen,

@@ -35,7 +35,7 @@ const ShiftGrid: React.FC = () => {
   openEditModal, handleEdit, handleCloseEditModal,
   isListModalOpen, setIsListModalOpen,
   listCell, setListCell, listEmployees,
-  handleDelete, handleSavePlanning,
+  handleDelete, handleSavePlanning, isSaving,
   isImportModalOpen,
   setIsImportModalOpen,
   importDate,
@@ -389,6 +389,7 @@ const ShiftGrid: React.FC = () => {
                       size="sm"
                       variant="primary"
                       onClick={() => handleSavePlanning()}
+                      disabled={isSaving}
                       className="h-10 shrink-0 px-3 justify-center text-center whitespace-nowrap"
                     >
                       {t("Save")}
@@ -401,6 +402,7 @@ const ShiftGrid: React.FC = () => {
                       size="sm"
                       variant="primary"
                       onClick={handleSaveToAllWeekdays}
+                      disabled={isSaving}
                       className="h-10 shrink-0 px-3 justify-center text-center whitespace-nowrap"
                     >
                       {t("Save to every {weekday}", {
@@ -415,6 +417,7 @@ const ShiftGrid: React.FC = () => {
                       size="sm"
                       variant="primary"
                       onClick={handleSaveToNextWeekdays}
+                      disabled={isSaving}
                       className="h-10 shrink-0 px-3 justify-center text-center whitespace-nowrap"
                     >
                       {t("Save to the next {weekday}s", {
