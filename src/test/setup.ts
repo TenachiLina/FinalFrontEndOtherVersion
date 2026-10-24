@@ -1,9 +1,14 @@
 import "@testing-library/jest-dom/vitest";
 import React from "react";
-import { cleanup } from "@testing-library/react";
+import { cleanup, configure } from "@testing-library/react";
 import { afterAll, afterEach, vi } from "vitest";
 import { server } from "./server";
 import { navigationMock, resetNavigation } from "./navigation";
+import { answerConfirm, dismissToast, getConfirm, getToasts } from "@/lib/notify";
+
+// findBy*/waitFor give up after 1 s by default; screens that load several
+// endpoints can take longer when the whole suite runs with coverage
+configure({ asyncUtilTimeout: 4000 });
 
 // Started here, before any test file is imported: AuthContext wraps
 // window.fetch as soon as it is imported, and must wrap MSW's version.
@@ -14,6 +19,8 @@ server.listen({ onUnhandledFrame: "error" });
 
 vi.mock("next/navigation", () => navigationMock);
 
+// Next-only props (fill, priority, prefetch) are dropped so React doesn't warn about them
+/* eslint-disable @typescript-eslint/no-unused-vars */
 vi.mock("next/image", () => ({
   default: ({ src, alt, fill: _fill, priority: _priority, ...rest }: Record<string, unknown>) =>
     React.createElement("img", { src: typeof src === "string" ? src : "", alt, ...rest }),
@@ -23,6 +30,8 @@ vi.mock("next/link", () => ({
   default: ({ href, children, prefetch: _prefetch, ...rest }: Record<string, unknown>) =>
     React.createElement("a", { href: typeof href === "string" ? href : String(href), ...rest }, children as React.ReactNode),
 }));
+
+/* eslint-enable @typescript-eslint/no-unused-vars */
 
 // Loads the component right away (behind Suspense) instead of on demand
 vi.mock("next/dynamic", () => ({
@@ -94,6 +103,10 @@ afterEach(() => {
   sessionStorage.clear();
   resetNavigation();
   document.documentElement.className = "";
+  // Toasts and confirm dialogs live in module state (src/lib/notify.ts):
+  // without this, one test's toast can satisfy the next test's assertion
+  getToasts().forEach((t) => dismissToast(t.id));
+  for (let c = getConfirm(); c; c = getConfirm()) answerConfirm(c.id, false);
 });
 
 afterAll(() => server.close());

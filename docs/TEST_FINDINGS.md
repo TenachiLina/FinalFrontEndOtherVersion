@@ -19,8 +19,128 @@ Run: `npm test` (watch), `npm run test:run`, `npm run coverage` (report in `cove
 |------|-------|-------|----------|-----------|-------|
 | 2026-10-24 | Baseline | 0% | 0% | 0% | No tests, no runner |
 | 2026-10-24 | 0–2: tooling + `src/lib` + API wrappers | 9.81% (557/5676) | 11.18% | 9.12% | 258 tests + 17 known bugs. `src/lib` at 100% lines |
+| 2026-10-24 | 3–6: hooks, contexts, layout, components, pages | **98.89% (5435/5496)** | **94.22%** | **98.73%** | 1,359 tests + 116 known-bug tests in 80 files. Same result on two consecutive full runs |
 
-## Open issues
+## Bug files
+
+Bugs are numbered by area. Each area file has the full entries plus an Observations section.
+
+| IDs | Area | File |
+|-----|------|------|
+| BUG-001 – 015 | `src/lib`, API helpers | this file, below |
+| BUG-101 – 112 | Face-recognition clock-in | [findings/clockin-face.md](findings/clockin-face.md) |
+| BUG-201 – 223 | Clock-in, clock-in history, employees list | [findings/clockin.md](findings/clockin.md) |
+| BUG-301 – 306 | New planning | [findings/new-planning.md](findings/new-planning.md) |
+| BUG-401 – 407 | View planning, shifts management | [findings/view-planning.md](findings/view-planning.md) |
+| BUG-501 – 515 | Reporting, payroll, advances, bonuses | [findings/reporting.md](findings/reporting.md) |
+| BUG-601 – 606 | Admin screens, sign-in, kiosk, profile | [findings/admin.md](findings/admin.md) |
+| BUG-701 – 713 | UI kit, forms, help, template pages | [findings/ui.md](findings/ui.md) |
+
+## All open bugs, by severity
+
+**97 open bugs: 11 High, 43 Medium, 43 Low.** Details (steps, expected, actual, suggested fix) are in the area files linked from each row.
+
+| ID | Severity | Area | Bug |
+|----|----------|------|-----|
+| [BUG-015](#bug-015-saving-a-worktime-can-overwrite-another-employees-record) | High | lib & API helpers | Saving a worktime can overwrite another employee's record |
+| [BUG-101](findings/clockin-face.md#bug-101-last-nights-clock-out-becomes-todays-clock-in-on-overnight-shifts) | High | Face-recognition clock-in | Last night's clock-out becomes today's clock-in on overnight shifts |
+| [BUG-102](findings/clockin-face.md#bug-102-a-clock-out-after-an-overnight-shifts-end-time-is-lost) | High | Face-recognition clock-in | A clock-out after an overnight shift's end time is lost |
+| [BUG-206](findings/clockin.md#bug-206-leaving-early-on-a-shift-that-ends-after-midnight-counts-21-hours-of-overtime) | High | Clock-in, history, employees | Leaving early on a shift that ends after midnight counts ~21 hours of overtime |
+| [BUG-209](findings/clockin.md#bug-209-clocking-in-on-a-second-shift-overwrites-the-first-shifts-record) | High | Clock-in, history, employees | Clocking in on a second shift overwrites the first shift's record |
+| [BUG-217](findings/clockin.md#bug-217-adding-a-punch-on-the-history-page-wipes-the-days-penalty-consumption-and-bonus) | High | Clock-in, history, employees | Adding a punch on the history page wipes the day's penalty, consumption and bonus |
+| [BUG-218](findings/clockin.md#bug-218-the-history-page-counts-lateness-and-overtime-from-midnight) | High | Clock-in, history, employees | The history page counts lateness and overtime from midnight |
+| [BUG-221](findings/clockin.md#bug-221-editing-a-punch-shows-its-utc-time-and-saving-it-moves-the-punch-an-hour) | High | Clock-in, history, employees | Editing a punch shows its UTC time, and saving it moves the punch an hour |
+| [BUG-302](findings/new-planning.md#bug-302-saving-while-the-next-day-is-loading-writes-the-previous-days-planning-onto-it) | High | New planning | Saving while the next day is loading writes the previous day's planning onto it |
+| [BUG-406](findings/view-planning.md#bug-406-backups-saved-by-the-planning-editor-never-appear-in-view-planning) | High | View planning & shifts | Backups saved by the planning editor never appear in View Planning |
+| [BUG-503](findings/reporting.md#bug-503-the-employee-page-sends-a-zero-or-negative-weekly-advance) | High | Reporting & payroll | The employee page sends a zero or negative weekly advance |
+| [BUG-001](#bug-001-date-ranges-start-a-day-early-in-time-zones-behind-utc) | Medium | lib & API helpers | Date ranges start a day early in time zones behind UTC |
+| [BUG-003](#bug-003-plans-on-the-first-day-of-a-range-are-missed-in-time-zones-behind-utc) | Medium | lib & API helpers | Plans on the first day of a range are missed in time zones behind UTC |
+| [BUG-007](#bug-007-the-login-token-is-sent-to-any-host-whose-address-starts-like-the-apis) | Medium | lib & API helpers | The login token is sent to any host whose address starts like the API's |
+| [BUG-009](#bug-009-a-refused-refresh-token-is-sent-a-second-time) | Medium | lib & API helpers | A refused refresh token is sent a second time |
+| [BUG-012](#bug-012-a-delete-answered-with-204-no-content-is-reported-as-a-failure) | Medium | lib & API helpers | A delete answered with "204 No Content" is reported as a failure |
+| [BUG-103](findings/clockin-face.md#bug-103-a-punch-at-exactly-0000-counts-as-no-punch) | Medium | Face-recognition clock-in | A punch at exactly 00:00 counts as "no punch" |
+| [BUG-104](findings/clockin-face.md#bug-104-shifts-ending-before-1600-never-get-overtime) | Medium | Face-recognition clock-in | Shifts ending before 16:00 never get overtime |
+| [BUG-105](findings/clockin-face.md#bug-105-no-overtime-after-midnight-for-a-shift-ending-at-0000) | Medium | Face-recognition clock-in | No overtime after midnight for a shift ending at 00:00 |
+| [BUG-106](findings/clockin-face.md#bug-106-a-failed-load-says-no-shifts-found-and-hides-the-error) | Medium | Face-recognition clock-in | A failed load says "No shifts found" and hides the error |
+| [BUG-109](findings/clockin-face.md#bug-109-the-saved-delay-is-not-the-delay-shown-on-screen) | Medium | Face-recognition clock-in | The saved delay is not the delay shown on screen |
+| [BUG-110](findings/clockin-face.md#bug-110-marking-someone-with-machine-punches-absent-still-saves-their-hours) | Medium | Face-recognition clock-in | Marking someone with machine punches absent still saves their hours |
+| [BUG-111](findings/clockin-face.md#bug-111-new-machine-punches-never-appear-while-the-page-is-open) | Medium | Face-recognition clock-in | New machine punches never appear while the page is open |
+| [BUG-202](findings/clockin.md#bug-202-after-a-failed-save-the-employees-list-shows-the-error-instead-of-the-employees) | Medium | Clock-in, history, employees | After a failed save, the employees list shows the error instead of the employees |
+| [BUG-205](findings/clockin.md#bug-205-a-failed-load-says-no-shifts-found-instead-of-showing-the-error) | Medium | Clock-in, history, employees | A failed load says "No shifts found" instead of showing the error |
+| [BUG-207](findings/clockin.md#bug-207-arriving-after-midnight-on-a-night-shift-isnt-counted-as-late) | Medium | Clock-in, history, employees | Arriving after midnight on a night shift isn't counted as late |
+| [BUG-208](findings/clockin.md#bug-208-the-delay-saved-to-the-server-isnt-the-one-the-page-shows) | Medium | Clock-in, history, employees | The delay saved to the server isn't the one the page shows |
+| [BUG-210](findings/clockin.md#bug-210-reset-only-clears-the-screen-the-times-come-back-on-reload) | Medium | Clock-in, history, employees | "Reset" only clears the screen; the times come back on reload |
+| [BUG-211](findings/clockin.md#bug-211-after-changing-the-date-the-new-days-times-are-stored-under-the-first-day) | Medium | Clock-in, history, employees | After changing the date, the new day's times are stored under the first day |
+| [BUG-212](findings/clockin.md#bug-212-changing-the-date-while-a-change-is-being-saved-crashes-the-page) | Medium | Clock-in, history, employees | Changing the date while a change is being saved crashes the page |
+| [BUG-213](findings/clockin.md#bug-213-the-page-opens-on-yesterday-between-midnight-and-1-am) | Medium | Clock-in, history, employees | The page opens on yesterday between midnight and 1 am |
+| [BUG-215](findings/clockin.md#bug-215-a-saved-change-still-counts-as-unsaved-after-reload-and-hides-the-servers-newer-times) | Medium | Clock-in, history, employees | A saved change still counts as "unsaved" after reload and hides the server's newer times |
+| [BUG-219](findings/clockin.md#bug-219-worked-hours-run-from-the-first-to-the-last-punch-so-breaks-are-paid) | Medium | Clock-in, history, employees | Worked hours run from the first to the last punch, so breaks are paid |
+| [BUG-220](findings/clockin.md#bug-220-adding-a-punch-between-midnight-and-1-am-fails-after-saving-it) | Medium | Clock-in, history, employees | Adding a punch between midnight and 1 am fails after saving it |
+| [BUG-222](findings/clockin.md#bug-222-punches-between-midnight-and-1-am-are-grouped-with-the-previous-day) | Medium | Clock-in, history, employees | Punches between midnight and 1 am are grouped with the previous day |
+| [BUG-301](findings/new-planning.md#bug-301-typing-a-new-main-employee-without-picking-him-shows-his-name-but-keeps-the-old-employee) | Medium | New planning | Typing a new main employee without picking him shows his name but keeps the old employee |
+| [BUG-305](findings/new-planning.md#bug-305-an-employee-listed-twice-in-an-imported-file-is-added-twice-to-the-same-cell) | Medium | New planning | An employee listed twice in an imported file is added twice to the same cell |
+| [BUG-306](findings/new-planning.md#bug-306-pdf-import-puts-employees-of-unlisted-hours-into-the-previous-hours-shift) | Medium | New planning | PDF import puts employees of unlisted hours into the previous hour's shift |
+| [BUG-401](findings/view-planning.md#bug-401-a-slow-answer-for-the-previous-day-replaces-the-planning-of-the-selected-day) | Medium | View planning & shifts | A slow answer for the previous day replaces the planning of the selected day |
+| [BUG-402](findings/view-planning.md#bug-402-in-time-zones-ahead-of-algeria-a-picked-day-shows-the-previous-days-planning) | Medium | View planning & shifts | In time zones ahead of Algeria, a picked day shows the previous day's planning |
+| [BUG-403](findings/view-planning.md#bug-403-deleting-a-shift-that-is-still-in-use-never-asks-to-force-the-delete) | Medium | View planning & shifts | Deleting a shift that is still in use never asks to force the delete |
+| [BUG-405](findings/view-planning.md#bug-405-a-slow-active-list-replaces-the-archived-list-after-switching-tabs) | Medium | View planning & shifts | A slow Active list replaces the Archived list after switching tabs |
+| [BUG-501](findings/reporting.md#bug-501-a-slow-answer-for-a-previous-range-replaces-the-range-chosen-last) | Medium | Reporting & payroll | A slow answer for a previous range replaces the range chosen last |
+| [BUG-502](findings/reporting.md#bug-502-when-the-planning-cant-be-loaded-the-payroll-and-weekly-advances-lists-are-empty) | Medium | Reporting & payroll | When the planning can't be loaded, the payroll and weekly advances lists are empty |
+| [BUG-504](findings/reporting.md#bug-504-a-double-click-on-give-advance-gives-the-advance-twice) | Medium | Reporting & payroll | A double click on "Give Advance" gives the advance twice |
+| [BUG-506](findings/reporting.md#bug-506-hours-worked-by-an-employee-without-a-planning-entry-are-left-out-of-the-payroll) | Medium | Reporting & payroll | Hours worked by an employee without a planning entry are left out of the payroll |
+| [BUG-507](findings/reporting.md#bug-507-west-of-utc-picked-weeks-start-a-day-early-or-last-6-days) | Medium | Reporting & payroll | West of UTC, picked weeks start a day early or last 6 days |
+| [BUG-508](findings/reporting.md#bug-508-advances-and-bonuses-are-deleted-with-one-click-without-confirmation) | Medium | Reporting & payroll | Advances and bonuses are deleted with one click, without confirmation |
+| [BUG-513](findings/reporting.md#bug-513-typing-a-week-start-on-the-employee-page-scrambles-the-date) | Medium | Reporting & payroll | Typing a week start on the employee page scrambles the date |
+| [BUG-515](findings/reporting.md#bug-515-the-attendance-page-loads-two-different-weeks-on-open-and-the-slower-one-wins) | Medium | Reporting & payroll | The attendance page loads two different weeks on open, and the slower one wins |
+| [BUG-605](findings/admin.md#bug-605-sign-in-can-redirect-to-another-site-through-next) | Medium | Admin, auth, kiosk | Sign-in can redirect to another site through `?next=` |
+| [BUG-701](findings/ui.md#bug-701-the-modals-close-button-has-no-accessible-name) | Medium | UI kit, forms, help | The Modal's close button has no accessible name |
+| [BUG-702](findings/ui.md#bug-702-the-modal-isnt-exposed-as-a-dialog) | Medium | UI kit, forms, help | The Modal isn't exposed as a dialog |
+| [BUG-708](findings/ui.md#bug-708-close-in-a-modal-form-submits-the-form) | Medium | UI kit, forms, help | "Close" in a modal form submits the form |
+| [BUG-002](#bug-002-a-company-setting-of-0-is-ignored) | Low | lib & API helpers | A company setting of 0 is ignored |
+| [BUG-004](#bug-004-date-filters-in-the-url-arent-validated) | Low | lib & API helpers | Date filters in the URL aren't validated |
+| [BUG-005](#bug-005-negative-durations-are-converted-wrongly) | Low | lib & API helpers | Negative durations are converted wrongly |
+| [BUG-006](#bug-006-non-numeric-values-become-nan-in-worktime-rows) | Low | lib & API helpers | Non-numeric values become NaN in worktime rows |
+| [BUG-008](#bug-008-a-failed-branding-request-is-cached-until-the-page-is-reloaded) | Low | lib & API helpers | A failed branding request is cached until the page is reloaded |
+| [BUG-010](#bug-010-downloading-a-file-whose-name-contains--fails) | Low | lib & API helpers | Downloading a file whose name contains "%" fails |
+| [BUG-011](#bug-011-a-manager-or-admin-with-no-company-can-open-the-activity-log) | Low | lib & API helpers | A manager or admin with no company can open the activity log |
+| [BUG-013](#bug-013-worktime-responses-are-printed-to-the-browser-console) | Low | lib & API helpers | Worktime responses are printed to the browser console |
+| [BUG-014](#bug-014-errors-from-shiftsapits-and-worktimeapits-show-raw-server-text) | Low | lib & API helpers | Errors from `shifts.api.ts` and `worktime.api.ts` show raw server text |
+| [BUG-107](findings/clockin-face.md#bug-107-with-no-employees-the-table-says-loading-attendance-for-ever) | Low | Face-recognition clock-in | With no employees the table says "Loading attendance..." for ever |
+| [BUG-108](findings/clockin-face.md#bug-108-a-failed-save-shows--saved-for-employees-with-machine-punches) | Low | Face-recognition clock-in | A failed save shows "✓ Saved" for employees with machine punches |
+| [BUG-112](findings/clockin-face.md#bug-112-machine-logs-and-saved-payloads-are-printed-to-the-browser-console) | Low | Face-recognition clock-in | Machine logs and saved payloads are printed to the browser console |
+| [BUG-201](findings/clockin.md#bug-201-the-last-name-column-sorts-by-first-name) | Low | Clock-in, history, employees | The "Last Name" column sorts by first name |
+| [BUG-203](findings/clockin.md#bug-203-deleting-the-last-employee-on-the-last-page-leaves-an-empty-page) | Low | Clock-in, history, employees | Deleting the last employee on the last page leaves an empty page |
+| [BUG-204](findings/clockin.md#bug-204-the-employee-forms-fields-have-no-accessible-names) | Low | Clock-in, history, employees | The employee form's fields have no accessible names |
+| [BUG-214](findings/clockin.md#bug-214-a-backup-who-is-also-planned-on-the-shift-is-listed-twice) | Low | Clock-in, history, employees | A backup who is also planned on the shift is listed twice |
+| [BUG-216](findings/clockin.md#bug-216-the-machine-status-always-comes-from-httplocalhost3001) | Low | Clock-in, history, employees | The machine status always comes from http://localhost:3001 |
+| [BUG-223](findings/clockin.md#bug-223-a-punch-without-an-id-shows-an-open-time-editor-instead-of-its-time) | Low | Clock-in, history, employees | A punch without an id shows an open time editor instead of its time |
+| [BUG-303](findings/new-planning.md#bug-303-days-are-off-by-one-when-the-browser-is-in-a-time-zone-ahead-of-algiers) | Low | New planning | Days are off by one when the browser is in a time zone ahead of Algiers |
+| [BUG-304](findings/new-planning.md#bug-304-a-failed-day-in-save-to-every--next-weekday-shows-the-raw-server-reply) | Low | New planning | A failed day in "Save to every / next weekday" shows the raw server reply |
+| [BUG-404](findings/view-planning.md#bug-404-a-failed-shift-delete-shows-the-raw-technical-error) | Low | View planning & shifts | A failed shift delete shows the raw technical error |
+| [BUG-407](findings/view-planning.md#bug-407-today-and-the-day-arrows-dont-move-the-mini-calendar-so-the-selected-day-cant-be-seen) | Low | View planning & shifts | "Today" and the day arrows don't move the mini calendar, so the selected day can't be seen |
+| [BUG-505](findings/reporting.md#bug-505-a-failed-undo-on-the-employee-page-is-silent) | Low | Reporting & payroll | A failed "Undo" on the employee page is silent |
+| [BUG-509](findings/reporting.md#bug-509-total-hours-show-floating-point-noise) | Low | Reporting & payroll | Total hours show floating-point noise |
+| [BUG-510](findings/reporting.md#bug-510-the-month-picker-ignores-the-month-being-shown) | Low | Reporting & payroll | The month picker ignores the month being shown |
+| [BUG-511](findings/reporting.md#bug-511-the-bonus-totals-row-mixes-filtered-and-unfiltered-figures) | Low | Reporting & payroll | The bonus totals row mixes filtered and unfiltered figures |
+| [BUG-512](findings/reporting.md#bug-512-the-overview-shows-a-rise-as-a-fall-when-the-previous-value-was-negative) | Low | Reporting & payroll | The Overview shows a rise as a fall when the previous value was negative |
+| [BUG-514](findings/reporting.md#bug-514-the-employee-page-shows-0-in-the-absent-column-for-days-worked) | Low | Reporting & payroll | The employee page shows "0" in the Absent column for days worked |
+| [BUG-601](findings/admin.md#bug-601-a-cancelled-password-reset-pre-fills-the-next-users-new-password) | Low | Admin, auth, kiosk | A cancelled password reset pre-fills the next user's new password |
+| [BUG-602](findings/admin.md#bug-602-clicking-next-right-after-the-list-loads-jumps-back-to-page-1) | Low | Admin, auth, kiosk | Clicking "Next" right after the list loads jumps back to page 1 |
+| [BUG-603](findings/admin.md#bug-603-a-kiosk-account-is-stuck-on-loading-when-the-company-has-clock-in-switched-off) | Low | Admin, auth, kiosk | A kiosk account is stuck on "Loading…" when the company has clock-in switched off |
+| [BUG-604](findings/admin.md#bug-604-the-kiosk-lists-loading-text-isnt-translated) | Low | Admin, auth, kiosk | The kiosk list's loading text isn't translated |
+| [BUG-606](findings/admin.md#bug-606-the-profile-page-shows-a-made-up-person-and-its-save-does-nothing) | Low | Admin, auth, kiosk | The profile page shows a made-up person and its Save does nothing |
+| [BUG-703](findings/ui.md#bug-703-multiselects-arrow-button-never-opens-the-list) | Low | UI kit, forms, help | MultiSelect's arrow button never opens the list |
+| [BUG-704](findings/ui.md#bug-704-removing-a-multiselect-chip-opens-the-option-list) | Low | UI kit, forms, help | Removing a MultiSelect chip opens the option list |
+| [BUG-705](findings/ui.md#bug-705-a-disabled-multiselect-still-lets-you-remove-options) | Low | UI kit, forms, help | A disabled MultiSelect still lets you remove options |
+| [BUG-706](findings/ui.md#bug-706-switch-cant-be-used-with-the-keyboard) | Low | UI kit, forms, help | Switch can't be used with the keyboard |
+| [BUG-707](findings/ui.md#bug-707-phoneinput-always-starts-on-the-us-prefix) | Low | UI kit, forms, help | PhoneInput always starts on the US prefix |
+| [BUG-709](findings/ui.md#bug-709-okay-got-it-doesnt-close-the-alert-modals) | Low | UI kit, forms, help | "Okay, Got It" doesn't close the alert modals |
+| [BUG-710](findings/ui.md#bug-710-the-language-menu-cant-be-closed-with-escape) | Low | UI kit, forms, help | The language menu can't be closed with Escape |
+| [BUG-711](findings/ui.md#bug-711-the-theme-toggle-buttons-have-no-accessible-name) | Low | UI kit, forms, help | The theme toggle buttons have no accessible name |
+| [BUG-712](findings/ui.md#bug-712-tooltips-cant-be-seen-with-the-keyboard) | Low | UI kit, forms, help | Tooltips can't be seen with the keyboard |
+| [BUG-713](findings/ui.md#bug-713-the-headers-more-button-on-phones-has-no-name-or-state) | Low | UI kit, forms, help | The header's "more" button on phones has no name or state |
+
+## Open issues: lib and API helpers
 
 Sorted by severity.
 
@@ -174,6 +294,7 @@ Sorted by severity.
 ## Observations (not bugs, to confirm)
 
 - **`getLastWeekRange` returns the current Thursday-to-Wednesday week**, not the previous one. On a Thursday it returns today to next Wednesday. The tests record the current behaviour. Rename it or change it if "last week" was meant.
+- **`.env` is committed.** It only holds `NEXT_PUBLIC_API_BASE_URL` today (public anyway), but tracked `.env` files tend to collect secrets later. Consider committing only `.env.example` and adding `.env` to `.gitignore`.
 - **Existing lint errors** (`npm run lint`), not caused by the tests: `src/lib/reporting.ts:117` `prefer-const` (error), `src/lib/auth.ts:3` unused import `t` (warning).
 
 ## Fixed issues
@@ -188,6 +309,9 @@ Sorted by severity.
 | `src/**/*.test.{ts,tsx}` | The tests themselves |
 | `src/**/*.d.ts` | Type declarations only |
 | `src/lib/i18n/fr.ts`, `src/lib/i18n/ar.ts` | Static translation data. Covered by the key-match tests in `i18n.test.ts` (same keys, same `{placeholders}`, no empty values) |
+| `src/**/__testutils__/**`, `src/**/*.fixtures.ts` | Test helpers (fake backends, factories) that live next to the tests using them |
+| `src/components/calendar/types.ts` | Types plus two constants (`POSTS`, `SHIFTS`) nothing imports |
+| 22 files, ~2,300 lines (list in `vitest.config.mts`): `ecommerce/*`, `videos/*`, `EditingDrawer/EditComponant.tsx`, `InputType/EmployeesInput.tsx`, `auth/SignUpForm.tsx`, `header/NotificationDropdown.tsx`, `common/ChartTab.tsx`, `form/Form.tsx`, `form/input/RadioSm.tsx`, `ui/avatar/AvatarText.tsx`, `hooks/useGoBack.ts`, `layout/SidebarWidget.tsx`, `types/employee.ts` | **Dead code**: nothing in the app imports them (checked by following every import from the pages). Template leftovers or abandoned work. Candidates for deletion; if any of them is meant to be used, remove it from the exclusion list and add tests |
 
 ## Tooling notes
 
@@ -196,7 +320,10 @@ Sorted by severity.
 | `@types/node` 20 → 22 | Vitest 5 needs it, and npm crashed resolving peers with 20. The machine runs Node 22. Types only, `tsc` passes |
 | No `@vitejs/plugin-react` | Peer conflict. Vitest's built-in `oxc` JSX transform is used instead (`vitest.config.mts`) |
 | MSW 3: `onUnhandledFrame: "error"` | Any request without a handler fails the test, so tests never reach a real backend |
-| `vitest.config.mts` thresholds | `src/lib/**` must stay ≥ 95% lines/functions/statements and ≥ 90% branches. Raise the global threshold after each phase |
+| `vitest.config.mts` thresholds | Global: ≥ 90% lines/statements/functions, ≥ 85% branches. `src/lib/**`: ≥ 95% / 90%. `npm run coverage` (and CI) fails below these |
+| `testTimeout: 20_000`, `asyncUtilTimeout: 4000` | Screen tests wait for debounced saves and several requests. The defaults (5 s, 1 s) timed out when the whole suite ran with coverage |
+| `setup.ts` clears toasts and confirm dialogs after each test | They are module state in `src/lib/notify.ts`; a leftover toast could satisfy the next test's assertion |
+| `.github/workflows/ci.yml` | Runs lint (non-blocking until the existing errors are fixed), type-check, tests with coverage gate, and build on every push to `main`/`dev` and on pull requests |
 
 ## Refactors made to enable testing
 

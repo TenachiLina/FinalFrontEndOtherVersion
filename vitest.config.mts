@@ -28,6 +28,9 @@ export default defineConfig({
     // Read by src/lib/config.ts when it is first imported
     env: { NEXT_PUBLIC_API_BASE_URL: "https://api.test" },
     restoreMocks: true,
+    // Screen tests wait for debounced saves and several requests; 5 s is too
+    // tight when the whole suite runs in parallel with coverage
+    testTimeout: 20_000,
     css: false,
     coverage: {
       provider: "v8",
@@ -35,6 +38,10 @@ export default defineConfig({
       // Every exclusion is listed with its reason in docs/TEST_FINDINGS.md
       exclude: [
         "src/test/**",
+        "src/**/__testutils__/**",
+        "src/**/*.fixtures.ts",
+        // Types plus two constants nothing imports (see docs/findings/new-planning.md)
+        "src/components/calendar/types.ts",
         "src/**/*.test.{ts,tsx}",
         "src/**/*.d.ts",
         "src/lib/i18n/fr.ts",
@@ -57,6 +64,10 @@ export default defineConfig({
       reporter: ["text-summary", "html", "json-summary"],
       // Raised after each phase so coverage can only go up (see the plan)
       thresholds: {
+        lines: 90,
+        statements: 90,
+        functions: 90,
+        branches: 85,
         "src/lib/**": { lines: 95, functions: 95, branches: 90, statements: 95 },
       },
     },
