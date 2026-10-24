@@ -13,6 +13,8 @@ import {
 import { useShiftGrid } from "@/hooks/useNewPlanning";
 import Tooltip from "@/components/common/Tooltip";
 import { locale, t } from "@/lib/i18n";
+import DateInput from "@/components/form/DateInput";
+import MonthInput from "@/components/form/MonthInput";
 
 const ShiftGrid: React.FC = () => {
   //table mode view
@@ -1134,13 +1136,7 @@ const ShiftGrid: React.FC = () => {
                 <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                   {t("Source Date")}
                 </label>
-                <input
-                  type="date"
-                  value={importDate}
-                  onChange={(e) => setImportDate(e.target.value)}
-                  className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4
-                            dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-                />
+                <DateInput value={importDate} onChange={setImportDate} className="h-11 w-full" />
               </div>
 
               <div className="flex justify-end gap-3">
@@ -1188,12 +1184,7 @@ const ShiftGrid: React.FC = () => {
                   {t("Source month")}
                 </label>
 
-                <input
-                  type="month"
-                  value={copySourceMonth}
-                  onChange={(e) => setCopySourceMonth(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-                />
+                <MonthInput value={copySourceMonth} onChange={setCopySourceMonth} />
               </div>
 
               {/* Destination */}
@@ -1202,12 +1193,7 @@ const ShiftGrid: React.FC = () => {
                   {t("Destination month")}
                 </label>
 
-                <input
-                  type="month"
-                  value={copyDestinationMonth}
-                  onChange={(e) => setCopyDestinationMonth(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-                />
+                <MonthInput value={copyDestinationMonth} onChange={setCopyDestinationMonth} />
               </div>
 
               {/* Buttons */}

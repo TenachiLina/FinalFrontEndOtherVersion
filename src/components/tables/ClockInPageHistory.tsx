@@ -8,6 +8,8 @@ import {
   getWorktimesByDate,
 } from "./worktime.api";
 import { t } from "@/lib/i18n";
+import DateInput from "@/components/form/DateInput";
+import TimeSelect from "@/components/form/TimeSelect";
 
 interface AttendanceLog {
   _id?: string;
@@ -1382,28 +1384,14 @@ shift_id: shiftId,
 
        {/* FROM */}
 <div>
-  <input
-    type="date"
-    value={fromDate}
-    max={toDate}
-    onChange={(e) => setFromDate(e.target.value)}
-    onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
-    className="h-9 cursor-pointer rounded-md border border-gray-300 bg-white px-3 text-sm text-gray-700 outline-none focus:border-blue-400"
-  />
+  <DateInput value={fromDate} max={toDate} onChange={setFromDate} className="h-9 w-32" />
 </div>
 
 <span className="text-gray-500">→</span>
 
 {/* TO */}
 <div>
-  <input
-    type="date"
-    value={toDate}
-    min={fromDate}
-    onChange={(e) => setToDate(e.target.value)}
-    onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
-    className="h-9 cursor-pointer rounded-md border border-gray-300 bg-white px-3 text-sm text-gray-700 outline-none focus:border-blue-400"
-  />
+  <DateInput value={toDate} min={fromDate} onChange={setToDate} className="h-9 w-32" />
 </div>
 
         {/* EMPLOYEE FILTER */}
@@ -1676,16 +1664,13 @@ onClick={() => {
   {editingPunch?.logId === log.logs[0]?._id ? (
     <div className="flex items-center gap-1">
       
-<input
-  type="time"
+<TimeSelect
   value={editingPunch?.value ?? ""}
   disabled={savingPunch}
-  onChange={(e) =>
-    setEditingPunch((prev) =>
-      prev ? { ...prev, value: e.target.value } : prev
-    )
+  onChange={(v) =>
+    setEditingPunch((prev) => (prev ? { ...prev, value: v } : prev))
   }
-  className="w-28 rounded border border-gray-300 px-2 py-1 text-xs"
+  className="px-1 py-1 text-xs"
 />
 
 
@@ -1732,16 +1717,13 @@ onClick={() => {
   {editingPunch?.mode === "add-clock-out" &&
   editingPunch.clockInLogId === log.logs[0]?._id ? (
     <div className="flex items-center gap-1">
-      <input
-        type="time"
+      <TimeSelect
         value={editingPunch.value}
         disabled={savingPunch}
-        onChange={(e) =>
-          setEditingPunch((prev) =>
-            prev ? { ...prev, value: e.target.value } : prev
-          )
+        onChange={(v) =>
+          setEditingPunch((prev) => (prev ? { ...prev, value: v } : prev))
         }
-        className="w-28 rounded border border-gray-300 px-2 py-1 text-xs"
+        className="px-1 py-1 text-xs"
       />
 
       <button
@@ -1764,16 +1746,13 @@ onClick={() => {
     editingPunch?.mode === "edit" &&
     editingPunch.logId === log.logs[1]._id ? (
       <div className="flex items-center gap-1">
-        <input
-          type="time"
+        <TimeSelect
           value={editingPunch.value}
           disabled={savingPunch}
-          onChange={(e) =>
-            setEditingPunch((prev) =>
-              prev ? { ...prev, value: e.target.value } : prev
-            )
+          onChange={(v) =>
+            setEditingPunch((prev) => (prev ? { ...prev, value: v } : prev))
           }
-          className="w-28 rounded border border-gray-300 px-2 py-1 text-xs"
+          className="px-1 py-1 text-xs"
         />
 
         <button
@@ -2009,27 +1988,29 @@ onClick={() => {
                   {t("Date and time")}
                 </label>
 
-                <input
-                  type="datetime-local"
-                  value={newPunch.timestamp}
-                  onChange={(e) =>
-                    setNewPunch((p) => ({
-                      ...p,
-                      timestamp: e.target.value,
-                    }))
-                  }
-                  className="
-                    w-full
-                    rounded-lg
-                    border
-                    border-gray-300
-                    px-3
-                    py-2
-                    text-sm
-                    outline-none
-                    focus:border-blue-500
-                  "
-                />
+                {/* timestamp is "YYYY-MM-DDTHH:mm": date from the calendar, time from the dropdowns */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <DateInput
+                    value={newPunch.timestamp.slice(0, 10)}
+                    onChange={(d) =>
+                      setNewPunch((p) => ({
+                        ...p,
+                        timestamp: `${d}T${p.timestamp.slice(11, 16) || "00:00"}`,
+                      }))
+                    }
+                    className="w-32"
+                  />
+                  <TimeSelect
+                    value={newPunch.timestamp.slice(11, 16)}
+                    onChange={(tm) =>
+                      setNewPunch((p) => ({
+                        ...p,
+                        // en-CA formats the local date as YYYY-MM-DD
+                        timestamp: `${p.timestamp.slice(0, 10) || new Date().toLocaleDateString("en-CA")}T${tm}`,
+                      }))
+                    }
+                  />
+                </div>
 
               </div>
 

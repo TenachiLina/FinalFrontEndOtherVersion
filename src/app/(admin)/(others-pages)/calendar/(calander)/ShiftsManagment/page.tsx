@@ -3,6 +3,7 @@ import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import Tooltip from "@/components/common/Tooltip";
 import { useShiftsManagement } from "@/hooks/ShiftsmanagmentHook";
 import { t } from "@/lib/i18n";
+import TimeSelect from "@/components/form/TimeSelect";
 
 export default function ShiftsManagementPage() {
   const {
@@ -185,12 +186,12 @@ export default function ShiftsManagementPage() {
                 <label htmlFor="shift-start-time" className="mb-1.5 block text-sm font-medium text-gray-700">
                   {t("Start time")}
                 </label>
-                <input
+                <TimeSelect
                   id="shift-start-time"
-                  type="time"
                   value={form.startTime}
-                  onChange={(e) => updateForm("startTime", e.target.value)}
-                  className="w-full rounded-lg border p-3"
+                  minuteStep={5}
+                  onChange={(v) => updateForm("startTime", v)}
+                  className="flex-1 p-3"
                 />
               </div>
 
@@ -198,12 +199,12 @@ export default function ShiftsManagementPage() {
                 <label htmlFor="shift-end-time" className="mb-1.5 block text-sm font-medium text-gray-700">
                   {t("End time")}
                 </label>
-                <input
+                <TimeSelect
                   id="shift-end-time"
-                  type="time"
                   value={form.endTime}
-                  onChange={(e) => updateForm("endTime", e.target.value)}
-                  className="w-full rounded-lg border p-3"
+                  minuteStep={5}
+                  onChange={(v) => updateForm("endTime", v)}
+                  className="flex-1 p-3"
                 />
               </div>
 

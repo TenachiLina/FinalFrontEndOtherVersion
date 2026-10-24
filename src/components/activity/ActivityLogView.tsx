@@ -5,6 +5,7 @@ import { API_BASE_URL } from "@/lib/config";
 import { fetchJson, friendlyError } from "@/lib/errors";
 import LoadError from "@/components/ui/feedback/LoadError";
 import { locale, t } from "@/lib/i18n";
+import DateInput from "@/components/form/DateInput";
 
 interface LogEntry {
   _id: string;
@@ -270,11 +271,11 @@ export default function ActivityLogView() {
         </div>
         <div>
           <label className={labelClass} htmlFor="log-from">{t("From")}</label>
-          <input id="log-from" type="date" className={inputClass} value={filters.from} onChange={(e) => setFilter("from", e.target.value)} />
+          <DateInput id="log-from" className="w-full" clearable value={filters.from} max={filters.to || undefined} onChange={(v) => setFilter("from", v)} />
         </div>
         <div>
           <label className={labelClass} htmlFor="log-to">{t("To")}</label>
-          <input id="log-to" type="date" className={inputClass} value={filters.to} onChange={(e) => setFilter("to", e.target.value)} />
+          <DateInput id="log-to" className="w-full" clearable value={filters.to} min={filters.from || undefined} onChange={(v) => setFilter("to", v)} />
         </div>
       </div>
 

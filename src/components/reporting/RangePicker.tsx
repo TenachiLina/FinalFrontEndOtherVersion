@@ -3,7 +3,7 @@ import React, { useState, useMemo } from "react";
 import Button from "../ui/button/Button";
 import { DateRange } from "@/components/reporting/types";
 import { getCalendarMonthRange, toLocalDateString } from "@/lib/reporting";
-import DateInput from "./DateInput";
+import DateInput from "@/components/form/DateInput";
 import { locale, monthName, t } from "@/lib/i18n";
 
 const MONTH_NAMES = [
@@ -106,12 +106,17 @@ const RangePicker: React.FC<RangePickerProps> = (props) => {
               </select>
             </Field>
             <Field label="Year">
-              <input
-                type="number"
+              <select
                 value={year}
                 onChange={(e) => setYear(Number(e.target.value))}
                 className="w-24 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
-              />
+              >
+                {Array.from({ length: 11 }, (_, i) => today.getFullYear() - 5 + i).map((y) => (
+                  <option key={y} value={y}>
+                    {y}
+                  </option>
+                ))}
+              </select>
             </Field>
           </>
         )}

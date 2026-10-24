@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import Button from "../ui/button/Button";
 import { DateRange } from "@/components/reporting/types";
 import { getThisWeekRange, getThisMonthRange } from "@/lib/reporting";
-import DateInput from "./DateInput";
+import DateInput from "@/components/form/DateInput";
 import { locale, t } from "@/lib/i18n";
 
 function getThisYearRange(): DateRange {

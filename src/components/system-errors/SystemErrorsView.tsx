@@ -5,6 +5,7 @@ import { API_BASE_URL } from "@/lib/config";
 import { fetchJson, friendlyError } from "@/lib/errors";
 import LoadError from "@/components/ui/feedback/LoadError";
 import { locale, t } from "@/lib/i18n";
+import DateInput from "@/components/form/DateInput";
 
 type Level = "error" | "warning";
 type Source = "request" | "background" | "process" | "frontend";
@@ -316,11 +317,11 @@ export default function SystemErrorsView() {
           </div>
           <div>
             <label className={labelClass} htmlFor="err-from">{t("From")}</label>
-            <input id="err-from" type="date" className={inputClass} value={filters.from} onChange={(e) => setFilter("from", e.target.value)} />
+            <DateInput id="err-from" className="w-full" clearable value={filters.from} max={filters.to || undefined} onChange={(v) => setFilter("from", v)} />
           </div>
           <div>
             <label className={labelClass} htmlFor="err-to">{t("To")}</label>
-            <input id="err-to" type="date" className={inputClass} value={filters.to} onChange={(e) => setFilter("to", e.target.value)} />
+            <DateInput id="err-to" className="w-full" clearable value={filters.to} min={filters.from || undefined} onChange={(v) => setFilter("to", v)} />
           </div>
         </div>
 

@@ -32,6 +32,7 @@ import type {
 } from "./../calendar/types";
 import { friendlyError } from "@/lib/errors";
 import { t } from "@/lib/i18n";
+import TimeSelect from "@/components/form/TimeSelect";
 
 /* ============================================================================
    FACE RECOGNITION API
@@ -2027,11 +2028,17 @@ const [deviceEntries, setDeviceEntries] =
 
     const q = search.toLowerCase();
 
-    // Collect employee numbers of backups selected for absent employees.
+    // Collect employee numbers of backups selected for absent employees
+    // of THIS shift only (entries are keyed "<empNum>-<shiftId>"), so a
+    // backup doesn't show up in every shift tab.
     const backupEmployeeNums = new Set<number>();
 
-    Object.values(entries).forEach((entry) => {
-      if (entry.absent && entry.backupEmpNum != null) {
+    Object.entries(entries).forEach(([key, entry]) => {
+      if (
+        key.endsWith(`-${currentTab}`) &&
+        entry.absent &&
+        entry.backupEmpNum != null
+      ) {
         backupEmployeeNums.add(Number(entry.backupEmpNum));
       }
     });
@@ -3204,23 +3211,10 @@ const confirmAbsence = () => {
               </button>
             </div>
 
-            <input
-              type="time"
-              value={
-                manualInput.value
-              }
-              onChange={(e) =>
-                setManualInput(
-                  (p) => ({
-                    ...p,
-
-                    value:
-                      e.target
-                        .value,
-                  })
-                )
-              }
-              className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 dark:border-white/[0.1] dark:bg-white/[0.05] dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+            <TimeSelect
+              value={manualInput.value}
+              onChange={(v) => setManualInput((p) => ({ ...p, value: v }))}
+              className="flex-1"
             />
 
             <div className="flex gap-2 mt-4">
