@@ -10,7 +10,12 @@ npx vitest run src/components/users                       # one folder
 npx vitest run src/components/users --coverage \
   --coverage.include='src/components/users/**' \
   --coverage.reportsDirectory=coverage-users --coverage.reporter=text   # one folder's coverage
+npm run e2e                      # end-to-end: builds the app, runs it, drives Chromium
 ```
+
+## End-to-end tests (`e2e/`)
+
+Playwright runs the production build (`playwright.config.ts` builds it with `NEXT_PUBLIC_API_BASE_URL=https://api.e2e.test`) and `e2e/mock-api.ts` answers every API call from an in-memory backend, so no server or database is needed. They cover sign-in per role, the route guard, token renewal and expiry, the kiosk, monthly payroll, saving a planning, and Arabic right-to-left. First time only: `npx playwright install chromium`. Locally an already-running server on port 3100 is reused; stop it after changing app code.
 
 ## Helpers (`src/test/`)
 

@@ -20,6 +20,7 @@ Run: `npm test` (watch), `npm run test:run`, `npm run coverage` (report in `cove
 | 2026-10-24 | Baseline | 0% | 0% | 0% | No tests, no runner |
 | 2026-10-24 | 0–2: tooling + `src/lib` + API wrappers | 9.81% (557/5676) | 11.18% | 9.12% | 258 tests + 17 known bugs. `src/lib` at 100% lines |
 | 2026-10-24 | 3–6: hooks, contexts, layout, components, pages | **98.89% (5435/5496)** | **94.22%** | **98.73%** | 1,359 tests + 116 known-bug tests in 80 files. Same result on two consecutive full runs |
+| 2026-10-24 | 7–8: end-to-end + CI | n/a | n/a | n/a | 12 Playwright tests on the production build (mocked backend), green on two runs. CI runs lint, type-check, coverage gate, build and e2e |
 
 ## Bug files
 

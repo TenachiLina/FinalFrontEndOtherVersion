@@ -38,3 +38,8 @@ next-env.d.ts
 
 # local HTTPS certificates (npm run dev:https)
 certificates
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
