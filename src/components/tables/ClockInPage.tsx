@@ -23,6 +23,7 @@ import type {
 } from "./../calendar/types";
 import { friendlyError } from "@/lib/errors";
 import { t } from "@/lib/i18n";
+import DateInput from "@/components/form/DateInput";
 // ─── Types ────────────────────────────────────────────────────────────────────
 type ShiftStatus = "present" | "absent" | "pending";
 type Employee = AttendanceEmployee;
@@ -932,17 +933,13 @@ const getAttendanceRows = (
   </h1>
 
   <div className="mt-1 flex items-center gap-2">
-    <input
-      type="date"
+    <DateInput
       value={selectedDate}
-      onChange={(e) => {
-        setSelectedDate(e.target.value);
+      onChange={(v) => {
+        setSelectedDate(v);
         setEntries({});
         setCurrentTab(null);
       }}
-      className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700
-                 dark:border-white/[0.1] dark:bg-white/[0.05] dark:text-gray-300
-                 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
     />
   </div>
 </div>

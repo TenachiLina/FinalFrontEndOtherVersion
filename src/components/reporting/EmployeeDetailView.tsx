@@ -8,7 +8,7 @@ import { useEmployeeReport } from "@/hooks/useEmployeeReport";
 import { WorktimeRow } from "@/components/reporting/types";
 import { toLocalDateString } from "@/lib/reporting";
 import { readRange, rangeQuery } from "@/lib/rangeParams";
-import DateInput from "./DateInput";
+import DateInput from "@/components/form/DateInput";
 
 import { currency } from "@/lib/payrollConfig";
 import { locale, t } from "@/lib/i18n";

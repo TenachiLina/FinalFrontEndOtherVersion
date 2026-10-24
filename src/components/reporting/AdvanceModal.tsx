@@ -6,6 +6,7 @@ import { DateRange } from "./types";
 import { currency } from "@/lib/payrollConfig";
 import { friendlyError } from "@/lib/errors";
 import { t } from "@/lib/i18n";
+import DateInput from "@/components/form/DateInput";
 interface AdvanceModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -100,14 +101,7 @@ const AdvanceModal: React.FC<AdvanceModalProps> = ({ isOpen, onClose, employeeNa
 
         <div>
           <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">{t("Date")}</label>
-          <input
-            type="date"
-            value={date}
-            min={range.start}
-            max={range.end}
-            onChange={(e) => setDate(e.target.value)}
-            className={inputCls}
-          />
+          <DateInput value={date} min={range.start} max={range.end} onChange={setDate} className="w-full" />
         </div>
 
         {error && (

@@ -5,6 +5,7 @@ import { Modal } from "../ui/modal";
 import { currency } from "@/lib/payrollConfig";
 import { friendlyError } from "@/lib/errors";
 import { t } from "@/lib/i18n";
+import DateInput from "@/components/form/DateInput";
 interface BonusModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -67,7 +68,7 @@ const BonusModal: React.FC<BonusModalProps> = ({ isOpen, onClose, employeeName, 
         </div>
         <div>
           <label className={labelCls}>{t("Date")}</label>
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} />
+          <DateInput value={date} onChange={setDate} className="w-full" />
         </div>
         <div>
           <label className={labelCls}>{t("Reason")}</label>
