@@ -3,6 +3,7 @@
 // Base URL can be overridden via NEXT_PUBLIC_API_URL env var.
 
 import { API_BASE_URL } from "@/lib/config";
+import { ensureOk } from "@/lib/errors";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface WorktimePayload {
@@ -52,19 +53,16 @@ async function request<T>(
     },
   });
 
-  const text = await res.text();
-
-  if (!res.ok) {
-    throw new Error(
-      `[worktime] ${res.status} ${text || res.statusText
-      }`
-    );
-  }
+  // Throws an ApiError carrying the server's message, which friendlyError
+  // can turn into a readable message
+  await ensureOk(res);
 
   // A delete may be confirmed with "204 No Content": nothing to read
   if (res.status === 204) {
     return undefined as T;
   }
+
+  const text = await res.text();
 
   if (!text.trim()) {
     throw new Error(
