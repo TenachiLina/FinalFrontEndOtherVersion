@@ -11,17 +11,30 @@ import { useRouter, useSearchParams } from "next/navigation";
 import React, { useEffect, useState } from "react";
 import { t } from "@/lib/i18n";
 
+/**
+ * Resolve ?next= the way the browser will, and keep it only if it stays on
+ * this site. A text check isn't enough: browsers read "/\evil.example" and
+ * "/<tab>/evil.example" as "//evil.example", another site.
+ */
+function sameSitePath(next: string): URL | null {
+  if (!next.startsWith("/")) return null;
+  try {
+    const url = new URL(next, window.location.origin);
+    return url.origin === window.location.origin ? url : null;
+  } catch {
+    return null;
+  }
+}
+
 // Only follow ?next= to an in-app page the user is allowed to open.
 function destinationFor(
   user: AuthUser,
   company: CompanyInfo | null,
   next: string | null
 ): string {
-  if (next && next.startsWith("/") && !next.startsWith("//")) {
-    const path = next.split("?")[0];
-    if (!path.startsWith("/signin") && canOpen(path, user, company)) {
-      return next;
-    }
+  const url = next ? sameSitePath(next) : null;
+  if (url && !url.pathname.startsWith("/signin") && canOpen(url.pathname, user, company)) {
+    return url.pathname + url.search + url.hash;
   }
   return homePathFor(user, company);
 }
