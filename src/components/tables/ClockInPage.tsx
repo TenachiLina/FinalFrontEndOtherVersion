@@ -64,8 +64,12 @@ const SaveIcon    = () => (<svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill
 const toMinutes    = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
 const formatMin    = (n: number) => n <= 0 ? "00:00" : `${Math.floor(n/60).toString().padStart(2,"0")}:${(n%60).toString().padStart(2,"0")}`;
 const calcHours    = (i: string, o: string) => { if (i==="00:00"||o==="00:00") return "00:00"; let d=toMinutes(o)-toMinutes(i); if(d<0) d+=1440; return formatMin(d); };
-const calcLate     = (i: string, s: string) => { if (i==="00:00"||!s) return 0; const l=toMinutes(i)-toMinutes(s.slice(0,5)); return l>0?l:0; };
-const calcOvertime = (o: string, e: string) => { if(o==="00:00"||!e) return 0; let em=toMinutes(e.slice(0,5)),om=toMinutes(o); if(em===0)em=1440; if(em===1440&&om<720)om+=1440; const ot=om-em; return ot>0?ot:0; };
+// A shift that ends before it starts (22:00–06:00, 18:00–00:00) ends the next day
+const isOvernight  = (s: string, e: string) => !!s && !!e && toMinutes(e.slice(0,5)) < toMinutes(s.slice(0,5));
+// On an overnight shift, a clock-in after midnight (before the shift's end) belongs to the next day
+const calcLate     = (i: string, s: string, e: string) => { if (i==="00:00"||!s) return 0; let im=toMinutes(i); const sm=toMinutes(s.slice(0,5)); if(isOvernight(s,e)&&im<sm&&im<=toMinutes(e.slice(0,5)))im+=1440; const l=im-sm; return l>0?l:0; };
+// On an overnight shift, the end and a clock-out earlier than the start are on the next day
+const calcOvertime = (o: string, s: string, e: string) => { if(o==="00:00"||!e) return 0; let em=toMinutes(e.slice(0,5)),om=toMinutes(o); if(isOvernight(s,e)){ em+=1440; if(om<toMinutes(s.slice(0,5)))om+=1440; } const ot=om-em; return ot>0?ot:0; };
 const nowTime      = () => { const d=new Date(); return `${d.getHours().toString().padStart(2,"0")}:${d.getMinutes().toString().padStart(2,"0")}`; };
 const getStatus    = (e: EmployeeTimeEntry): ShiftStatus => e.absent ? "absent" : e.clockIn!=="00:00" ? "present" : "pending";
 const badgeColor   = (s: ShiftStatus) => s==="present"?"success":s==="absent"?"error":"warning";
@@ -90,8 +94,8 @@ function entryToPayload(
   shiftEnd: string,
 ): WorktimePayload {
   const hours = calcHours(entry.clockIn, entry.clockOut);
-  const late  = calcLate(entry.clockIn, shiftStart);
-  const ot    = calcOvertime(entry.clockOut, shiftEnd);
+  const late  = calcLate(entry.clockIn, shiftStart, shiftEnd);
+  const ot    = calcOvertime(entry.clockOut, shiftStart, shiftEnd);
   return {
     emp_id:           empNum,
     shift_id:         shiftId as any,
@@ -357,10 +361,20 @@ useEffect(() => {
 
   //   return planning?.backupEmpId ?? null;
   // };
+  // Start/end the delay and overtime are measured from: the planned task times when there are any
+  const effectiveTimes = (empNum: number, shiftId: string | null) => {
+    const shift = shifts.find((s) => s.shift_id === shiftId);
+    const mongoId = employees.find((e) => e.num === empNum)?.mongoId;
+    const st = specialTimes[`${mongoId}-${shiftId}`];
+    return {
+      start: st?.clockIn ?? shift?.start_time ?? "",
+      end: st?.clockOut ?? shift?.end_time ?? "",
+    };
+  };
   // ── Auto-save ─────────────────────────────────────────────────────────────
   const scheduleSave = useCallback((empNum: number, shiftId: string, updatedEntry: EmployeeTimeEntry) => {
     const k = `${empNum}-${shiftId}`;
-    const shift = shifts.find((s) => s.shift_id === shiftId);
+    const { start, end } = effectiveTimes(empNum, shiftId);
     clearTimeout(saveTimers.current[k]);
     saveTimers.current[k] = setTimeout(async () => {
       setEntries((prev) => ({ ...prev, [k]: { ...prev[k], _saving: true, _dirty: false } }));
@@ -370,8 +384,8 @@ useEffect(() => {
   empNum,
   shiftId,
   selectedDate,
-  shift?.start_time ?? "",
-  shift?.end_time ?? ""
+  start,
+  end
 );
         const saved = await upsertWorktime(payload, updatedEntry.workTimeId ?? null, updatedEntry._auditAs, PER_SHIFT);
         setEntries((prev) => ({ ...prev, [k]: { ...prev[k], workTimeId: saved._id, _saving: false } }));
@@ -380,7 +394,7 @@ useEffect(() => {
         setEntries((prev) => ({ ...prev, [k]: { ...prev[k], _saving: false, _dirty: true } }));
       }
     }, 800);
-  }, [selectedDate, shifts]);
+  }, [selectedDate, shifts, employees, specialTimes]);
   const updateEntry = useCallback((empNum: number, patch: Partial<EmployeeTimeEntry>) => {
   if (!currentTab) return;
   const k = entryKey(empNum);
@@ -499,13 +513,14 @@ useEffect(() => {
 
   try {
     // Build the absent employee's worktime payload.
+    const { start, end } = effectiveTimes(mainEmpNum, currentTab);
     const payload = entryToPayload(
       updatedEntry,
       mainEmpNum,
       currentTab,
       selectedDate,
-      currentShift?.start_time ?? "",
-      currentShift?.end_time ?? ""
+      start,
+      end
     );
 
     // Save the absence and selected backup on the MAIN employee's record.
@@ -1024,16 +1039,11 @@ const getAttendanceRows = (
                       ? employees.find((e) => e.num === backupOfEmpNum)
                       : null;
 
-                    const st = specialTimes[`${emp.mongoId}-${currentTab}`];
+                    const { start: effectiveStart, end: effectiveEnd } =
+                      effectiveTimes(emp.num, currentTab);
 
-                    const effectiveStart =
-                      st?.clockIn ?? currentShift?.start_time ?? "";
-
-                    const effectiveEnd =
-                      st?.clockOut ?? currentShift?.end_time ?? "";
-
-                    const lateMin = calcLate(entry.clockIn, effectiveStart);
-                    const otMin = calcOvertime(entry.clockOut, effectiveEnd);
+                    const lateMin = calcLate(entry.clockIn, effectiveStart, effectiveEnd);
+                    const otMin = calcOvertime(entry.clockOut, effectiveStart, effectiveEnd);
                     const hours = calcHours(entry.clockIn, entry.clockOut);
 
                 return (
