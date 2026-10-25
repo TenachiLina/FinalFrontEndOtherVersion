@@ -181,10 +181,20 @@ export const deleteWorktime = (
 //
 // The individual periods remain handled by AttendancePage.
 
+/**
+ * perShift: the caller keeps one record per employee AND shift (ClockInPage),
+ * so only a record of the same shift may be updated. Without it, the record
+ * of the employee's day is updated whatever its shift.
+ */
+export interface UpsertOptions {
+  perShift?: boolean;
+}
+
 export async function upsertWorktime(
   payload: WorktimePayload,
   existingId?: string | null,
-  auditAs?: AuditAs
+  auditAs?: AuditAs,
+  options: UpsertOptions = {}
 ): Promise<WorktimeRecord> {
   console.log("🔵 UPSERT WORKTIME START");
   console.log("Payload:", payload);
@@ -239,10 +249,16 @@ export async function upsertWorktime(
     }
   );
 
-  const existing = await getWorktimes({
+  const perShift = options.perShift === true;
+  const search: Record<string, string> = {
     emp_id: String(payload.emp_id),
     work_date: payload.work_date,
-  });
+  };
+  if (perShift && payload.shift_id) {
+    search.shift_id = payload.shift_id;
+  }
+
+  const existing = await getWorktimes(search);
 
   console.log(
     "🔎 Existing Worktime records:",
@@ -254,12 +270,13 @@ export async function upsertWorktime(
   //
   // Don't trust the search blindly: if the backend ignores the
   // filters, existing[0] can be another employee's (or another
-  // day's) record.
+  // day's, or another shift's) record.
   // ------------------------------------------------------------
   const existingRecord = existing.find(
     (r) =>
       String(r.emp_id) === String(payload.emp_id) &&
-      String(r.work_date ?? "").split("T")[0] === payload.work_date
+      String(r.work_date ?? "").split("T")[0] === payload.work_date &&
+      (!perShift || (r.shift_id ?? null) === (payload.shift_id ?? null))
   );
 
   if (existingRecord) {
