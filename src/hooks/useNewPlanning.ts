@@ -1286,9 +1286,11 @@ export const useShiftGrid = () => {
           // Detect hour
           // ---------------------------------------------
 
+          // Any hour 0H–23H; findShiftByHour decides which shift it is
+          // (an hour with no shift skips the names under it)
           const hourMatch =
             cleanLine.match(
-              /^(06|07|08|09|10|11|12|14|15|16)H$/i
+              /^([01]?\d|2[0-3])H$/i
             );
 
           if (hourMatch) {
