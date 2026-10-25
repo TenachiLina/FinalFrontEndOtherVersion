@@ -25,9 +25,14 @@ function buildEmptyGrid(posts: Post[], shifts: Shift[]): GridData {
   return g;
 }
 
-// "YYYY-MM-DD" of a date, as the planning is loaded and saved (Algiers time)
-function algiersDay(date: Date): string {
-  return date.toLocaleDateString("en-CA", { timeZone: "Africa/Algiers" });
+// "YYYY-MM-DD" of a date, as the planning is loaded and saved. The calendar
+// builds days at local midnight, so read the local parts: converting to
+// Algiers time gave the previous day in time zones ahead of Algiers.
+function dayKey(date: Date): string {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
 }
 
 // Backup ids of a cell: unique, and never the main employee himself
@@ -206,9 +211,7 @@ export const useShiftGrid = () => {
       try {
         setLoadingGrid(true);
 
-        const dateStr = date.toLocaleDateString("en-CA", {
-          timeZone: "Africa/Algiers",
-        });
+        const dateStr = dayKey(date);
 
         const records = await apiFetch<PlanningRecord[]>(
           `/planning/import/${dateStr}`
@@ -283,7 +286,7 @@ export const useShiftGrid = () => {
 
     const signal = { cancelled: false };
     loadPlanningForDate(currentDate, { signal }).then(() => {
-      if (!signal.cancelled) gridDayRef.current = algiersDay(currentDate);
+      if (!signal.cancelled) gridDayRef.current = dayKey(currentDate);
     });
 
     return () => {
@@ -293,7 +296,7 @@ export const useShiftGrid = () => {
 
   /** True when the grid on screen is the planning of the selected day. */
   const gridIsForCurrentDay = useCallback(
-    () => gridDayRef.current === algiersDay(currentDate),
+    () => gridDayRef.current === dayKey(currentDate),
     [currentDate]
   );
 
@@ -601,7 +604,7 @@ export const useShiftGrid = () => {
   // ── Save planning to DB ───────────────────────────────────────────────────
   const handleSavePlanning = useCallback(async () => {
     if (!gridIsForCurrentDay()) return;
-    const planDate = currentDate.toLocaleDateString('en-CA', { timeZone: 'Africa/Algiers' }); // → "YYYY-MM-DD"
+    const planDate = dayKey(currentDate);
     const entries: {
       shiftId: string;
       empId: string;
@@ -741,9 +744,7 @@ export const useShiftGrid = () => {
     try {
       const results = await Promise.allSettled(
         targetDates.map(async (date) => {
-          const planDate = date.toLocaleDateString("en-CA", {
-            timeZone: "Africa/Algiers",
-          });
+          const planDate = dayKey(date);
 
           const entriesWithDate = entries.map((e) => ({
             ...e,
@@ -846,9 +847,7 @@ export const useShiftGrid = () => {
     try {
       const results = await Promise.allSettled(
         targetDates.map(async (targetDate) => {
-          const planDate = targetDate.toLocaleDateString("en-CA", {
-            timeZone: "Africa/Algiers",
-          });
+          const planDate = dayKey(targetDate);
 
           const entriesWithDate = entries.map((entry) => ({
             ...entry,
