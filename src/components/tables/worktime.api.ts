@@ -251,9 +251,18 @@ export async function upsertWorktime(
 
   // ------------------------------------------------------------
   // 3. Record already exists -> UPDATE it.
+  //
+  // Don't trust the search blindly: if the backend ignores the
+  // filters, existing[0] can be another employee's (or another
+  // day's) record.
   // ------------------------------------------------------------
-  if (existing.length > 0) {
-    const existingRecord = existing[0];
+  const existingRecord = existing.find(
+    (r) =>
+      String(r.emp_id) === String(payload.emp_id) &&
+      String(r.work_date ?? "").split("T")[0] === payload.work_date
+  );
+
+  if (existingRecord) {
 
     console.log(
       "🟡 Found existing daily Worktime.",
