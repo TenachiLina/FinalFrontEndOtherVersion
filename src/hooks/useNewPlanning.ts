@@ -25,6 +25,11 @@ function buildEmptyGrid(posts: Post[], shifts: Shift[]): GridData {
   return g;
 }
 
+// "YYYY-MM-DD" of a date, as the planning is loaded and saved (Algiers time)
+function algiersDay(date: Date): string {
+  return date.toLocaleDateString("en-CA", { timeZone: "Africa/Algiers" });
+}
+
 // Backup ids of a cell: unique, and never the main employee himself
 function getBackupIds(cell: Cell): string[] {
   return [...new Set((cell.backups ?? []).map((b) => b.id))].filter(
@@ -269,16 +274,28 @@ export const useShiftGrid = () => {
     [posts, shifts, employees]
   );
 
+  // The day the grid was loaded for. While the next day is still loading,
+  // the grid holds the previous day: saving then would copy it onto the new day.
+  const gridDayRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (posts.length === 0 || shifts.length === 0) return;
 
     const signal = { cancelled: false };
-    loadPlanningForDate(currentDate, { signal });
+    loadPlanningForDate(currentDate, { signal }).then(() => {
+      if (!signal.cancelled) gridDayRef.current = algiersDay(currentDate);
+    });
 
     return () => {
       signal.cancelled = true;
     };
   }, [currentDate, posts, shifts, loadPlanningForDate]);
+
+  /** True when the grid on screen is the planning of the selected day. */
+  const gridIsForCurrentDay = useCallback(
+    () => gridDayRef.current === algiersDay(currentDate),
+    [currentDate]
+  );
 
   // ── Date navigation ───────────────────────────────────────────────────────
   const goToToday = () => { const d = new Date(); setCurrentDate(d); setCalendarMonth(d); };
@@ -576,6 +593,7 @@ export const useShiftGrid = () => {
 
   // ── Save planning to DB ───────────────────────────────────────────────────
   const handleSavePlanning = useCallback(async () => {
+    if (!gridIsForCurrentDay()) return;
     const planDate = currentDate.toLocaleDateString('en-CA', { timeZone: 'Africa/Algiers' }); // → "YYYY-MM-DD"
     const entries: {
       shiftId: string;
@@ -614,7 +632,7 @@ export const useShiftGrid = () => {
     } catch (err) {
       toast.error(friendlyError(err, "Couldn't save the planning"));
     }
-  }, [grid, currentDate, posts, shifts]);
+  }, [grid, currentDate, posts, shifts, gridIsForCurrentDay]);
 
   const handleCopyMonth = useCallback(async () => {
     if (!copySourceMonth || !copyDestinationMonth) {
@@ -677,6 +695,7 @@ export const useShiftGrid = () => {
   };
 
   const handleSaveToAllWeekdays = useCallback(async () => {
+    if (!gridIsForCurrentDay()) return;
     const entries: {
       shiftId: string;
       empId: string;
@@ -762,9 +781,10 @@ export const useShiftGrid = () => {
     } catch (err) {
       toast.error(friendlyError(err, "Couldn't copy the planning"));
     }
-  }, [grid, currentDate, posts, shifts]);
+  }, [grid, currentDate, posts, shifts, gridIsForCurrentDay]);
 
   const handleSaveToNextWeekdays = useCallback(async () => {
+    if (!gridIsForCurrentDay()) return;
     const entries: {
       shiftId: string;
       empId: string;
@@ -867,7 +887,7 @@ export const useShiftGrid = () => {
     } catch (err) {
       toast.error(friendlyError(err, "Couldn't save the planning to the next weeks"));
     }
-  }, [grid, currentDate, posts, shifts]);
+  }, [grid, currentDate, posts, shifts, gridIsForCurrentDay]);
 
   const excelInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);

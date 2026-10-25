@@ -389,7 +389,7 @@ const ShiftGrid: React.FC = () => {
                       size="sm"
                       variant="primary"
                       onClick={() => handleSavePlanning()}
-                      disabled={isSaving}
+                      disabled={isSaving || loadingGrid}
                       className="h-10 shrink-0 px-3 justify-center text-center whitespace-nowrap"
                     >
                       {t("Save")}
@@ -402,7 +402,7 @@ const ShiftGrid: React.FC = () => {
                       size="sm"
                       variant="primary"
                       onClick={handleSaveToAllWeekdays}
-                      disabled={isSaving}
+                      disabled={isSaving || loadingGrid}
                       className="h-10 shrink-0 px-3 justify-center text-center whitespace-nowrap"
                     >
                       {t("Save to every {weekday}", {
@@ -417,7 +417,7 @@ const ShiftGrid: React.FC = () => {
                       size="sm"
                       variant="primary"
                       onClick={handleSaveToNextWeekdays}
-                      disabled={isSaving}
+                      disabled={isSaving || loadingGrid}
                       className="h-10 shrink-0 px-3 justify-center text-center whitespace-nowrap"
                     >
                       {t("Save to the next {weekday}s", {
