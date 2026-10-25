@@ -23,16 +23,16 @@ describe("shifts.api", () => {
 
   it("throws with the status and body", async () => {
     server.use(http.get(`${API}/shifts`, () => new HttpResponse("down", { status: 503 })));
-    await expect(getShifts()).rejects.toThrow("[api] 503 down");
+    await expect(getShifts()).rejects.toMatchObject({ status: 503, message: "down" });
   });
 
   it("falls back to the status text when the body can't be read", async () => {
     server.use(http.get(`${API}/shifts`, () => new HttpResponse(null, { status: 500, statusText: "Server Error" })));
-    await expect(getShifts()).rejects.toThrow(/^\[api\] 500/);
+    await expect(getShifts()).rejects.toMatchObject({ status: 500 });
   });
 
   // BUG-014 (same cause as in worktime.api.ts)
-  it.fails("its errors become readable messages", async () => {
+  it("its errors become readable messages", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     server.use(http.get(`${API}/shifts`, () => HttpResponse.json({ message: "Shift not found" }, { status: 400 })));
     const err = await getShifts().catch((e) => e);

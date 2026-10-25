@@ -182,7 +182,7 @@ describe("BasicTableOne – search, sort and pages", () => {
   });
 
   // BUG-201: clicking "Last Name" sorts by first name
-  it.fails("sorts by last name from the Last Name header", async () => {
+  it("sorts by last name from the Last Name header", async () => {
     const { user } = await renderTable([ali(), sara()]);
     await user.click(screen.getByRole("columnheader", { name: /Last Name/ }));
     expect(firstNames()).toEqual(["Sara", "Ali"]); // Amrani < Zerrouki
@@ -219,7 +219,7 @@ describe("BasicTableOne – search, sort and pages", () => {
   });
 
   // BUG-203: deleting the only row of the last page leaves an empty page
-  it.fails("shows the previous page after the last row of the last page is deleted", async () => {
+  it("shows the previous page after the last row of the last page is deleted", async () => {
     const list = Array.from({ length: 6 }, () => makeEmployee());
     const { user } = await renderTable(list);
     await user.click(screen.getByRole("button", { name: "2" }));
@@ -321,7 +321,7 @@ describe("BasicTableOne – add and edit", () => {
   });
 
   // BUG-202: after a failed save, closing the drawer leaves the table showing the error instead of the employees
-  it.fails("still lists the employees after a failed save is cancelled", async () => {
+  it("still lists the employees after a failed save is cancelled", async () => {
     server.use(http.post(`${API}/employees`, () => HttpResponse.json({ message: "Number already used" }, { status: 409 })));
     const { user } = await renderTable([ali()]);
     await user.click(screen.getByRole("button", { name: "Add Employee" }));
@@ -334,7 +334,7 @@ describe("BasicTableOne – add and edit", () => {
   });
 
   // BUG-204: the drawer's labels aren't linked to their inputs, so screen readers announce unnamed fields
-  it.fails("names each form field by its label", async () => {
+  it("names each form field by its label", async () => {
     const { user } = await renderTable([ali()]);
     await user.click(screen.getByRole("button", { name: "Add Employee" }));
     expect(screen.getByLabelText("First Name")).toBeInTheDocument();

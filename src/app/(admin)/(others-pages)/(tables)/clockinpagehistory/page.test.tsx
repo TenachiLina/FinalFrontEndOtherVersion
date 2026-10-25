@@ -9,7 +9,7 @@ describe("Clock-in history page", () => {
     server.use(
       http.get(`${API}/attendance/device-logs`, () => HttpResponse.json([])),
       http.get(`${API}/employees`, () => HttpResponse.json([])),
-      http.get("http://localhost:3001/device/status", () => HttpResponse.json({ connected: true, name: "Machine" }))
+      http.get(`${API}/device/status`, () => HttpResponse.json({ connected: true, name: "Machine" }))
     );
     renderWithProviders(<ClockInPageRoute />, { url: "/clockinpagehistory" });
     expect(screen.getByRole("heading", { name: "Clock In / Out History" })).toBeInTheDocument();
