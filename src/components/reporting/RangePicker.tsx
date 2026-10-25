@@ -44,8 +44,10 @@ const RangePicker: React.FC<RangePickerProps> = (props) => {
   const [weekStart, setWeekStart] = useState(range.start);
 
   const today = new Date();
-  const [year, setYear] = useState(today.getFullYear());
-  const [month, setMonth] = useState(today.getMonth());
+  // Open on the month being shown (today's month only when there is no range yet)
+  const shown = range.start ? new Date(`${range.start}T00:00:00`) : today;
+  const [year, setYear] = useState(shown.getFullYear());
+  const [month, setMonth] = useState(shown.getMonth());
 
   const [customStart, setCustomStart] = useState(range.start);
   const [customEnd, setCustomEnd] = useState(range.end);
