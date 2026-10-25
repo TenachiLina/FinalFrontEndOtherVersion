@@ -72,6 +72,9 @@ const ADMIN_ONLY_PREFIXES = [
 // (The activity log then shows every company.)
 const NO_COMPANY_PATHS = ["/companies", "/account", "/help", "/activity-log", "/login-sessions"];
 
+// Any other account without a company only gets its own account and help.
+const NO_COMPANY_PATHS_OTHERS = ["/account", "/help"];
+
 // Page prefix → feature it needs. The first match wins.
 const PATH_FEATURES: [string, Feature][] = [
   ["/reporting/weekly-advances", "advances"],
@@ -117,7 +120,8 @@ export function canOpen(
     return matches(pathname, "/kiosk") && !!company?.features.includes("clockin");
   }
   if (!company) {
-    return NO_COMPANY_PATHS.some((p) => matches(pathname, p));
+    const allowed = user.role === "superadmin" ? NO_COMPANY_PATHS : NO_COMPANY_PATHS_OTHERS;
+    return allowed.some((p) => matches(pathname, p));
   }
   if (user.role === "manager" && isAdminOnlyPath(pathname)) return false;
   const feature = featureForPath(pathname);
