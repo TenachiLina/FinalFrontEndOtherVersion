@@ -361,10 +361,20 @@ useEffect(() => {
 
   //   return planning?.backupEmpId ?? null;
   // };
+  // Start/end the delay and overtime are measured from: the planned task times when there are any
+  const effectiveTimes = (empNum: number, shiftId: string | null) => {
+    const shift = shifts.find((s) => s.shift_id === shiftId);
+    const mongoId = employees.find((e) => e.num === empNum)?.mongoId;
+    const st = specialTimes[`${mongoId}-${shiftId}`];
+    return {
+      start: st?.clockIn ?? shift?.start_time ?? "",
+      end: st?.clockOut ?? shift?.end_time ?? "",
+    };
+  };
   // ── Auto-save ─────────────────────────────────────────────────────────────
   const scheduleSave = useCallback((empNum: number, shiftId: string, updatedEntry: EmployeeTimeEntry) => {
     const k = `${empNum}-${shiftId}`;
-    const shift = shifts.find((s) => s.shift_id === shiftId);
+    const { start, end } = effectiveTimes(empNum, shiftId);
     clearTimeout(saveTimers.current[k]);
     saveTimers.current[k] = setTimeout(async () => {
       setEntries((prev) => ({ ...prev, [k]: { ...prev[k], _saving: true, _dirty: false } }));
@@ -374,8 +384,8 @@ useEffect(() => {
   empNum,
   shiftId,
   selectedDate,
-  shift?.start_time ?? "",
-  shift?.end_time ?? ""
+  start,
+  end
 );
         const saved = await upsertWorktime(payload, updatedEntry.workTimeId ?? null, updatedEntry._auditAs, PER_SHIFT);
         setEntries((prev) => ({ ...prev, [k]: { ...prev[k], workTimeId: saved._id, _saving: false } }));
@@ -384,7 +394,7 @@ useEffect(() => {
         setEntries((prev) => ({ ...prev, [k]: { ...prev[k], _saving: false, _dirty: true } }));
       }
     }, 800);
-  }, [selectedDate, shifts]);
+  }, [selectedDate, shifts, employees, specialTimes]);
   const updateEntry = useCallback((empNum: number, patch: Partial<EmployeeTimeEntry>) => {
   if (!currentTab) return;
   const k = entryKey(empNum);
@@ -503,13 +513,14 @@ useEffect(() => {
 
   try {
     // Build the absent employee's worktime payload.
+    const { start, end } = effectiveTimes(mainEmpNum, currentTab);
     const payload = entryToPayload(
       updatedEntry,
       mainEmpNum,
       currentTab,
       selectedDate,
-      currentShift?.start_time ?? "",
-      currentShift?.end_time ?? ""
+      start,
+      end
     );
 
     // Save the absence and selected backup on the MAIN employee's record.
@@ -1028,13 +1039,8 @@ const getAttendanceRows = (
                       ? employees.find((e) => e.num === backupOfEmpNum)
                       : null;
 
-                    const st = specialTimes[`${emp.mongoId}-${currentTab}`];
-
-                    const effectiveStart =
-                      st?.clockIn ?? currentShift?.start_time ?? "";
-
-                    const effectiveEnd =
-                      st?.clockOut ?? currentShift?.end_time ?? "";
+                    const { start: effectiveStart, end: effectiveEnd } =
+                      effectiveTimes(emp.num, currentTab);
 
                     const lateMin = calcLate(entry.clockIn, effectiveStart, effectiveEnd);
                     const otMin = calcOvertime(entry.clockOut, effectiveStart, effectiveEnd);
