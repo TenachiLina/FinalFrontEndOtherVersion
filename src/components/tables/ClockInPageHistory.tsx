@@ -152,6 +152,107 @@ function addDays(date: string, days: number) {
   return d.toISOString().substring(0, 10);
 }
 
+// A day that ends with an open clock-in is closed by the next punch when it
+// comes within this time: a clock-out after midnight belongs to the day of
+// its clock-in (overnight shifts), as on the kiosk.
+const MAX_OVERNIGHT_GAP_MS = 12 * 60 * 60 * 1000;
+
+/**
+ * Splits one employee's punches into work days (Algerian dates), each
+ * sorted by time.
+ */
+function splitIntoWorkDays(punches: AttendanceLog[]) {
+  const sorted = [...punches].sort(
+    (a, b) =>
+      new Date(a.timestamp).getTime() -
+      new Date(b.timestamp).getTime()
+  );
+
+  const days = new Map<string, AttendanceLog[]>();
+  let current: { date: string; punches: AttendanceLog[] } | null = null;
+
+  for (const punch of sorted) {
+    const date = algiersDate(punch.timestamp);
+    const lastPunch = current?.punches[current.punches.length - 1];
+
+    const closesOvernightPeriod =
+      current !== null &&
+      lastPunch !== undefined &&
+      current.date < date &&
+      current.punches.length % 2 === 1 &&
+      new Date(punch.timestamp).getTime() -
+        new Date(lastPunch.timestamp).getTime() <=
+        MAX_OVERNIGHT_GAP_MS;
+
+    if (!closesOvernightPeriod) {
+      if (!days.has(date)) {
+        days.set(date, []);
+      }
+      current = { date, punches: days.get(date)! };
+    }
+
+    current!.punches.push(punch);
+  }
+
+  return days;
+}
+
+/**
+ * One employee's punches for a work day. The API filters by UTC date, so the
+ * days around it are loaded too (punches after midnight, overnight periods).
+ */
+async function loadWorkDayPunches(
+  employeeNumber: string,
+  workDate: string
+) {
+  const response = await fetch(
+    `${API_BASE_URL}/attendance/device-logs` +
+      `?from=${encodeURIComponent(addDays(workDate, -1))}` +
+      `&to=${encodeURIComponent(addDays(workDate, 1))}`,
+    { cache: "no-store" }
+  );
+
+  await ensureOk(response);
+
+  const data = await response.json();
+
+  const logs: AttendanceLog[] = Array.isArray(data)
+    ? data
+    : Array.isArray(data?.data)
+    ? data.data
+    : [];
+
+  return (
+    splitIntoWorkDays(
+      logs.filter(
+        (log) => normalizeDeviceId(log.deviceUserId) === employeeNumber
+      )
+    ).get(workDate) ?? []
+  );
+}
+
+/**
+ * Minutes worked: the sum of the periods (1st → 2nd punch, 3rd → 4th, …),
+ * so breaks between periods aren't counted. A last punch without its
+ * clock-out isn't counted yet.
+ */
+function workedMinutes(sortedPunches: AttendanceLog[]) {
+  let minutes = 0;
+
+  for (let i = 0; i + 1 < sortedPunches.length; i += 2) {
+    minutes += Math.max(
+      0,
+      Math.round(
+        (new Date(sortedPunches[i + 1].timestamp).getTime() -
+          new Date(sortedPunches[i].timestamp).getTime()) /
+          60000
+      )
+    );
+  }
+
+  return minutes;
+}
+
 /**
  * A shift's start or end ("HH:MM"). GET /shifts sends startTime/endTime;
  * start_time/end_time are still read for older data.
@@ -288,20 +389,15 @@ const searchBoxRef = useRef<HTMLDivElement>(null);
 const groupedLogs = useMemo(() => {
   const groups: Record<string, AttendanceLog[]> = {};
 
-  // First group all punches by employee + date
+  // First group all punches by employee
   logs.forEach((log) => {
     const deviceId = normalizeDeviceId(log.deviceUserId);
 
-    // Use the date contained in the machine timestamp
-    const date = log.timestamp.substring(0, 10);
-
-    const key = `${deviceId}-${date}`;
-
-    if (!groups[key]) {
-      groups[key] = [];
+    if (!groups[deviceId]) {
+      groups[deviceId] = [];
     }
 
-    groups[key].push(log);
+    groups[deviceId].push(log);
   });
 
   const result: GroupedAttendance[] = [];
@@ -319,13 +415,10 @@ const groupedLogs = useMemo(() => {
   // Each pair becomes its own table row.
   // ---------------------------------------------------------
 
-  Object.values(groups).forEach((dayLogs) => {
-    const sorted = [...dayLogs].sort(
-      (a, b) =>
-        new Date(a.timestamp).getTime() -
-        new Date(b.timestamp).getTime()
-    );
-
+  // Then by work day: the Algerian date the table shows (not the UTC
+  // date), with a clock-out after midnight kept on its clock-in's day.
+  Object.values(groups).forEach((employeeLogs) => {
+    splitIntoWorkDays(employeeLogs).forEach((sorted, date) => {
     for (let i = 0; i < sorted.length; i += 2) {
       const clockInLog = sorted[i];
 
@@ -347,7 +440,7 @@ const groupedLogs = useMemo(() => {
         firstName: clockInLog.firstName,
         lastName: clockInLog.lastName,
 
-        date: clockInLog.timestamp.substring(0, 10),
+        date,
 
         // First punch of this interval
         clockIn: clockInLog.timestamp,
@@ -364,6 +457,7 @@ const groupedLogs = useMemo(() => {
           : [clockInLog],
       });
     }
+    });
   });
 
   // Newest intervals first
@@ -659,9 +753,9 @@ const addPunch = async () => {
 
 const workDate = newPunch.timestamp.substring(0, 10);
 
-// datetime-local contient l'heure locale saisie dans le formulaire.
-// La conversion en ISO produit un timestamp UTC terminé par Z.
-const timestamp = new Date(newPunch.timestamp);
+// The form holds "YYYY-MM-DDTHH:MM" in Algerian time (the time the table
+// shows). The conversion to ISO gives a UTC timestamp ending in Z.
+const timestamp = new Date(`${newPunch.timestamp}:00${ALGIERS_OFFSET}`);
 
 if (Number.isNaN(timestamp.getTime())) {
   toast.warning("The date and time aren't valid.");
@@ -699,44 +793,13 @@ if (Number.isNaN(timestamp.getTime())) {
     console.log("Punch created:", result);
 
     // ---------------------------------------------------------
-    // 2. RELOAD ALL PUNCHES FOR THIS DATE
+    // 2-3. RELOAD ALL PUNCHES FOR THIS EMPLOYEE + WORK DAY
     // ---------------------------------------------------------
 
-    const logsResponse = await fetch(
-      `${API_BASE_URL}/attendance/device-logs` +
-        `?from=${encodeURIComponent(workDate)}` +
-        `&to=${encodeURIComponent(workDate)}`,
-      {
-        cache: "no-store",
-      }
+    const employeeLogs = await loadWorkDayPunches(
+      employeeNumber,
+      workDate
     );
-
-    await ensureOk(logsResponse);
-
-    const logsData = await logsResponse.json();
-
-    const dateLogs: AttendanceLog[] = Array.isArray(logsData)
-      ? logsData
-      : Array.isArray(logsData?.data)
-      ? logsData.data
-      : [];
-
-    // ---------------------------------------------------------
-    // 3. GET ALL PUNCHES FOR THIS EMPLOYEE + DATE
-    // ---------------------------------------------------------
-
-    const employeeLogs = dateLogs
-      .filter(
-        (log) =>
-          normalizeDeviceId(log.deviceUserId) ===
-            employeeNumber &&
-          log.timestamp.substring(0, 10) === workDate
-      )
-      .sort(
-        (a, b) =>
-          new Date(a.timestamp).getTime() -
-          new Date(b.timestamp).getTime()
-      );
 
     if (employeeLogs.length === 0) {
       throw new Error(
@@ -896,35 +959,7 @@ const shiftEnd = shift ? shiftTime(shift, "end") : "00:00";
     // 8. CALCULATE WORK HOURS
     // ---------------------------------------------------------
 
-    let workMinutes = 0;
-
-    if (
-      clockIn !== "—" &&
-      clockOut !== "00:00" &&
-      clockOut !== "—"
-    ) {
-      const [inH, inM] = clockIn
-        .slice(0, 5)
-        .split(":")
-        .map(Number);
-
-      const [outH, outM] = clockOut
-        .slice(0, 5)
-        .split(":")
-        .map(Number);
-
-      let inMinutes = inH * 60 + inM;
-      let outMinutes = outH * 60 + outM;
-
-      if (outMinutes < inMinutes) {
-        outMinutes += 1440;
-      }
-
-      workMinutes = Math.max(
-        0,
-        outMinutes - inMinutes
-      );
-    }
+    const workMinutes = workedMinutes(employeeLogs);
 
     const workHours =
       `${String(Math.floor(workMinutes / 60)).padStart(
@@ -1169,35 +1204,11 @@ if (
       );
     }
 
-    // 2. Reload raw logs for the employee and date.
-    const logsResponse = await fetch(
-      `${API_BASE_URL}/attendance/device-logs` +
-        `?from=${encodeURIComponent(workDate)}` +
-        `&to=${encodeURIComponent(workDate)}`,
-      { cache: "no-store" }
+    // 2. Reload raw logs for the employee and work day.
+    const employeeLogs = await loadWorkDayPunches(
+      employeeNumber,
+      workDate
     );
-
-    await ensureOk(logsResponse);
-
-    const logsData = await logsResponse.json();
-
-    const dateLogs: AttendanceLog[] = Array.isArray(logsData)
-      ? logsData
-      : Array.isArray(logsData?.data)
-      ? logsData.data
-      : [];
-
-    const employeeLogs = dateLogs
-      .filter(
-        (item) =>
-          normalizeDeviceId(item.deviceUserId) === employeeNumber &&
-          item.timestamp.substring(0, 10) === workDate
-      )
-      .sort(
-        (a, b) =>
-          new Date(a.timestamp).getTime() -
-          new Date(b.timestamp).getTime()
-      );
 
     if (employeeLogs.length === 0) {
       throw new Error("No records were found to recalculate the worked hours.");
@@ -1303,22 +1314,8 @@ if (
 
     const shiftEnd = shift ? shiftTime(shift, "end") : "00:00";
 
-    // 7. Recalculate work hours, including overnight shifts.
-    let workMinutes = 0;
-
-    if (clockOut !== "00:00" && clockOut !== "—") {
-      const [inH, inM] = clockIn.slice(0, 5).split(":").map(Number);
-      const [outH, outM] = clockOut.slice(0, 5).split(":").map(Number);
-
-      const inMinutes = inH * 60 + inM;
-      let outMinutes = outH * 60 + outM;
-
-      if (outMinutes < inMinutes) {
-        outMinutes += 1440;
-      }
-
-      workMinutes = Math.max(0, outMinutes - inMinutes);
-    }
+    // 7. Recalculate work hours (the periods, without the breaks between them).
+    const workMinutes = workedMinutes(employeeLogs);
 
     const workHours =
       `${String(Math.floor(workMinutes / 60)).padStart(2, "0")}:` +
