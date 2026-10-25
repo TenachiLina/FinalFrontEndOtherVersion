@@ -212,7 +212,7 @@ describe("importing an Excel planning", () => {
   });
 
   // BUG-305: an employee listed twice under the same hour is imported twice into the same cell (and saved twice)
-  it.fails("imports an employee listed twice under the same hour only once", async () => {
+  it("imports an employee listed twice under the same hour only once", async () => {
     const { result } = await setup();
     const { event } = fileChange(
       excelFile([
@@ -280,7 +280,7 @@ describe("importing a PDF planning", () => {
   });
 
   // BUG-306: PDF import only knows the hours 06H–12H and 14H–16H; employees of any other hour land in the previous hour's shift
-  it.fails("puts the employees of an 18:00 shift in the 18:00 shift", async () => {
+  it("puts the employees of an 18:00 shift in the 18:00 shift", async () => {
     const api = mockPlanningApi({ shifts: [MORNING, makeShift("s-late", "18:00", "23:00")] });
     const { result } = await renderPlanningHook(api);
     const { event } = fileChange(pdfFile(["06H", "Alice Martin", "18H", "Bob Brown"]));
@@ -292,7 +292,7 @@ describe("importing a PDF planning", () => {
   });
 
   // BUG-305: an employee listed twice under the same hour is imported twice into the same cell (and saved twice)
-  it.fails("imports an employee listed twice under the same hour only once", async () => {
+  it("imports an employee listed twice under the same hour only once", async () => {
     const { result } = await setup();
     const { event } = fileChange(pdfFile(["06H", "Alice Martin"], ["06H", "Alice Martin"]));
 

@@ -120,7 +120,7 @@ describe("useSignInBrand", () => {
   });
 
   // BUG-008: a failed request is cached as "no company" until the page is reloaded
-  it.fails("tries again after a network failure", async () => {
+  it("tries again after a network failure", async () => {
     server.use(http.get(`${API}/branding/flaky`, () => HttpResponse.error(), { once: true }));
     searchParams.value = new URLSearchParams("company=flaky");
     const first = renderHook(() => mod.useSignInBrand());

@@ -15,7 +15,7 @@ describe("readRange", () => {
   );
 
   // BUG-004: any non-empty text is accepted as a date
-  it.fails("rejects values that are not YYYY-MM-DD dates", () => {
+  it("rejects values that are not YYYY-MM-DD dates", () => {
     expect(readRange(new URLSearchParams("start=hello&end=2026-03-31"))).toBeUndefined();
   });
 });

@@ -317,7 +317,7 @@ describe("editing an assignment", () => {
   });
 
   // BUG-301: typing a new name without picking it from the list shows that name but keeps saving the old employee
-  it.fails("never shows a name that differs from the employee who will be saved", async () => {
+  it("never shows a name that differs from the employee who will be saved", async () => {
     const { result } = await openEditOnAlice();
     act(() => result.current.setEditSelectedEmployee(null));
     act(() => result.current.setEditTitle("Bob Brown"));

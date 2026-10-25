@@ -262,7 +262,7 @@ describe("loading the day", () => {
   });
 
   // BUG-106: a failed load is reported as "No shifts found" and the error is never shown
-  it.fails("explains when the day's data can't be loaded", async () => {
+  it("explains when the day's data can't be loaded", async () => {
     backend({ employeesStatus: 500 });
     renderWithProviders(<AttendancePage currentDate={DAY} />);
     await waitFor(() => expect(screen.queryByText("Loading attendance data…")).not.toBeInTheDocument());
@@ -277,7 +277,7 @@ describe("loading the day", () => {
   });
 
   // BUG-107: with no employees the table stays on "Loading attendance..." for ever
-  it.fails("says when there are no employees at all", async () => {
+  it("says when there are no employees at all", async () => {
     backend({ employees: [], planning: [] });
     renderWithProviders(<AttendancePage currentDate={DAY} />);
     expect(await screen.findByText("No employees found in the database.")).toBeInTheDocument();
@@ -426,7 +426,7 @@ describe("turning machine punches into times", () => {
   });
 
   // BUG-101: an overnight shift's clock-out after midnight is also taken as the next day's first clock-in
-  it.fails("does not take last night's clock-out as today's clock-in", async () => {
+  it("does not take last night's clock-out as today's clock-in", async () => {
     await renderPage({
       shifts: [NIGHT_SHIFT],
       planning: [plan(ALI, NIGHT_SHIFT)],
@@ -440,7 +440,7 @@ describe("turning machine punches into times", () => {
   });
 
   // BUG-102: a clock-out after an overnight shift's end time is dropped
-  it.fails("keeps a clock-out made a few minutes after an overnight shift ends", async () => {
+  it("keeps a clock-out made a few minutes after an overnight shift ends", async () => {
     await renderPage({
       shifts: [NIGHT_SHIFT],
       planning: [plan(ALI, NIGHT_SHIFT)],
@@ -450,7 +450,7 @@ describe("turning machine punches into times", () => {
   });
 
   // BUG-103: a punch at exactly 00:00 is read as "no punch"
-  it.fails("counts a clock-out at midnight", async () => {
+  it("counts a clock-out at midnight", async () => {
     const MIDNIGHT_SHIFT = shift("s5", "16:00", "00:00");
     await renderPage({
       shifts: [MIDNIGHT_SHIFT],
@@ -461,7 +461,7 @@ describe("turning machine punches into times", () => {
   });
 
   // BUG-104: shifts ending before 16:00 never get overtime
-  it.fails("gives overtime to someone leaving late from a morning shift", async () => {
+  it("gives overtime to someone leaving late from a morning shift", async () => {
     const MORNING = shift("s6", "06:00", "14:00");
     await renderPage({
       shifts: [MORNING],
@@ -472,7 +472,7 @@ describe("turning machine punches into times", () => {
   });
 
   // BUG-105: no overtime after midnight for a shift that ends at 00:00
-  it.fails("gives overtime to someone leaving after a shift that ends at midnight", async () => {
+  it("gives overtime to someone leaving after a shift that ends at midnight", async () => {
     const MIDNIGHT_SHIFT = shift("s5", "16:00", "00:00");
     await renderPage({
       shifts: [MIDNIGHT_SHIFT],
@@ -646,7 +646,7 @@ describe("saving machine punches", () => {
   });
 
   // BUG-108: a failed save of an employee with machine punches still shows "✓ Saved"
-  it.fails("shows that a change was not saved for an employee with machine punches", async () => {
+  it("shows that a change was not saved for an employee with machine punches", async () => {
     const { api, user } = await renderPage({
       logs: { [DAY]: [punch(101, "08:00"), punch(101, "17:00")] },
     });
@@ -736,7 +736,7 @@ describe("editing a row", () => {
   });
 
   // BUG-109: the saved late_minutes ignore the planned task start the screen uses
-  it.fails("saves the same delay as the one shown", async () => {
+  it("saves the same delay as the one shown", async () => {
     const task = { id: "t1", label: "Oven", startTime: "10:00", endTime: "17:00" };
     const { api } = await renderPage({
       planning: [plan(ALI, DAY_SHIFT, { tasks: [task] })],
@@ -833,7 +833,7 @@ describe("marking someone absent", () => {
   });
 
   // BUG-110: marking an employee with machine punches absent still saves their worked hours
-  it.fails("does not save worked hours for an absent employee", async () => {
+  it("does not save worked hours for an absent employee", async () => {
     const { api, user } = await renderPage({
       logs: { [DAY]: [punch(101, "08:00"), punch(101, "16:00")] },
     });
@@ -865,7 +865,7 @@ describe("resetting the day", () => {
     expect(row("Ali Ben")).toMatchObject({ status: "Pending", clockIn: "No punch", clockOut: "No punch" });
     expect(row("Ali Ben").penalty).toHaveValue(null);
     expect(screen.getByText("Machine punches: 0")).toBeInTheDocument();
-    expect(JSON.parse(localStorage.getItem(`worktime_${DAY}`) ?? "{}")["101-s1"]).toMatchObject({ clockIn: "00:00", penalty: 0 });
+    expect(JSON.parse(localStorage.getItem(`worktime_${DAY}`) ?? "{}")["101-s1"]).toMatchObject({ clockIn: "", penalty: 0 });
     expect(api.saves()).toHaveLength(1);
   });
 });
@@ -874,7 +874,7 @@ describe("resetting the day", () => {
 
 describe("while the page stays open", () => {
   // BUG-111: machine punches are read once; new punches never show up or get saved until a reload
-  it.fails("picks up new machine punches", async () => {
+  it("picks up new machine punches", async () => {
     vi.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"] });
     vi.setSystemTime(new Date(2026, 2, 10, 12, 0));
     let logs = [punch(101, "08:00")];
@@ -892,7 +892,7 @@ describe("while the page stays open", () => {
 
 describe("privacy", () => {
   // BUG-112: the page prints every machine log and saved payload to the browser console
-  it.fails("doesn't print attendance data to the console", async () => {
+  it("doesn't print attendance data to the console", async () => {
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     const { api } = await renderPage({ logs: { [DAY]: [punch(101, "08:00"), punch(101, "17:00")] } });
     await waitFor(() => expect(api.saves()).toHaveLength(1));

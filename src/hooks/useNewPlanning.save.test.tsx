@@ -145,7 +145,7 @@ describe("saving the selected day", () => {
   });
 
   // BUG-302: Save is possible while the next day is loading, and writes the previous day's employees onto it
-  it.fails("does not save the previous day's employees onto a day that is still loading", async () => {
+  it("does not save the previous day's employees onto a day that is still loading", async () => {
     const { result, api } = await setup([makeRecord(ALICE)], {
       slowDays: ["2026-10-25"],
       plannings: { "2026-10-24": [makeRecord(ALICE)], "2026-10-25": [makeRecord(BOB)] },
@@ -200,7 +200,7 @@ describe("save to every weekday of the month", () => {
   });
 
   // BUG-304: a failed day shows the raw "date: status {json}" text in the toast
-  it.fails("explains a failed day in plain words, without the raw server reply", async () => {
+  it("explains a failed day in plain words, without the raw server reply", async () => {
     const error = vi.spyOn(toast, "error");
     const { result } = await setup();
     failSaves(500, ["2026-10-10"]);
@@ -223,7 +223,7 @@ describe("save to every weekday of the month", () => {
   });
 
   // BUG-303: in a time zone ahead of Algiers the days are built at local midnight, which is the previous day in Algiers
-  it.fails("saves on Saturdays, not Fridays, for a manager whose browser is in Paris", async () => {
+  it("saves on Saturdays, not Fridays, for a manager whose browser is in Paris", async () => {
     const previous = process.env.TZ;
     process.env.TZ = "Europe/Paris";
     try {
