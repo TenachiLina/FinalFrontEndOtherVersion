@@ -139,6 +139,12 @@ function deviceDateTime(
   };
 }
 
+/**
+ * "No punch" marker for clock-in / clock-out.
+ * Not "00:00": that is a real punch at midnight.
+ */
+const NO_PUNCH = "";
+
 const deviceTime = (
   timestamp: string
 ) => {
@@ -147,7 +153,7 @@ const deviceTime = (
 
   return (
     parsed?.time ??
-    "00:00"
+    NO_PUNCH
   );
 };
 
@@ -546,7 +552,7 @@ function deviceLogsToEntries(
           ].timestamp
         ),
 
-        clockOut: "00:00",
+        clockOut: NO_PUNCH,
       });
     }
 
@@ -560,8 +566,8 @@ function deviceLogsToEntries(
 
     for (const period of periods) {
       if (
-        period.clockIn === "00:00" ||
-        period.clockOut === "00:00"
+        period.clockIn === NO_PUNCH ||
+        period.clockOut === NO_PUNCH
       ) {
         continue;
       }
@@ -601,7 +607,7 @@ function deviceLogsToEntries(
                 employeeLogs.length - 1
               ].timestamp
             )
-          : "00:00",
+          : NO_PUNCH,
 
       periods,
 
@@ -915,8 +921,8 @@ const calcHoursFromPeriods = (
 
   for (const period of periods) {
     if (
-      period.clockIn === "00:00" ||
-      period.clockOut === "00:00"
+      period.clockIn === NO_PUNCH ||
+      period.clockOut === NO_PUNCH
     ) {
       continue;
     }
@@ -940,7 +946,7 @@ const calcLate = (
   s: string
 ) => {
   if (
-    i === "00:00" ||
+    i === NO_PUNCH ||
     !s
   ) {
     return 0;
@@ -971,7 +977,7 @@ const calcOvertime = (
   e: string
 ) => {
   if (
-    o === "00:00" ||
+    o === NO_PUNCH ||
     !e
   ) {
     return 0;
@@ -1053,9 +1059,9 @@ const getStatus = (
   e.absent
     ? "absent"
     : e.clockIn !==
-          "00:00" &&
+          NO_PUNCH &&
       e.clockOut !==
-          "00:00"
+          NO_PUNCH
     ? "present"
     : "pending";
 
@@ -1083,10 +1089,17 @@ const badgeLabel = (
 function recordToEntry(
   r: WorktimeRecord
 ): EmployeeTimeEntry {
-  return {
-    clockIn: r.clock_in ?? "00:00",
+  // Absences are saved elsewhere with "00:00" times: they have no punch.
+  const absent = r.absent ?? false;
 
-    clockOut: r.clock_out ?? "00:00",
+  return {
+    clockIn: absent
+      ? NO_PUNCH
+      : r.clock_in ?? NO_PUNCH,
+
+    clockOut: absent
+      ? NO_PUNCH
+      : r.clock_out ?? NO_PUNCH,
 
     /*
      * Worktime currently stores the daily summary.
@@ -1149,12 +1162,12 @@ function entryToPayload(
     work_date: date,
 
     clock_in:
-      entry.clockIn !== "00:00"
+      entry.clockIn !== NO_PUNCH
         ? entry.clockIn
         : undefined,
 
     clock_out:
-      entry.clockOut !== "00:00"
+      entry.clockOut !== NO_PUNCH
         ? entry.clockOut
         : undefined,
 
@@ -1990,10 +2003,10 @@ const [deviceEntries, setDeviceEntries] =
                     next[key] ??
                     {
                       clockIn:
-                        "00:00",
+                        NO_PUNCH,
 
                       clockOut:
-                        "00:00",
+                        NO_PUNCH,
 
                       absent:
                         false,
@@ -2149,8 +2162,8 @@ const [deviceEntries, setDeviceEntries] =
   ): EmployeeTimeEntry => {
     const stored =
       entries[entryKey(empNum)] ?? {
-        clockIn: "00:00",
-        clockOut: "00:00",
+        clockIn: NO_PUNCH,
+        clockOut: NO_PUNCH,
         periods: [],
         workHours: "00:00",
         absent: false,
@@ -2367,7 +2380,7 @@ const [deviceEntries, setDeviceEntries] =
             continue;
           }
 
-          if (machine.clockIn === "00:00") {
+          if (machine.clockIn === NO_PUNCH) {
             console.log(
               "⏭️ MACHINE SAVE SKIPPED - no clock-in:",
               emp.empNumber
@@ -2435,21 +2448,21 @@ const [deviceEntries, setDeviceEntries] =
           const completedPeriods =
             machine.periods.filter(
               (period) =>
-                period.clockIn !== "00:00" &&
-                period.clockOut !== "00:00"
+                period.clockIn !== NO_PUNCH &&
+                period.clockOut !== NO_PUNCH
             );
 
           const firstClockIn =
             machine.periods.length > 0
               ? machine.periods[0].clockIn
-              : "00:00";
+              : NO_PUNCH;
 
           const lastClockOut =
             completedPeriods.length > 0
               ? completedPeriods[
                   completedPeriods.length - 1
                 ].clockOut
-              : "00:00";
+              : NO_PUNCH;
 
           const totalWorkHours =
             calcHoursFromPeriods(
@@ -2545,8 +2558,8 @@ const [deviceEntries, setDeviceEntries] =
           const existing =
             entries[key] ??
             {
-              clockIn: "00:00",
-              clockOut: "00:00",
+              clockIn: NO_PUNCH,
+              clockOut: NO_PUNCH,
               periods: [],
               workHours: "00:00",
               absent: false,
@@ -3004,8 +3017,8 @@ const toggleAbsent = (
   if (backups.length === 0) {
     updateEntry(empNum, {
       absent: true,
-      clockIn: "00:00",
-      clockOut: "00:00",
+      clockIn: NO_PUNCH,
+      clockOut: NO_PUNCH,
       backupEmpNum: null,
     });
     return;
@@ -3043,8 +3056,8 @@ const confirmAbsence = () => {
   // 1. Mark the original employee absent.
   updateEntry(absenceModal.empNum, {
     absent: true,
-    clockIn: "00:00",
-    clockOut: "00:00",
+    clockIn: NO_PUNCH,
+    clockOut: NO_PUNCH,
     backupEmpNum: backup.empNumber,
   });
 
@@ -3093,10 +3106,10 @@ const confirmAbsence = () => {
                 ...prev[key],
 
                 clockIn:
-                  "00:00",
+                  NO_PUNCH,
 
                 clockOut:
-                  "00:00",
+                  NO_PUNCH,
 
                 absent:
                   false,
@@ -3836,7 +3849,7 @@ const confirmAbsence = () => {
                               <span
                                 className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium ${
                                   entry.clockIn !==
-                                  "00:00"
+                                  NO_PUNCH
                                     ? "bg-green-600 text-white"
                                     : "border border-gray-200 dark:border-white/[0.1] text-gray-400"
                                 }`}
@@ -3844,7 +3857,7 @@ const confirmAbsence = () => {
                                 <ClockInIcon />
 
                                 {entry.clockIn !==
-                                "00:00"
+                                NO_PUNCH
                                   ? entry.clockIn
                                   : t("No punch")}
                               </span>
@@ -3868,7 +3881,7 @@ const confirmAbsence = () => {
                               <span
                                 className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium ${
                                   entry.clockOut !==
-                                  "00:00"
+                                  NO_PUNCH
                                     ? "bg-red-500 text-white"
                                     : "border border-gray-200 dark:border-white/[0.1] text-gray-400"
                                 }`}
@@ -3876,7 +3889,7 @@ const confirmAbsence = () => {
                                 <ClockInIcon />
 
                                 {entry.clockOut !==
-                                "00:00"
+                                NO_PUNCH
                                   ? entry.clockOut
                                   : t("No punch")}
                               </span>
