@@ -466,6 +466,7 @@ const fr: Record<string, string> = {
   "No backup": "Aucun remplaçant",
   "No employees assigned": "Aucun employé affecté",
   "Close": "Fermer",
+  "Close dialog": "Fermer la fenêtre",
   "Edit Assignment": "Modifier l'affectation",
   "Update": "Mettre à jour",
   "Import Planning": "Importer un planning",

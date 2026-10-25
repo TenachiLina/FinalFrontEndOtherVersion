@@ -466,6 +466,7 @@ const ar: Record<string, string> = {
   "No backup": "لا يوجد بديل",
   "No employees assigned": "لا يوجد موظفون معيّنون",
   "Close": "إغلاق",
+  "Close dialog": "إغلاق النافذة",
   "Edit Assignment": "تعديل التعيين",
   "Update": "تحديث",
   "Import Planning": "استيراد تخطيط",
