@@ -484,6 +484,7 @@ const ar: Record<string, string> = {
   "Couldn't load the planning": "تعذّر تحميل التخطيط",
   "Couldn't load employees, shifts and posts": "تعذّر تحميل الموظفين والفترات والمناصب",
   "This employee is already in this slot.": "هذا الموظف موجود بالفعل في هذه الخانة.",
+  "Pick the employee from the list.": "اختر الموظف من القائمة.",
   "Add at least one employee to this day before saving.": "أضف موظفًا واحدًا على الأقل لهذا اليوم قبل الحفظ.",
   "Planning saved.": "تم حفظ التخطيط.",
   "Couldn't save the planning": "تعذّر حفظ التخطيط",

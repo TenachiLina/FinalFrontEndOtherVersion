@@ -484,6 +484,7 @@ const fr: Record<string, string> = {
   "Couldn't load the planning": "Impossible de charger le planning",
   "Couldn't load employees, shifts and posts": "Impossible de charger les employés, créneaux et postes",
   "This employee is already in this slot.": "Cet employé est déjà sur ce créneau.",
+  "Pick the employee from the list.": "Choisissez l'employé dans la liste.",
   "Add at least one employee to this day before saving.": "Ajoutez au moins un employé à ce jour avant d'enregistrer.",
   "Planning saved.": "Planning enregistré.",
   "Couldn't save the planning": "Impossible d'enregistrer le planning",
