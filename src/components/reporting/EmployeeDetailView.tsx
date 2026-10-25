@@ -127,7 +127,10 @@ const WeeklyAdvanceTab: React.FC<{ week: ReturnType<typeof useEmployeeReport>["w
             value={customStart}
             onChange={(val) => {
               setCustomStart(val);
-              handleWeekChange(val);
+              // Only load complete, valid dates: a half-typed date would load a broken range
+              if (/^\d{4}-\d{2}-\d{2}$/.test(val) && !isNaN(new Date(`${val}T00:00:00`).getTime())) {
+                handleWeekChange(val);
+              }
             }}
           />
         </div>
