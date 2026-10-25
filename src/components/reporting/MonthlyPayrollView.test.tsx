@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import React from "react";
-import { renderWithProviders, screen, within } from "@/test/render";
+import { renderWithProviders, screen, waitFor, within } from "@/test/render";
 import MonthlyPayrollView from "./MonthlyPayrollView";
 import {
   AMINE,
@@ -102,7 +102,8 @@ describe("MonthlyPayrollView", () => {
     const requests = mockReportingApi(MARCH);
     renderWithProviders(<MonthlyPayrollView />, { url: "/reporting/monthly-payroll?start=2026-02-01&end=2026-02-28" });
     expect(await screen.findByRole("columnheader", { name: "Net Salary February 2026" })).toBeInTheDocument();
-    expect(rangesRequested(requests, "/worktime")).toEqual(["2026-02-01..2026-02-28"]);
+    // The header shows the month straight away; the data request follows
+    await waitFor(() => expect(rangesRequested(requests, "/worktime")).toEqual(["2026-02-01..2026-02-28"]));
   });
 
   it("says when nobody is found", async () => {
@@ -132,7 +133,7 @@ describe("MonthlyPayrollView", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Advances couldn't be loaded, so the totals shown may be incomplete. Try refreshing."
     );
-    expect(pill("Total Net Payout")).toBe("5450.00 DA");
+    await waitFor(() => expect(pill("Total Net Payout")).toBe("5450.00 DA"));
   });
 
   // BUG-509: the totals row adds rounded hours as floats and shows the binary noise

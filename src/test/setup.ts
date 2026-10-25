@@ -15,6 +15,33 @@ configure({ asyncUtilTimeout: 4000 });
 // Any request without a handler fails the test, so nothing reaches a real backend.
 server.listen({ onUnhandledFrame: "error" });
 
+// A test can end while its page is still loading. Those requests would then
+// reach the next test's handlers and show up in its request logs (only on
+// slow machines, e.g. CI), so each test waits for them before the reset.
+let inFlight = 0;
+server.events.on("request:start", () => {
+  inFlight += 1;
+});
+server.events.on("request:end", () => {
+  inFlight = Math.max(0, inFlight - 1);
+});
+// Saved now: some tests fake setTimeout, and this wait must not depend on them
+const realSetTimeout = globalThis.setTimeout;
+const pause = (ms: number) => new Promise((resolve) => realSetTimeout(resolve, ms));
+
+// Counts its own pauses rather than reading Date, which some tests freeze
+async function waitForPendingRequests(limitMs = 3000) {
+  // Nothing loading: no response can start another request
+  if (!inFlight) return;
+  // Twice idle in a row: a response often starts the page's next request
+  for (let idle = 0, waited = 0; idle < 2 && waited < limitMs; ) {
+    const ms = inFlight ? 10 : 20;
+    await pause(ms);
+    waited += ms;
+    idle = inFlight ? 0 : idle + 1;
+  }
+}
+
 // ── Next.js and heavy browser-only libraries ──────────────────────────────
 
 vi.mock("next/navigation", () => navigationMock);
@@ -96,8 +123,9 @@ URL.revokeObjectURL ??= () => {};
 
 // ── Reset between tests ───────────────────────────────────────────────────
 
-afterEach(() => {
+afterEach(async () => {
   cleanup();
+  await waitForPendingRequests();
   server.resetHandlers();
   localStorage.clear();
   sessionStorage.clear();
