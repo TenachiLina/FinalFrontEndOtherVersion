@@ -389,20 +389,15 @@ const searchBoxRef = useRef<HTMLDivElement>(null);
 const groupedLogs = useMemo(() => {
   const groups: Record<string, AttendanceLog[]> = {};
 
-  // First group all punches by employee + date
+  // First group all punches by employee
   logs.forEach((log) => {
     const deviceId = normalizeDeviceId(log.deviceUserId);
 
-    // Use the date contained in the machine timestamp
-    const date = log.timestamp.substring(0, 10);
-
-    const key = `${deviceId}-${date}`;
-
-    if (!groups[key]) {
-      groups[key] = [];
+    if (!groups[deviceId]) {
+      groups[deviceId] = [];
     }
 
-    groups[key].push(log);
+    groups[deviceId].push(log);
   });
 
   const result: GroupedAttendance[] = [];
@@ -420,13 +415,10 @@ const groupedLogs = useMemo(() => {
   // Each pair becomes its own table row.
   // ---------------------------------------------------------
 
-  Object.values(groups).forEach((dayLogs) => {
-    const sorted = [...dayLogs].sort(
-      (a, b) =>
-        new Date(a.timestamp).getTime() -
-        new Date(b.timestamp).getTime()
-    );
-
+  // Then by work day: the Algerian date the table shows (not the UTC
+  // date), with a clock-out after midnight kept on its clock-in's day.
+  Object.values(groups).forEach((employeeLogs) => {
+    splitIntoWorkDays(employeeLogs).forEach((sorted, date) => {
     for (let i = 0; i < sorted.length; i += 2) {
       const clockInLog = sorted[i];
 
@@ -448,7 +440,7 @@ const groupedLogs = useMemo(() => {
         firstName: clockInLog.firstName,
         lastName: clockInLog.lastName,
 
-        date: clockInLog.timestamp.substring(0, 10),
+        date,
 
         // First punch of this interval
         clockIn: clockInLog.timestamp,
@@ -465,6 +457,7 @@ const groupedLogs = useMemo(() => {
           : [clockInLog],
       });
     }
+    });
   });
 
   // Newest intervals first
