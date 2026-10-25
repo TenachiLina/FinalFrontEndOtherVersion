@@ -44,6 +44,14 @@ export function timeToDecimalHours(value: string | number | null | undefined): n
     return isNaN(num) ? 0 : num;
   }
 
+  // "-01:30" is minus one and a half hours: the sign is for the whole
+  // duration, not only the hours ("-00:30" would otherwise lose it).
+  if (str.startsWith("-")) {
+    const rest = str.slice(1);
+    const hours = rest.startsWith("-") ? 0 : timeToDecimalHours(rest);
+    return hours === 0 ? 0 : -hours;
+  }
+
   const parts = str.split(":");
   if (parts.length === 3) {
     const [h, m, s] = parts.map((p) => parseInt(p, 10));
