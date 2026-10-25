@@ -293,9 +293,9 @@ const DayTable: React.FC<{ rows: WorktimeRow[] }> = ({ rows }) => {
                   <TableCell className="p-3 text-center text-sm text-gray-600 dark:text-gray-400">{r.consommation}</TableCell>
                   <TableCell className={`p-3 text-center text-sm font-medium ${r.absent ? "text-red-500" : "text-gray-400"}`}>
                     {r.absent ? "Yes" : ""}
-                    {r.absent && r.absent_comment && (
+                    {r.absent && r.absent_comment ? (
                       <div className="mt-0.5 text-xs italic text-gray-400">{r.absent_comment}</div>
-                    )}
+                    ) : null}
                   </TableCell>
                 </TableRow>
               );
