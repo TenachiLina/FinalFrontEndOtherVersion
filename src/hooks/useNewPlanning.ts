@@ -762,12 +762,8 @@ export const useShiftGrid = () => {
             }),
           });
 
-          if (!res.ok) {
-            const errText = await res.text();
-            throw new Error(
-              `${planDate}: ${res.status} ${errText}`
-            );
-          }
+          // A typed error, so the toast shows a plain reason, not the raw reply
+          await ensureOk(res);
 
           return planDate;
         })
@@ -865,10 +861,8 @@ export const useShiftGrid = () => {
             }),
           });
 
-          if (!res.ok) {
-            const errText = await res.text();
-            throw new Error(`${planDate}: ${res.status} ${errText}`);
-          }
+          // A typed error, so the toast shows a plain reason, not the raw reply
+          await ensureOk(res);
 
           return planDate;
         })
