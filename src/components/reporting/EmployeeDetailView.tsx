@@ -168,7 +168,12 @@ const WeeklyAdvanceTab: React.FC<{ week: ReturnType<typeof useEmployeeReport>["w
               </button>
             </>
           ) : (
-            <Button size="md" variant="primary" onClick={week.giveAdvance} disabled={week.isLoadingAdvance}>
+            <Button
+              size="md"
+              variant="primary"
+              onClick={week.giveAdvance}
+              disabled={week.isLoadingAdvance || week.savingAdvance || week.advanceOffer <= 0}
+            >
               {t("Give Advance")}
             </Button>
           )}
