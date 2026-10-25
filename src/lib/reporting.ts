@@ -44,6 +44,14 @@ export function timeToDecimalHours(value: string | number | null | undefined): n
     return isNaN(num) ? 0 : num;
   }
 
+  // "-01:30" is minus one and a half hours: the sign is for the whole
+  // duration, not only the hours ("-00:30" would otherwise lose it).
+  if (str.startsWith("-")) {
+    const rest = str.slice(1);
+    const hours = rest.startsWith("-") ? 0 : timeToDecimalHours(rest);
+    return hours === 0 ? 0 : -hours;
+  }
+
   const parts = str.split(":");
   if (parts.length === 3) {
     const [h, m, s] = parts.map((p) => parseInt(p, 10));
@@ -56,6 +64,13 @@ export function timeToDecimalHours(value: string | number | null | undefined): n
     return h + m / 60;
   }
   return 0;
+}
+
+/** A number from an API field; anything that isn't one ("n/a", "abc") is 0, never NaN,
+ *  since one NaN would spread into every total it is added to. */
+function toNumber(value: unknown): number {
+  const n = Number(value ?? 0);
+  return Number.isFinite(n) ? n : 0;
 }
 
 /** Normalize a raw API row into the clean WorktimeRow shape.
@@ -72,10 +87,10 @@ export function normalizeRow(raw: WorktimeRowRaw): WorktimeRow {
     emp_id: empId as number | string,
     work_date: workDate,
     work_hours: (raw.work_hours as string | number | null) ?? null,
-    late_minutes: Number(raw.late_minutes || 0),
-    overtime_minutes: Number(raw.overtime_minutes || 0),
-    penalty: Number(raw.penalty || 0),
-    consommation: Number(consommation || 0),
+    late_minutes: toNumber(raw.late_minutes),
+    overtime_minutes: toNumber(raw.overtime_minutes),
+    penalty: toNumber(raw.penalty),
+    consommation: toNumber(consommation),
     absent: raw.absent ? 1 : 0,
     absent_comment: raw.absent_comment || "",
     is_empty: false,
