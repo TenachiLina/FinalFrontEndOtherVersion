@@ -152,6 +152,85 @@ function addDays(date: string, days: number) {
   return d.toISOString().substring(0, 10);
 }
 
+// A day that ends with an open clock-in is closed by the next punch when it
+// comes within this time: a clock-out after midnight belongs to the day of
+// its clock-in (overnight shifts), as on the kiosk.
+const MAX_OVERNIGHT_GAP_MS = 12 * 60 * 60 * 1000;
+
+/**
+ * Splits one employee's punches into work days (Algerian dates), each
+ * sorted by time.
+ */
+function splitIntoWorkDays(punches: AttendanceLog[]) {
+  const sorted = [...punches].sort(
+    (a, b) =>
+      new Date(a.timestamp).getTime() -
+      new Date(b.timestamp).getTime()
+  );
+
+  const days = new Map<string, AttendanceLog[]>();
+  let current: { date: string; punches: AttendanceLog[] } | null = null;
+
+  for (const punch of sorted) {
+    const date = algiersDate(punch.timestamp);
+    const lastPunch = current?.punches[current.punches.length - 1];
+
+    const closesOvernightPeriod =
+      current !== null &&
+      lastPunch !== undefined &&
+      current.date < date &&
+      current.punches.length % 2 === 1 &&
+      new Date(punch.timestamp).getTime() -
+        new Date(lastPunch.timestamp).getTime() <=
+        MAX_OVERNIGHT_GAP_MS;
+
+    if (!closesOvernightPeriod) {
+      if (!days.has(date)) {
+        days.set(date, []);
+      }
+      current = { date, punches: days.get(date)! };
+    }
+
+    current!.punches.push(punch);
+  }
+
+  return days;
+}
+
+/**
+ * One employee's punches for a work day. The API filters by UTC date, so the
+ * days around it are loaded too (punches after midnight, overnight periods).
+ */
+async function loadWorkDayPunches(
+  employeeNumber: string,
+  workDate: string
+) {
+  const response = await fetch(
+    `${API_BASE_URL}/attendance/device-logs` +
+      `?from=${encodeURIComponent(addDays(workDate, -1))}` +
+      `&to=${encodeURIComponent(addDays(workDate, 1))}`,
+    { cache: "no-store" }
+  );
+
+  await ensureOk(response);
+
+  const data = await response.json();
+
+  const logs: AttendanceLog[] = Array.isArray(data)
+    ? data
+    : Array.isArray(data?.data)
+    ? data.data
+    : [];
+
+  return (
+    splitIntoWorkDays(
+      logs.filter(
+        (log) => normalizeDeviceId(log.deviceUserId) === employeeNumber
+      )
+    ).get(workDate) ?? []
+  );
+}
+
 /**
  * Minutes worked: the sum of the periods (1st → 2nd punch, 3rd → 4th, …),
  * so breaks between periods aren't counted. A last punch without its
@@ -681,9 +760,9 @@ const addPunch = async () => {
 
 const workDate = newPunch.timestamp.substring(0, 10);
 
-// datetime-local contient l'heure locale saisie dans le formulaire.
-// La conversion en ISO produit un timestamp UTC terminé par Z.
-const timestamp = new Date(newPunch.timestamp);
+// The form holds "YYYY-MM-DDTHH:MM" in Algerian time (the time the table
+// shows). The conversion to ISO gives a UTC timestamp ending in Z.
+const timestamp = new Date(`${newPunch.timestamp}:00${ALGIERS_OFFSET}`);
 
 if (Number.isNaN(timestamp.getTime())) {
   toast.warning("The date and time aren't valid.");
@@ -721,44 +800,13 @@ if (Number.isNaN(timestamp.getTime())) {
     console.log("Punch created:", result);
 
     // ---------------------------------------------------------
-    // 2. RELOAD ALL PUNCHES FOR THIS DATE
+    // 2-3. RELOAD ALL PUNCHES FOR THIS EMPLOYEE + WORK DAY
     // ---------------------------------------------------------
 
-    const logsResponse = await fetch(
-      `${API_BASE_URL}/attendance/device-logs` +
-        `?from=${encodeURIComponent(workDate)}` +
-        `&to=${encodeURIComponent(workDate)}`,
-      {
-        cache: "no-store",
-      }
+    const employeeLogs = await loadWorkDayPunches(
+      employeeNumber,
+      workDate
     );
-
-    await ensureOk(logsResponse);
-
-    const logsData = await logsResponse.json();
-
-    const dateLogs: AttendanceLog[] = Array.isArray(logsData)
-      ? logsData
-      : Array.isArray(logsData?.data)
-      ? logsData.data
-      : [];
-
-    // ---------------------------------------------------------
-    // 3. GET ALL PUNCHES FOR THIS EMPLOYEE + DATE
-    // ---------------------------------------------------------
-
-    const employeeLogs = dateLogs
-      .filter(
-        (log) =>
-          normalizeDeviceId(log.deviceUserId) ===
-            employeeNumber &&
-          log.timestamp.substring(0, 10) === workDate
-      )
-      .sort(
-        (a, b) =>
-          new Date(a.timestamp).getTime() -
-          new Date(b.timestamp).getTime()
-      );
 
     if (employeeLogs.length === 0) {
       throw new Error(
@@ -1163,35 +1211,11 @@ if (
       );
     }
 
-    // 2. Reload raw logs for the employee and date.
-    const logsResponse = await fetch(
-      `${API_BASE_URL}/attendance/device-logs` +
-        `?from=${encodeURIComponent(workDate)}` +
-        `&to=${encodeURIComponent(workDate)}`,
-      { cache: "no-store" }
+    // 2. Reload raw logs for the employee and work day.
+    const employeeLogs = await loadWorkDayPunches(
+      employeeNumber,
+      workDate
     );
-
-    await ensureOk(logsResponse);
-
-    const logsData = await logsResponse.json();
-
-    const dateLogs: AttendanceLog[] = Array.isArray(logsData)
-      ? logsData
-      : Array.isArray(logsData?.data)
-      ? logsData.data
-      : [];
-
-    const employeeLogs = dateLogs
-      .filter(
-        (item) =>
-          normalizeDeviceId(item.deviceUserId) === employeeNumber &&
-          item.timestamp.substring(0, 10) === workDate
-      )
-      .sort(
-        (a, b) =>
-          new Date(a.timestamp).getTime() -
-          new Date(b.timestamp).getTime()
-      );
 
     if (employeeLogs.length === 0) {
       throw new Error("No records were found to recalculate the worked hours.");
