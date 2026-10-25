@@ -54,23 +54,6 @@ async function request<T>(
 
   const text = await res.text();
 
-  console.log(
-    "========== WORKTIME API RESPONSE =========="
-  );
-  console.log("PATH:", path);
-  console.log(
-    "METHOD:",
-    init?.method ?? "GET"
-  );
-  console.log("STATUS:", res.status);
-  console.log(
-    "BODY:",
-    JSON.stringify(text)
-  );
-  console.log(
-    "============================================"
-  );
-
   if (!res.ok) {
     throw new Error(
       `[worktime] ${res.status} ${text || res.statusText
@@ -201,30 +184,16 @@ export async function upsertWorktime(
   auditAs?: AuditAs,
   options: UpsertOptions = {}
 ): Promise<WorktimeRecord> {
-  console.log("🔵 UPSERT WORKTIME START");
-  console.log("Payload:", payload);
-  console.log("Existing ID:", existingId);
-
   // ------------------------------------------------------------
   // 1. If we already KNOW the correct MongoDB document ID,
   //    update it directly.
   // ------------------------------------------------------------
   if (existingId) {
     try {
-      console.log(
-        "🟡 Updating existing Worktime:",
-        existingId
-      );
-
       const updated = await updateWorktime(
         existingId,
         payload,
         auditAs
-      );
-
-      console.log(
-        "🟢 UPDATE SUCCESS:",
-        updated
       );
 
       return updated;
@@ -246,13 +215,6 @@ export async function upsertWorktime(
   // This is the important part.
   // There should be ONE Worktime document per employee/date.
   // ------------------------------------------------------------
-  console.log(
-    "🔎 Searching Worktime by employee + date:",
-    {
-      emp_id: payload.emp_id,
-      work_date: payload.work_date,
-    }
-  );
 
   const perShift = options.perShift === true;
   const search: Record<string, string> = {
@@ -264,11 +226,6 @@ export async function upsertWorktime(
   }
 
   const existing = await getWorktimes(search);
-
-  console.log(
-    "🔎 Existing Worktime records:",
-    existing
-  );
 
   // ------------------------------------------------------------
   // 3. Record already exists -> UPDATE it.
@@ -286,21 +243,10 @@ export async function upsertWorktime(
 
   if (existingRecord) {
 
-    console.log(
-      "🟡 Found existing daily Worktime.",
-      "Updating MongoDB record:",
-      existingRecord._id
-    );
-
     const updated = await updateWorktime(
       existingRecord._id,
       payload,
       auditAs
-    );
-
-    console.log(
-      "🟢 DAILY UPDATE SUCCESS:",
-      updated
     );
 
     return updated;
@@ -309,22 +255,10 @@ export async function upsertWorktime(
   // ------------------------------------------------------------
   // 4. No record exists -> CREATE one.
   // ------------------------------------------------------------
-  console.log(
-    "🟠 No daily Worktime found."
-  );
-
-  console.log(
-    "🟠 Creating new Worktime document..."
-  );
 
   const created = await createWorktime(
     payload,
     auditAs
-  );
-
-  console.log(
-    "🟢 CREATE SUCCESS:",
-    created
   );
 
   return created;
