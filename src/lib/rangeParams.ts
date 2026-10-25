@@ -10,11 +10,13 @@ function isIsoDate(value: string | null): value is string {
   return date.getFullYear() === y && date.getMonth() === mo - 1 && date.getDate() === d;
 }
 
-/** Reads ?start=YYYY-MM-DD&end=YYYY-MM-DD from the URL, or undefined if either is missing or not a date. */
+/** Reads ?start=YYYY-MM-DD&end=YYYY-MM-DD from the URL, or undefined if either is missing,
+ *  not a date, or the range is reversed (start after end). */
 export function readRange(params: { get(name: string): string | null }): DateRange | undefined {
   const start = params.get("start");
   const end = params.get("end");
-  return isIsoDate(start) && isIsoDate(end) ? { start, end } : undefined;
+  // "YYYY-MM-DD" strings sort like the dates they write
+  return isIsoDate(start) && isIsoDate(end) && start <= end ? { start, end } : undefined;
 }
 
 /** "start=...&end=..." for building links. */
