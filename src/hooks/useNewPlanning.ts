@@ -492,6 +492,13 @@ export const useShiftGrid = () => {
 
     const { postId, shiftId } = activeCell;
 
+    // A typed name that wasn't picked from the list has no employee behind
+    // it: the cell would show that name but keep saving the old employee.
+    if (!editSelectedEmployee && editTitle.trim() !== editingEmployee.title) {
+      toast.warning("Pick the employee from the list.");
+      return;
+    }
+
     // Check duplicate main employee
     const already = grid[postId]?.[shiftId]?.some(
       (c) =>
@@ -522,7 +529,7 @@ export const useShiftGrid = () => {
               // Main employee name
               title: editSelectedEmployee
                 ? `${editSelectedEmployee.firstName} ${editSelectedEmployee.lastName}`
-                : editTitle.trim(),
+                : emp.title,
 
               // Backup employees (the main employee can never be his own backup)
               backups: editBackupEmployees
