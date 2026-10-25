@@ -57,10 +57,10 @@ export default function FormInModal() {
           </div>
 
           <div className="flex items-center justify-end w-full gap-3 mt-6">
-            <Button size="sm" variant="outline" onClick={closeModal}>
+            <Button size="sm" variant="outline" type="button" onClick={closeModal}>
               Close
             </Button>
-            <Button size="sm" onClick={handleSave}>
+            <Button size="sm" type="button" onClick={handleSave}>
               Save Changes
             </Button>
           </div>

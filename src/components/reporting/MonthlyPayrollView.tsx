@@ -144,7 +144,7 @@ const MonthlyPayrollContent: React.FC = () => {
                   </TableCell>
                   <TableCell className="whitespace-nowrap p-3 text-center text-sm text-gray-400">—</TableCell>
                   <TableCell className="whitespace-nowrap p-3 text-center text-sm font-bold text-gray-800 dark:text-white">
-                    {colTotals.hours} h
+                    {Number(colTotals.hours.toFixed(2))} h
                   </TableCell>
                   <TableCell className="whitespace-nowrap p-3 text-center text-sm font-bold text-red-500">
                     {colTotals.advances.toFixed(2)} {currency()}

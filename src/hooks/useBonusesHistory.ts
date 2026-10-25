@@ -1,5 +1,5 @@
 // → save as: hooks/useBonusesHistory.ts
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Employee, DateRange } from "@/components/reporting/types";
 import { getThisMonthRange, fetchEmployees } from "@/lib/reporting";
 import { BonusRecord, fetchBonuses, deleteBonus } from "@/lib/bonuses";
@@ -17,20 +17,25 @@ export function useBonusesHistory() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  // Each call gets an id; a response is only applied if no newer call started meanwhile
+  const req = useRef(0);
 
   const load = useCallback(async (r: DateRange) => {
+    const reqId = ++req.current;
     setLoading(true);
     setError("");
     try {
       const [emps, list] = await Promise.all([fetchEmployees(), fetchBonuses(r)]);
+      if (reqId !== req.current) return; // outdated response → ignore
       setEmployees(emps);
       setBonuses(list);
       setRangeState(r);
     } catch (err) {
+      if (reqId !== req.current) return;
       console.error("Error loading bonus history:", err);
       setError(friendlyError(err, "Couldn't load the bonus history"));
     } finally {
-      setLoading(false);
+      if (reqId === req.current) setLoading(false);
     }
   }, []);
 

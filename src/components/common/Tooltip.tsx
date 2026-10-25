@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useId } from "react";
 import { t } from "@/lib/i18n";
 
 interface TooltipProps {
@@ -20,7 +20,9 @@ export default function Tooltip({
   });
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const tooltipId = useId();
 
+  // Shown on hover and on keyboard focus (focus events bubble in React)
   const handleMouseEnter = () => {
     if (!containerRef.current) return;
 
@@ -64,11 +66,18 @@ export default function Tooltip({
       className="relative group inline-block"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={() => setShow(false)}
+      onFocus={handleMouseEnter}
+      onBlur={() => setShow(false)}
     >
-      {children}
+      {/* Link a plain element to its tooltip while it is shown */}
+      {show && React.isValidElement(children) && typeof children.type === "string"
+        ? React.cloneElement(children as React.ReactElement<{ "aria-describedby"?: string }>, { "aria-describedby": tooltipId })
+        : children}
 
       {show && (
         <div
+          id={tooltipId}
+          role="tooltip"
           className="
             fixed
             z-[9999]

@@ -34,6 +34,18 @@ export const Dropdown: React.FC<DropdownProps> = ({
   };
 }, [onClose]);
 
+  // Escape closes the open menu and gives focus back to its toggle
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      const toggle = dropdownRef.current?.parentElement?.querySelector<HTMLElement>(".dropdown-toggle");
+      onClose();
+      toggle?.focus();
+    };
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 

@@ -7,6 +7,7 @@ import { useBonusesHistory, BonusHistoryRow } from "@/hooks/useBonusesHistory";
 import { currency } from "@/lib/payrollConfig";
 import LoadError from "@/components/ui/feedback/LoadError";
 import { t } from "@/lib/i18n";
+import { confirmDialog } from "@/lib/notify";
 const HEADERS = ["Employee", "Amount", "Date", "Reason", ""];
 
 const BonusesHistoryView: React.FC = () => {
@@ -62,7 +63,12 @@ const BonusesHistoryView: React.FC = () => {
                     <TableCell className="p-3 text-sm text-gray-600 dark:text-gray-400">{b.date}</TableCell>
                     <TableCell className="p-3 text-sm text-gray-500 dark:text-gray-400">{b.reason || "—"}</TableCell>
                     <TableCell className="p-3 text-end">
-                      <button onClick={() => revokeBonus(b.id)} className="text-sm font-medium text-red-500 hover:text-red-600">
+                      <button
+                        onClick={async () => {
+                          if (!(await confirmDialog({ title: t("Revoke this bonus?"), confirmLabel: t("Revoke"), danger: true }))) return;
+                          revokeBonus(b.id);
+                        }}
+                        className="text-sm font-medium text-red-500 hover:text-red-600">
                         {t("Revoke")}
                       </button>
                     </TableCell>

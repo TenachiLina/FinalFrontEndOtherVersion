@@ -11,6 +11,7 @@ import { readRange, rangeQuery } from "@/lib/rangeParams";
 import { currency } from "@/lib/payrollConfig";
 import LoadError from "@/components/ui/feedback/LoadError";
 import { t } from "@/lib/i18n";
+import { confirmDialog } from "@/lib/notify";
 const TABLE_HEADERS = [
   "Employee",
   "Hour Rate",
@@ -113,7 +114,11 @@ const WeeklyAdvancesContent: React.FC = () => {
                     <TableCell className="p-3">
                       {r.advanceGiven ? (
                         <button
-                          onClick={() => revokeAdvance(r.advanceId)}
+                          onClick={async () => {
+                            // The advance may already be handed over: ask before removing it
+                            if (!(await confirmDialog({ title: t("Undo this advance?"), confirmLabel: t("Undo"), danger: true }))) return;
+                            revokeAdvance(r.advanceId);
+                          }}
                           className="text-sm font-medium text-red-500 hover:text-red-600"
                         >
                           {t("Undo")}
@@ -141,7 +146,7 @@ const WeeklyAdvancesContent: React.FC = () => {
                 <TableRow key="totals" className="border-t-2 border-gray-300 bg-gray-100 dark:border-gray-700 dark:bg-gray-800">
                   <TableCell className="p-3 text-sm font-bold uppercase text-gray-800 dark:text-white">{t("Total")}</TableCell>
                   <TableCell className="p-3 text-sm text-gray-400">—</TableCell>
-                  <TableCell className="p-3 text-sm font-bold text-gray-800 dark:text-white">{colTotals.hours} h</TableCell>
+                  <TableCell className="p-3 text-sm font-bold text-gray-800 dark:text-white">{Number(colTotals.hours.toFixed(2))} h</TableCell>
                   <TableCell className={`p-3 text-sm font-bold ${colTotals.absences > 0 ? "text-red-500" : "text-gray-400"}`}>
                     {colTotals.absences}
                   </TableCell>

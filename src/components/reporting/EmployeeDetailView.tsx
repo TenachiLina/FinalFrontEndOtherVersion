@@ -112,7 +112,7 @@ const WeeklyAdvanceTab: React.FC<{ week: ReturnType<typeof useEmployeeReport>["w
   }, [week.range.start]);
 
   const handleWeekChange = (start: string) => {
-    const startDate = new Date(start);
+    const startDate = new Date(`${start}T00:00:00`); // local midnight, not UTC
     const end = new Date(startDate);
     end.setDate(startDate.getDate() + 6);
     week.setRange({ start, end: toLocalDateString(end) });
@@ -127,7 +127,10 @@ const WeeklyAdvanceTab: React.FC<{ week: ReturnType<typeof useEmployeeReport>["w
             value={customStart}
             onChange={(val) => {
               setCustomStart(val);
-              handleWeekChange(val);
+              // Only load complete, valid dates: a half-typed date would load a broken range
+              if (/^\d{4}-\d{2}-\d{2}$/.test(val) && !isNaN(new Date(`${val}T00:00:00`).getTime())) {
+                handleWeekChange(val);
+              }
             }}
           />
         </div>
@@ -168,7 +171,12 @@ const WeeklyAdvanceTab: React.FC<{ week: ReturnType<typeof useEmployeeReport>["w
               </button>
             </>
           ) : (
-            <Button size="md" variant="primary" onClick={week.giveAdvance} disabled={week.isLoadingAdvance}>
+            <Button
+              size="md"
+              variant="primary"
+              onClick={week.giveAdvance}
+              disabled={week.isLoadingAdvance || week.savingAdvance || week.advanceOffer <= 0}
+            >
               {t("Give Advance")}
             </Button>
           )}
@@ -288,9 +296,9 @@ const DayTable: React.FC<{ rows: WorktimeRow[] }> = ({ rows }) => {
                   <TableCell className="p-3 text-center text-sm text-gray-600 dark:text-gray-400">{r.consommation}</TableCell>
                   <TableCell className={`p-3 text-center text-sm font-medium ${r.absent ? "text-red-500" : "text-gray-400"}`}>
                     {r.absent ? "Yes" : ""}
-                    {r.absent && r.absent_comment && (
+                    {r.absent && r.absent_comment ? (
                       <div className="mt-0.5 text-xs italic text-gray-400">{r.absent_comment}</div>
-                    )}
+                    ) : null}
                   </TableCell>
                 </TableRow>
               );

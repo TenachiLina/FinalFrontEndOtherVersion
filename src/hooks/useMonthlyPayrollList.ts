@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Employee, WorktimeRow, DateRange, AdvanceRecord } from "@/components/reporting/types";
 import { getThisMonthRange, fetchEmployees, fetchWorktimeRows, fetchAdvances, fetchScheduledEmpIds } from "@/lib/reporting";
 import { payrollConfig, sumHours, sumConsommation, sumPenalties, sumAbsences } from "@/lib/payrollConfig";
@@ -34,13 +34,15 @@ export function useMonthlyPayrollList(initialRange?: DateRange) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  // Each call gets an id; a response is only applied if no newer call started meanwhile
+  const req = useRef(0);
 
   const load = useCallback(async (r: DateRange = range) => {
+    const reqId = ++req.current;
     setLoading(true);
     setError("");
     try {
       const emps = await fetchEmployees();
-      setEmployees(emps);
 
       const [worktimeRows, advanceRecords, bonusRecords, scheduled] = await Promise.all([
         fetchWorktimeRows(r),
@@ -48,17 +50,20 @@ export function useMonthlyPayrollList(initialRange?: DateRange) {
         fetchBonuses(r).catch(optionalData([] as BonusRecord[], "Bonuses")),
         fetchScheduledEmpIds(r).catch(optionalData(new Set<string>(), "The planning")),
       ]);
+      if (reqId !== req.current) return; // outdated response → ignore
 
+      setEmployees(emps);
       setRows(worktimeRows);
       setAdvances(advanceRecords);
       setBonuses(bonusRecords);
       setScheduledIds(scheduled);
       setRangeState(r);
     } catch (err) {
+      if (reqId !== req.current) return;
       console.error("Error loading monthly payroll:", err);
       setError(friendlyError(err, "Couldn't load the monthly payroll"));
     } finally {
-      setLoading(false);
+      if (reqId === req.current) setLoading(false);
     }
   }, [range]);
 
@@ -94,7 +99,9 @@ export function useMonthlyPayrollList(initialRange?: DateRange) {
     });
 
     return employees
-      .filter((emp) => scheduledIds.has(String(emp.emp_id))) // only employees scheduled (Planning) in this range
+      // Employees scheduled (Planning) in this range, or who worked in it: hours worked without a
+      // planning entry are still paid, and the list isn't empty when the planning can't be loaded
+      .filter((emp) => scheduledIds.has(String(emp.emp_id)) || groups[String(emp.emp_id)]?.length > 0)
       .filter((emp) => {
         if (!search) return true;
         const name = `${emp.FirstName} ${emp.LastName}`.toLowerCase();

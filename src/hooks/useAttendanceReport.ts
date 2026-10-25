@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Employee, WorktimeRow, DateRange, FilterMode } from "@/components/reporting/types";
 import { getLastWeekRange, fetchEmployees, fetchWorktimeRows, toLocalDateString } from "@/lib/reporting";
 import { friendlyError } from "@/lib/errors";
@@ -8,18 +8,21 @@ export interface AttendanceRow extends WorktimeRow {
   employeeName: string;
 }
 
-export function useAttendanceReport() {
+// initialRange: the range the page shows on open, loaded once as a custom range
+// (without it, the hook opens on last Thursday-Wednesday)
+export function useAttendanceReport(initialRange?: DateRange) {
   const lastWeek = getLastWeekRange();
 
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [filterMode, setFilterMode] = useState<FilterMode>("week");
+  const [filterMode, setFilterMode] = useState<FilterMode>(initialRange ? "custom" : "week");
   const [selectedDate, setSelectedDate] = useState(lastWeek.start);
-  const [customStart, setCustomStart] = useState("");
-  const [customEnd, setCustomEnd] = useState("");
+  const [customStart, setCustomStart] = useState(initialRange?.start ?? "");
+  const [customEnd, setCustomEnd] = useState(initialRange?.end ?? "");
   const [onlyIssues, setOnlyIssues] = useState(true); // show only late/absent rows by default
 
   const computeRange = useCallback((): DateRange => {
-    const ref = new Date(selectedDate);
+    // Local midnight: "YYYY-MM-DD" alone is parsed as UTC, a day early west of UTC
+    const ref = new Date(`${selectedDate}T00:00:00`);
 
     if (filterMode === "day") return { start: selectedDate, end: selectedDate };
 
@@ -40,10 +43,12 @@ export function useAttendanceReport() {
     return { start: customStart, end: customEnd };
   }, [filterMode, selectedDate, customStart, customEnd]);
 
-  const [appliedRange, setAppliedRange] = useState<DateRange>(lastWeek);
+  const [appliedRange, setAppliedRange] = useState<DateRange>(initialRange ?? lastWeek);
   const [rawRows, setRawRows] = useState<WorktimeRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  // Each call gets an id; a response is only applied if no newer call started meanwhile
+  const req = useRef(0);
 
   const fetchReport = useCallback(async () => {
     const range = computeRange();
@@ -52,19 +57,22 @@ export function useAttendanceReport() {
       return;
     }
 
+    const reqId = ++req.current;
     setLoading(true);
     setError("");
     try {
       const [emps, rows] = await Promise.all([fetchEmployees(), fetchWorktimeRows(range)]);
+      if (reqId !== req.current) return; // outdated response → ignore
       setEmployees(emps);
       setRawRows(rows);
       setAppliedRange(range);
     } catch (err) {
+      if (reqId !== req.current) return;
       console.error(err);
       setError(friendlyError(err, "Couldn't load the attendance"));
       setRawRows([]);
     } finally {
-      setLoading(false);
+      if (reqId === req.current) setLoading(false);
     }
   }, [computeRange]);
 
