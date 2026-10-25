@@ -618,6 +618,94 @@ function deviceLogsToEntries(
 
   return result;
 }
+/**
+ * Copy the machine times into the day's entries
+ * (machine is authoritative for clockIn/clockOut),
+ * keeping everything else (penalty, absence, ...).
+ * Used on the first load and on every refresh.
+ */
+function applyMachineEntries(
+  next: Record<
+    string,
+    EmployeeTimeEntry
+  >,
+  machineEntries: ReturnType<
+    typeof deviceLogsToEntries
+  >,
+  employees: Employee[],
+  assignedShifts: Record<
+    number,
+    string[]
+  >
+) {
+  employees.forEach(
+    (emp) => {
+      const machine =
+        machineEntries[
+          String(
+            emp.empNumber
+          )
+        ];
+
+      if (!machine) {
+        return;
+      }
+
+      const employeeShifts =
+        assignedShifts[
+          emp.num
+        ] ?? [];
+
+      employeeShifts.forEach(
+        (shiftId) => {
+          const key =
+            `${emp.num}-${shiftId}`;
+
+          const existing =
+            next[key] ??
+            {
+              clockIn:
+                NO_PUNCH,
+
+              clockOut:
+                NO_PUNCH,
+
+              absent:
+                false,
+
+              absentComment:
+                "",
+
+              consomation:
+                0,
+
+              penalty:
+                0,
+
+              workTimeId:
+                null,
+            };
+
+          next[key] = {
+            ...existing,
+            clockIn: machine.clockIn,
+            clockOut: machine.clockOut,
+            periods: machine.periods,
+            workHours: machine.workHours,
+            _dirty: false,
+          };
+        }
+      );
+    }
+  );
+}
+
+/**
+ * How often the machine logs are read again
+ * while the page stays open.
+ */
+const MACHINE_REFRESH_MS = 60 * 1000;
+
 /* ============================================================================
    FETCH MACHINE ATTENDANCE
 ============================================================================ */
@@ -1411,6 +1499,13 @@ const [deviceEntries, setDeviceEntries] =
       Record<string, string>
     >({});
 
+  /*
+   * The machine entries last shown, so a refresh
+   * that brings nothing new changes nothing.
+   */
+  const machineSnapshot =
+    useRef("");
+
   const [
     deviceStatus,
     setDeviceStatus,
@@ -1962,66 +2057,17 @@ const [deviceEntries, setDeviceEntries] =
           /*
            * Machine is authoritative for clockIn/clockOut.
            */
-          employees.forEach(
-            (emp) => {
-              const machine =
-                machineEntries[
-                  String(
-                    emp.empNumber
-                  )
-                ];
-
-              if (!machine) {
-                return;
-              }
-
-              const employeeShifts =
-                assignedShifts[
-                  emp.num
-                ] ?? [];
-
-              employeeShifts.forEach(
-                (shiftId) => {
-                  const key =
-                    `${emp.num}-${shiftId}`;
-
-                  const existing =
-                    next[key] ??
-                    {
-                      clockIn:
-                        NO_PUNCH,
-
-                      clockOut:
-                        NO_PUNCH,
-
-                      absent:
-                        false,
-
-                      absentComment:
-                        "",
-
-                      consomation:
-                        0,
-
-                      penalty:
-                        0,
-
-                      workTimeId:
-                        null,
-                    };
-
-                 next[key] = {
-                  ...existing,
-                  clockIn: machine.clockIn,
-                  clockOut: machine.clockOut,
-                  periods: machine.periods,
-                  workHours: machine.workHours,
-                  _dirty: false,
-                };
-                }
-              );
-            }
+          applyMachineEntries(
+            next,
+            machineEntries,
+            employees,
+            assignedShifts
           );
+
+          machineSnapshot.current =
+            JSON.stringify(
+              machineEntries
+            );
 
           saveEntriesToStorage(
             operationalDate,
@@ -2051,6 +2097,120 @@ const [deviceEntries, setDeviceEntries] =
 
     return () => {
       cancelled = true;
+    };
+  }, [
+    operationalDate,
+    employees,
+    shifts,
+    assignedShifts,
+  ]);
+
+  /* --------------------------------------------------------------------------
+     REFRESH MACHINE ATTENDANCE
+  -------------------------------------------------------------------------- */
+
+  /*
+   * Read the machine again while the page is open, so
+   * new punches are shown (and then saved by the
+   * automatic machine save) without a reload. The
+   * table is updated in place, never cleared.
+   */
+  useEffect(() => {
+    if (
+      !operationalDate ||
+      !employees.length ||
+      !shifts.length
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const refresh =
+      async () => {
+        try {
+          const logs =
+            await getDeviceAttendanceForOperationalDate(
+              operationalDate,
+              shifts
+            );
+
+          if (cancelled) {
+            return;
+          }
+
+          const machineEntries =
+            deviceLogsToEntries(
+              logs,
+              employees,
+              operationalDate,
+              shifts
+            );
+
+          const snapshot =
+            JSON.stringify(
+              machineEntries
+            );
+
+          if (
+            snapshot ===
+            machineSnapshot.current
+          ) {
+            return;
+          }
+
+          machineSnapshot.current =
+            snapshot;
+
+          setDeviceLogs(
+            logs
+          );
+
+          setDeviceEntries(
+            machineEntries
+          );
+
+          setEntries(
+            (prev) => {
+              const next = {
+                ...prev,
+              };
+
+              applyMachineEntries(
+                next,
+                machineEntries,
+                employees,
+                assignedShifts
+              );
+
+              saveEntriesToStorage(
+                operationalDate,
+                next
+              );
+
+              return next;
+            }
+          );
+        } catch {
+          /*
+           * Keep what is on screen; the next
+           * refresh will try again.
+           */
+        }
+      };
+
+    const interval =
+      setInterval(
+        refresh,
+        MACHINE_REFRESH_MS
+      );
+
+    return () => {
+      cancelled = true;
+
+      clearInterval(
+        interval
+      );
     };
   }, [
     operationalDate,
