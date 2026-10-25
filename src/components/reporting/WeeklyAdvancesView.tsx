@@ -11,6 +11,7 @@ import { readRange, rangeQuery } from "@/lib/rangeParams";
 import { currency } from "@/lib/payrollConfig";
 import LoadError from "@/components/ui/feedback/LoadError";
 import { t } from "@/lib/i18n";
+import { confirmDialog } from "@/lib/notify";
 const TABLE_HEADERS = [
   "Employee",
   "Hour Rate",
@@ -113,7 +114,11 @@ const WeeklyAdvancesContent: React.FC = () => {
                     <TableCell className="p-3">
                       {r.advanceGiven ? (
                         <button
-                          onClick={() => revokeAdvance(r.advanceId)}
+                          onClick={async () => {
+                            // The advance may already be handed over: ask before removing it
+                            if (!(await confirmDialog({ title: t("Undo this advance?"), confirmLabel: t("Undo"), danger: true }))) return;
+                            revokeAdvance(r.advanceId);
+                          }}
                           className="text-sm font-medium text-red-500 hover:text-red-600"
                         >
                           {t("Undo")}

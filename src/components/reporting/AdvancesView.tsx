@@ -10,6 +10,7 @@ import { getThisMonthRange } from "@/lib/reporting";
 import { currency } from "@/lib/payrollConfig";
 import LoadError from "@/components/ui/feedback/LoadError";
 import { t } from "@/lib/i18n";
+import { confirmDialog } from "@/lib/notify";
 const TABLE_HEADERS = ["Employee", "Amount", "Date", "Reason", ""];
 
 const AdvancesView: React.FC = () => {
@@ -93,7 +94,11 @@ const AdvancesView: React.FC = () => {
                   <TableCell className="p-3 text-sm text-gray-500 dark:text-gray-400">{a.reason || "—"}</TableCell>
                   <TableCell className="p-3 text-right">
                     <button
-                      onClick={() => revokeAdvance(a.id)}
+                      onClick={async () => {
+                        // Revoking removes a deduction from the payroll: ask first
+                        if (!(await confirmDialog({ title: t("Revoke this advance?"), confirmLabel: t("Revoke"), danger: true }))) return;
+                        revokeAdvance(a.id);
+                      }}
                       className="text-sm font-medium text-red-500 hover:text-red-600"
                     >
                       {t("Revoke")}
