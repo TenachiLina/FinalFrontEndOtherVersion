@@ -402,7 +402,7 @@ useEffect(() => {
     const updated = { ...(prev[k] ?? getEntry(empNum)), _auditAs: undefined, ...patch, _dirty: true };
     scheduleSave(empNum, currentTab, updated);
     const next = { ...prev, [k]: updated };
-    saveEntriesToStorage(currentDate, next); // ← save to localStorage
+    saveEntriesToStorage(selectedDate, next); // ← save to localStorage
     return next;
   });
 }, [currentTab, selectedDate, scheduleSave]);
