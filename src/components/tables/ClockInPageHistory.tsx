@@ -1721,7 +1721,7 @@ onClick={() => {
 
                       {/* CLOCK IN */}
                      <td className="border-b border-gray-100 px-4 py-2 text-sm font-medium text-gray-700">
-  {editingPunch?.logId === log.logs[0]?._id ? (
+  {editingPunch !== null && editingPunch.logId === log.logs[0]?._id ? (
     <div className="flex items-center gap-1">
       
 <TimeSelect
