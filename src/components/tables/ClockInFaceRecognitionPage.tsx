@@ -317,6 +317,9 @@ function getOperationalDate(
  * Aug 29 01:30
  *
  * all belong to Aug 28 operation.
+ *
+ * Aug 28 01:30 belongs to the Aug 27 operation
+ * (it closes the previous night's shift).
  */
 function isPunchInsideOperationalDay(
   timestamp: string,
@@ -330,12 +333,12 @@ function isPunchInsideOperationalDay(
     return false;
   }
 
-  const hasOvernightShift =
-    shifts.some(
-      isOvernightShift
+  const overnightEnd =
+    getLatestOvernightEnd(
+      shifts
     );
 
-  if (!hasOvernightShift) {
+  if (overnightEnd === null) {
     return (
       parsed.date ===
       operationDate
@@ -348,28 +351,25 @@ function isPunchInsideOperationalDay(
       1
     );
 
+  /*
+   * Early-morning punches up to the overnight end
+   * belong to the previous operation day, the same
+   * window that is kept on the next date below.
+   */
   if (
     parsed.date ===
     operationDate
   ) {
-    return true;
+    return (
+      parsed.minutes >
+      overnightEnd
+    );
   }
 
   if (
     parsed.date ===
     nextDate
   ) {
-    const overnightEnd =
-      getLatestOvernightEnd(
-        shifts
-      );
-
-    if (
-      overnightEnd === null
-    ) {
-      return false;
-    }
-
     return (
       parsed.minutes <=
       overnightEnd
