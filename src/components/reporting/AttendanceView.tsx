@@ -11,6 +11,8 @@ import { t } from "@/lib/i18n";
 const TABLE_HEADERS = ["Employee", "Date", "Late (min)", "Absent", "Comment"];
 
 const AttendanceView: React.FC = () => {
+  const [range, setRange] = useState<DateRange>(getThisWeekRange);
+  // The hook opens on the week shown by the picker: one load on open, no race
   const {
     setFilterMode,
     setCustomStart,
@@ -22,9 +24,8 @@ const AttendanceView: React.FC = () => {
     setOnlyIssues,
     loading,
     error,
-  } = useAttendanceReport();
+  } = useAttendanceReport(range);
 
-  const [range, setRange] = useState<DateRange>(getThisWeekRange());
   // Bumped on every apply: the hook's fetchReport reads its own state, so we must
   // wait for the new custom start/end to be committed before calling it.
   const [applyTick, setApplyTick] = useState(0);
@@ -36,12 +37,6 @@ const AttendanceView: React.FC = () => {
     setCustomEnd(r.end);
     setApplyTick((t) => t + 1);
   };
-
-  // Load the default range (this week) on mount so the picker and the table agree
-  useEffect(() => {
-    applyRange(range);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   useEffect(() => {
     if (applyTick > 0) fetchReport();
