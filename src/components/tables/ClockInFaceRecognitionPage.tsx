@@ -1122,8 +1122,10 @@ function entryToPayload(
   // Plan A: Worktime stores the daily total, while periods preserve
   // every IN/OUT pair. Recalculate from periods whenever they exist
   // so the value sent to Worktime is always the current total.
-  const hours =
-    entry.periods?.length > 0
+  // An absent employee is never paid for the machine periods.
+  const hours = entry.absent
+    ? "00:00"
+    : entry.periods?.length > 0
       ? calcHoursFromPeriods(entry.periods)
       : entry.workHours || "00:00";
 
