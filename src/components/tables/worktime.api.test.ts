@@ -90,7 +90,7 @@ describe("CRUD calls", () => {
 
   it("throws with the status and body on failure", async () => {
     server.use(http.get(`${API}/worktime/:id`, () => new HttpResponse("Not found", { status: 404 })));
-    await expect(getWorktime("x")).rejects.toThrow("[worktime] 404 Not found");
+    await expect(getWorktime("x")).rejects.toMatchObject({ status: 404, message: "Not found" });
   });
 
   it("throws on an empty successful response", async () => {
@@ -99,20 +99,20 @@ describe("CRUD calls", () => {
   });
 
   // BUG-012: a delete the server confirms with "204 No Content" is reported as a failure
-  it.fails("treats an empty 204 delete as success", async () => {
+  it("treats an empty 204 delete as success", async () => {
     server.use(http.delete(`${API}/worktime/:id`, () => new HttpResponse(null, { status: 204 })));
     await expect(deleteWorktime("w1")).resolves.not.toThrow();
   });
 
   // BUG-013: every response body (names, hours, penalties) is printed to the browser console
-  it.fails("doesn't print response bodies to the console", async () => {
+  it("doesn't print response bodies to the console", async () => {
     await getWorktime("w1");
     expect(console.log).not.toHaveBeenCalled();
   });
 
   // BUG-014: "[worktime] 400 …" doesn't match the "400 …" pattern friendlyError expects,
   // so people see the raw text, JSON included
-  it.fails("its errors become readable messages", async () => {
+  it("its errors become readable messages", async () => {
     server.use(http.post(`${API}/worktime`, () => HttpResponse.json({ message: "Clock-out before clock-in" }, { status: 400 })));
     vi.spyOn(console, "error").mockImplementation(() => {});
     const err = await createWorktime({ emp_id: 1, work_date: "2026-03-01" }).catch((e) => e);
@@ -153,7 +153,7 @@ describe("upsertWorktime", () => {
 
   // BUG-015: the search result is trusted blindly; reporting.ts notes the API ignores
   // the employee filter, so this can overwrite ANOTHER employee's day
-  it.fails("never updates another employee's record", async () => {
+  it("never updates another employee's record", async () => {
     server.use(
       http.get(`${API}/worktime`, () =>
         HttpResponse.json([record({ _id: "someone-else", emp_id: 202, work_date: "2026-02-27" })])

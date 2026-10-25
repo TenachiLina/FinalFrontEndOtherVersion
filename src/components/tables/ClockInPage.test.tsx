@@ -250,7 +250,7 @@ describe("ClockInPage – loading", () => {
   });
 
   // BUG-205: when the employees or shifts can't be loaded, the page says "No shifts found" instead of the error
-  it.fails("shows the load error when the employees can't be loaded", async () => {
+  it("shows the load error when the employees can't be loaded", async () => {
     server.use(http.get(`${API}/employees`, () => new HttpResponse("down", { status: 500 })));
     renderWithProviders(<AttendancePage currentDate={TODAY} />);
     expect(await screen.findByText(/Couldn't load today's data/)).toBeInTheDocument();
@@ -375,7 +375,7 @@ describe("ClockInPage – clock in and out", () => {
   });
 
   // BUG-206: on a shift that ends after midnight, leaving before midnight counts as ~21 h of overtime
-  it.fails("gives no overtime for leaving early on a shift that ends after midnight", async () => {
+  it("gives no overtime for leaving early on a shift that ends after midnight", async () => {
     db.shifts = [makeShift("s3", "18:00", "02:00")];
     db.planning = [makePlan(ali, db.shifts[0])];
     db.worktimes = [makeWorktime({ shift_id: "s3", clock_in: "18:00", clock_out: "23:00" })];
@@ -385,7 +385,7 @@ describe("ClockInPage – clock in and out", () => {
   });
 
   // BUG-207: arriving after midnight for a shift that started before midnight isn't counted as late
-  it.fails("counts the delay of a clock-in after midnight on a night shift", async () => {
+  it("counts the delay of a clock-in after midnight on a night shift", async () => {
     db.shifts = [makeShift("s3", "22:00", "06:00")];
     db.planning = [makePlan(ali, db.shifts[0])];
     db.worktimes = [makeWorktime({ shift_id: "s3", clock_in: "00:30" })];
@@ -395,7 +395,7 @@ describe("ClockInPage – clock in and out", () => {
   });
 
   // BUG-208: the delay saved to the server ignores the planned task time the page shows
-  it.fails("saves the same delay as the one shown", async () => {
+  it("saves the same delay as the one shown", async () => {
     db.planning = [makePlan(ali, morning, { tasks: [{ id: "t", label: "Oven", startTime: "10:00", endTime: "14:00" }] })];
     vi.setSystemTime(new Date("2026-03-02T10:05:00+01:00"));
     const { user } = await renderPage();
@@ -433,7 +433,7 @@ describe("ClockInPage – clock in and out", () => {
   });
 
   // BUG-209: clocking in on a second shift overwrites the employee's record for the first shift
-  it.fails("keeps a separate record for each shift of the day", async () => {
+  it("keeps a separate record for each shift of the day", async () => {
     db.planning.push(makePlan(ali, evening));
     db.worktimes = [makeWorktime({ clock_in: "08:00", clock_out: "12:00" })];
     vi.setSystemTime(new Date("2026-03-02T17:00:00+01:00"));
@@ -591,7 +591,7 @@ describe("ClockInPage – absences and backups", () => {
   });
 
   // BUG-214: a backup who is also planned on the shift is listed twice when the absent employee comes first
-  it.fails("doesn't add a backup row for someone already listed on the shift", async () => {
+  it("doesn't add a backup row for someone already listed on the shift", async () => {
     db.planning = [makePlan(ali, morning, { backupEmpIds: [sara] }), makePlan(sara, morning)];
     db.worktimes = [makeWorktime({ absent: true, backup_emp_id: 102 })];
     await renderPage();
@@ -659,7 +659,7 @@ describe("ClockInPage – reset, dates and local copies", () => {
   });
 
   // BUG-210: Reset only clears the screen; the times stay on the server and come back on reload
-  it.fails("doesn't bring the times back after a reset and a reload", async () => {
+  it("doesn't bring the times back after a reset and a reload", async () => {
     db.worktimes = [makeWorktime({ clock_in: "08:00" })];
     const { user, unmount } = await renderPage();
     await screen.findByRole("button", { name: "08:00" });
@@ -703,7 +703,7 @@ describe("ClockInPage – reset, dates and local copies", () => {
   });
 
   // BUG-215: the browser's copy still says "unsaved" after a successful save, so on reload it hides the server's newer times
-  it.fails("shows the server's times after a reload once a clock-in was saved", async () => {
+  it("shows the server's times after a reload once a clock-in was saved", async () => {
     const { user, unmount } = await renderPage();
     await user.click(within(rowOf("Ali Zerrouki")).getByRole("button", { name: "Clock In" }));
     await savedIn("Ali Zerrouki");
@@ -733,7 +733,7 @@ describe("ClockInPage – reset, dates and local copies", () => {
   });
 
   // BUG-211: after changing the date, the browser's copy of the new day's times is filed under the first day
-  it.fails("doesn't show another day's clock-ins after a reload", async () => {
+  it("doesn't show another day's clock-ins after a reload", async () => {
     server.use(http.post(`${API}/worktime`, () => new HttpResponse("down", { status: 500 })));
     db.planning.push(makePlan(ali, morning, { planDate: "2026-03-03T00:00:00.000Z" }));
     const { user, unmount } = await renderPage();
@@ -749,7 +749,7 @@ describe("ClockInPage – reset, dates and local copies", () => {
   });
 
   // BUG-212: changing the date while a save is pending crashes the page
-  it.fails("survives a date change while a clock-in is still being saved", async () => {
+  it("survives a date change while a clock-in is still being saved", async () => {
     const swallow = (e: ErrorEvent) => e.preventDefault();
     window.addEventListener("error", swallow);
     try {
@@ -766,7 +766,7 @@ describe("ClockInPage – reset, dates and local copies", () => {
   });
 
   // BUG-213: the default date is the UTC date, so between midnight and 1 am in Algeria the page opens on yesterday
-  it.fails("opens on today's local date just after midnight", async () => {
+  it("opens on today's local date just after midnight", async () => {
     vi.setSystemTime(new Date("2026-03-02T00:30:00+01:00"));
     db.planning = [];
     renderWithProviders(<AttendancePage />);

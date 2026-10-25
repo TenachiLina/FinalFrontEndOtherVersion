@@ -76,7 +76,7 @@ function installBackend() {
     return body;
   };
   server.use(
-    http.get("http://localhost:3001/device/status", () => HttpResponse.json(db.device)),
+    http.get(`${API}/device/status`, () => HttpResponse.json(db.device)),
     http.get(`${API}/attendance/device-logs`, async ({ request }) => {
       await remember(request);
       const q = new URL(request.url).searchParams;
@@ -301,7 +301,7 @@ describe("ClockInPageHistory – machine status", () => {
   });
 
   it("shows the machine as disconnected when it can't be reached", async () => {
-    server.use(http.get("http://localhost:3001/device/status", () => HttpResponse.error()));
+    server.use(http.get(`${API}/device/status`, () => HttpResponse.error()));
     await renderHistory();
     expect(screen.getByText("Disconnected")).toBeInTheDocument();
   });
@@ -319,7 +319,7 @@ describe("ClockInPageHistory – machine status", () => {
   });
 
   // BUG-216: the machine status is always read from http://localhost:3001, not from the API server
-  it.fails("asks the API server for the machine status", async () => {
+  it("asks the API server for the machine status", async () => {
     db.device = { connected: false, name: "local" };
     server.use(http.get(`${API}/device/status`, () => HttpResponse.json({ connected: true, name: "api" })));
     await renderHistory();
@@ -528,7 +528,7 @@ describe("ClockInPageHistory – adding a clock-in", () => {
     expect(writes("/attendance")).toEqual([
       expect.objectContaining({ method: "POST", body: { deviceUserId: "101", timestamp: "2026-03-09T07:10:00.000Z", processed: false } }),
     ]);
-    expect(requests.some((r) => r.url === "/attendance/device-logs?from=2026-03-09&to=2026-03-09")).toBe(true);
+    expect(requests.some((r) => r.url === "/attendance/device-logs?from=2026-03-08&to=2026-03-10")).toBe(true);
     expect(worktimeWrite()).toEqual({
       method: "POST",
       url: "/worktime",
@@ -645,7 +645,7 @@ describe("ClockInPageHistory – adding a clock-in", () => {
   });
 
   // BUG-217: adding a punch resets the day's penalty, consumption and bonus to the form's zeros
-  it.fails("keeps the day's penalty and consumption when a punch is added", async () => {
+  it("keeps the day's penalty and consumption when a punch is added", async () => {
     db.logs = [punch(ali, "2026-03-09 08:00")];
     db.worktimes = [{ _id: "w1", worktime_id: 1, emp_id: 101, work_date: "2026-03-09", clock_in: "08:00", penalty: 500, consomation: 300 }];
     const { user } = await renderHistory();
@@ -656,7 +656,7 @@ describe("ClockInPageHistory – adding a clock-in", () => {
   });
 
   // BUG-218: lateness is counted from midnight because the page reads start_time, but /shifts sends startTime
-  it.fails("measures the delay from the shift start sent by the API", async () => {
+  it("measures the delay from the shift start sent by the API", async () => {
     db.shifts = [apiShift]; // { startTime: "08:00", endTime: "16:00" }
     db.logs = [];
     const { user } = await renderHistory();
@@ -667,7 +667,7 @@ describe("ClockInPageHistory – adding a clock-in", () => {
   });
 
   // BUG-219: worked hours run from the first to the last punch, so breaks are paid as work
-  it.fails("doesn't count a break between two periods as worked time", async () => {
+  it("doesn't count a break between two periods as worked time", async () => {
     db.logs = [punch(ali, "2026-03-09 17:00"), punch(ali, "2026-03-09 18:00"), punch(ali, "2026-03-09 18:10")];
     const { user } = await renderHistory();
     await addPunch(user, "101", "2026-03-09", "19:10");
@@ -678,7 +678,7 @@ describe("ClockInPageHistory – adding a clock-in", () => {
   });
 
   // BUG-220: a punch between midnight and 1 am is filed under the previous day (UTC date), so it's "not found"
-  it.fails("adds a punch made just after midnight", async () => {
+  it("adds a punch made just after midnight", async () => {
     db.logs = [];
     const { user } = await renderHistory();
     await addPunch(user, "101", "2026-03-09", "00:30");
@@ -705,7 +705,7 @@ describe("ClockInPageHistory – adding a clock-in", () => {
 
   it("reports when the saved punch can't be found again", async () => {
     server.use(http.get(`${API}/attendance/device-logs`, ({ request }) =>
-      HttpResponse.json(new URL(request.url).searchParams.get("from") === "2026-03-09" ? { data: [] } : db.logs)
+      HttpResponse.json(new URL(request.url).searchParams.get("from") === "2026-03-08" ? { data: [] } : db.logs)
     ));
     const { user } = await renderHistory();
     await addPunch(user, "101", "2026-03-09", "08:10");
@@ -860,7 +860,7 @@ describe("ClockInPageHistory – editing a punch", () => {
   });
 
   // BUG-223: a punch without an id is shown as an open time editor instead of its time
-  it.fails("shows the time of a punch that has no id", async () => {
+  it("shows the time of a punch that has no id", async () => {
     db.logs = [punch(ali, "2026-03-09 08:00", { _id: undefined })];
     await renderHistory();
     expect(screen.getByText("08:00")).toBeInTheDocument();
@@ -888,7 +888,7 @@ describe("ClockInPageHistory – editing a punch", () => {
     server.use(http.get(`${API}/employees`, () => HttpResponse.json({ data: db.employees })));
     server.use(
       http.get(`${API}/attendance/device-logs`, ({ request }) =>
-        HttpResponse.json(new URL(request.url).searchParams.get("from") === "2026-03-09" ? { data: db.logs } : db.logs)
+        HttpResponse.json(new URL(request.url).searchParams.get("from") === "2026-03-08" ? { data: db.logs } : db.logs)
       )
     );
     await user.click(screen.getByText("16:30"));
@@ -951,7 +951,7 @@ describe("ClockInPageHistory – editing a punch", () => {
   });
 
   // BUG-221: the editor shows the punch's UTC time, so saving it unchanged moves the punch an hour earlier
-  it.fails("opens the editor on the time shown in the table", async () => {
+  it("opens the editor on the time shown in the table", async () => {
     const { user } = await renderHistory();
     await user.click(screen.getByText("08:00"));
     expect(within(rowWith("Zerrouki")).getByLabelText("Hour")).toHaveValue("08");
@@ -959,7 +959,7 @@ describe("ClockInPageHistory – editing a punch", () => {
 });
 
 // BUG-222: punches are grouped by their UTC date, so a punch between midnight and 1 am lands on the previous day
-it.fails("pairs a punch just after midnight with the same morning's clock-out", async () => {
+it("pairs a punch just after midnight with the same morning's clock-out", async () => {
   db.logs = [punch(ali, "2026-03-09 00:30"), punch(ali, "2026-03-09 08:00")];
   await renderHistory();
   expect(table()).toEqual(["101 | Zerrouki | Ali | 09/03/2026 | 00:30 | 08:00 | Validated"]);

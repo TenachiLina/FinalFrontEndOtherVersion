@@ -51,7 +51,7 @@ describe("employee.api", () => {
   });
 
   // BUG-012 (same cause as deleteWorktime)
-  it.fails("treats an empty 204 delete as success", async () => {
+  it("treats an empty 204 delete as success", async () => {
     server.use(http.delete(`${API}/employees/:id`, () => new HttpResponse(null, { status: 204 })));
     await expect(deleteEmployee("e1")).resolves.not.toThrow();
   });
