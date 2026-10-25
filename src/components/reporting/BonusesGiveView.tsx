@@ -16,7 +16,9 @@ const BonusesGiveView: React.FC = () => {
   // Employee for which the "Give Bonus" modal is open (null = closed)
   const [selected, setSelected] = useState<BonusEmployeeRow | null>(null);
 
+  // The totals row only adds up the employees listed (the search may hide some)
   const totalCount = employeeRows.reduce((s, r) => s + r.count, 0);
+  const totalListed = employeeRows.reduce((s, r) => s + r.total, 0);
 
   return (
     <div className="flex flex-col gap-5">
@@ -87,7 +89,7 @@ const BonusesGiveView: React.FC = () => {
                 <TableRow key="totals" className="border-t-2 border-gray-300 bg-gray-100 dark:border-gray-700 dark:bg-gray-800">
                   <TableCell className="p-3 text-sm font-bold uppercase text-gray-800 dark:text-white">{t("Total")}</TableCell>
                   <TableCell className="p-3 text-sm font-bold text-gray-800 dark:text-white">{totalCount}</TableCell>
-                  <TableCell className="p-3 text-sm font-bold text-green-600 dark:text-green-400">{totalGiven.toFixed(2)} {currency()}</TableCell>
+                  <TableCell className="p-3 text-sm font-bold text-green-600 dark:text-green-400">{totalListed.toFixed(2)} {currency()}</TableCell>
                   <TableCell className="p-3">{null}</TableCell>
                 </TableRow>
               </>
