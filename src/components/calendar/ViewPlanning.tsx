@@ -7,6 +7,11 @@ import { ArrowDownTrayIcon, ArrowTopRightOnSquareIcon, ArrowUturnLeftIcon, Table
 import Tooltip from "@/components/common/Tooltip";
 import LoadError from "@/components/ui/feedback/LoadError";
 import { t } from "@/lib/i18n";
+import type { Cell } from "./types";
+
+// Backups saved by the planning editor (backupEmpIds); the legacy backupEmpId only when there are none
+const backupLabel = (emp: Cell): string | null =>
+  emp.backups?.length ? emp.backups.map((b) => b.title).join(", ") : emp.backupTitle ?? null;
 
 const ViewCalender: React.FC = () => {
   //table mode view
@@ -375,16 +380,16 @@ const ViewCalender: React.FC = () => {
                                   <span
                                     className="text-[11px] px-2 py-[2px] text-gray-800 dark:text-white truncate"
                                     title={
-                                      emp.backupTitle
-                                        ? `${emp.title} (${emp.backupTitle})`
+                                      backupLabel(emp)
+                                        ? `${emp.title} (${backupLabel(emp)})`
                                         : emp.title
                                     }
                                   >
                                     {emp.title}
-                                    {emp.backupTitle && (
+                                    {backupLabel(emp) && (
                                       <>
                                         {" ("}
-                                        <strong>{t("Backup:")}</strong> {emp.backupTitle}
+                                        <strong>{t("Backup:")}</strong> {backupLabel(emp)}
                                         {")"}
                                       </>
                                     )}
@@ -503,12 +508,12 @@ const ViewCalender: React.FC = () => {
                                       <span
                                         className="text-[10px] text-gray-400 dark:text-gray-500 truncate"
                                         title={
-                                          emp.backupTitle
-                                            ? `${t("Backup:")} ${emp.backupTitle}`
+                                          backupLabel(emp)
+                                            ? `${t("Backup:")} ${backupLabel(emp)}`
                                             : t("No backup")
                                         }
                                       >
-                                        {t("Backup:")} {emp.backupTitle ?? t("No backup")}
+                                        {t("Backup:")} {backupLabel(emp) ?? t("No backup")}
                                       </span>
 
                                       {/* Tasks */}
@@ -593,12 +598,12 @@ const ViewCalender: React.FC = () => {
                       </div>
 
                       {/* Backup employee */}
-                      {emp.backupTitle && (
+                      {backupLabel(emp) && (
                         <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                           <span className="font-bold text-gray-700 dark:text-gray-300">
                             {t("Backup:")}
                           </span>{" "}
-                          {emp.backupTitle}
+                          {backupLabel(emp)}
                         </div>
                       )}
                     </div>
