@@ -111,11 +111,17 @@ export function normalizeAdvance(raw: AdvanceRecordRaw, employees: Employee[]): 
   };
 }
 
+/** Parse "YYYY-MM-DD" as LOCAL midnight (`new Date("YYYY-MM-DD")` would be UTC midnight). */
+function parseLocalDate(value: string): Date {
+  const [y, m, d] = value.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
 /** Generate every "YYYY-MM-DD" date string between start and end (inclusive). */
 export function generateDateRange(start: string, end: string): string[] {
   const dates: string[] = [];
-  let current = new Date(start);
-  const last = new Date(end);
+  let current = parseLocalDate(start);
+  const last = parseLocalDate(end);
   while (current <= last) {
     const yyyy = current.getFullYear();
     const mm = String(current.getMonth() + 1).padStart(2, "0");
