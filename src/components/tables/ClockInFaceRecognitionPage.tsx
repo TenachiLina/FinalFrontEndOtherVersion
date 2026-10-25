@@ -964,16 +964,17 @@ const calcLate = (
 };
 
 /**
- * Correct overtime calculation for both:
+ * Overtime after the shift end, for day shifts
+ * (06:00 -> 14:00) and for shifts that cross
+ * midnight (16:00 -> 00:00, 16:00 -> 02:00).
  *
- * 16:00 -> 00:00
- *
- * and:
- *
- * 16:00 -> 02:00
+ * The shift is overnight when its end is not
+ * after its start: then the end is on the next
+ * day (16:00 -> 02:00 ends at 1560).
  */
 const calcOvertime = (
   o: string,
+  s: string,
   e: string
 ) => {
   if (
@@ -983,58 +984,40 @@ const calcOvertime = (
     return 0;
   }
 
+  const startMinutes =
+    toMinutes(
+      s.slice(0, 5)
+    );
+
   let endMinutes =
     toMinutes(
       e.slice(0, 5)
     );
 
-  const outMinutes =
-    toMinutes(o);
+  const overnight =
+    endMinutes <=
+    startMinutes;
 
-  /*
-   * 00:00 means midnight / 24:00.
-   */
-  if (
-    endMinutes === 0
-  ) {
-    endMinutes =
-      1440;
-  }
-
-  /*
-   * For an overnight shift:
-   *
-   * 16:00 -> 02:00
-   *
-   * the end is actually 1560.
-   */
-  if (
-    endMinutes <
-    toMinutes(
-      "16:00"
-    )
-  ) {
-    /*
-     * Only add 24h when the shift is genuinely
-     * an overnight shift.
-     */
+  if (overnight) {
     endMinutes +=
       1440;
   }
 
   let actualOut =
-    outMinutes;
+    toMinutes(o);
 
   /*
-   * A clock-out after midnight belongs to
-   * the following day.
+   * On an overnight shift, a morning clock-out
+   * (before the shift start) is on the next day.
    */
   if (
+    overnight &&
     actualOut <
-    toMinutes(
-      "12:00"
-    ) &&
-    endMinutes > 1440
+      startMinutes &&
+    actualOut <
+      toMinutes(
+        "12:00"
+      )
   ) {
     actualOut +=
       1440;
@@ -1151,6 +1134,7 @@ function entryToPayload(
 
   const ot = calcOvertime(
     entry.clockOut,
+    shiftStart,
     shiftEnd
   );
 
@@ -3778,6 +3762,7 @@ const confirmAbsence = () => {
                     const otMin =
                       calcOvertime(
                         entry.clockOut,
+                        effectiveStart,
                         effectiveEnd
                       );
 
