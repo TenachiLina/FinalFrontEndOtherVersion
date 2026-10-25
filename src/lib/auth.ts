@@ -365,8 +365,9 @@ export function installAuthFetch() {
 
     let token = getToken();
     // Renew a little before expiry, so most requests never see a 401
+    let renewalRefused = false;
     if (token && !authUrl && getRefreshToken() && secondsLeft(token) < 30) {
-      await refreshTokens(originalFetch, token);
+      renewalRefused = !(await refreshTokens(originalFetch, token));
       token = getToken();
     }
 
@@ -376,9 +377,11 @@ export function installAuthFetch() {
     const body = await res.clone().json().catch(() => null);
     // A Request object's body can only be read once: it can't be sent again.
     const canRetry = !(input instanceof Request && input.body);
+    // A refresh token the server just refused must not be sent again.
     if (
       body?.code === "TOKEN_EXPIRED" &&
       canRetry &&
+      !renewalRefused &&
       (await refreshTokens(originalFetch, token))
     ) {
       res = await send(getToken());
