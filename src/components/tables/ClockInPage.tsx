@@ -600,13 +600,44 @@ useEffect(() => {
       danger: true,
     });
     if (!ok) return;
-    setEntries((prev) => {
-      const reset: Record<string, EmployeeTimeEntry> = {};
-      Object.keys(prev).forEach((k) => {
-        reset[k] = { ...prev[k], clockIn: "00:00", clockOut: "00:00", absent: false, absentComment: "", consomation: 0, penalty: 0, _dirty: false };
-      });
-      return reset;
+    // A save still waiting for its timer would put the old times back
+    Object.keys(pendingSaves.current).forEach((k) => {
+      clearTimeout(saveTimers.current[k]);
+      delete pendingSaves.current[k];
     });
+    const date = selectedDate;
+    const reset: Record<string, EmployeeTimeEntry> = {};
+    Object.keys(entries).forEach((k) => {
+      reset[k] = { ...entries[k], clockIn: "00:00", clockOut: "00:00", absent: false, absentComment: "", consomation: 0, penalty: 0, _dirty: false, _saving: !!entries[k].workTimeId };
+    });
+    setEntries(reset);
+    saveEntriesToStorage(date, reset);
+
+    // Clear the server's copy too: payroll reads it, and it comes back on reload
+    await Promise.all(
+      Object.keys(reset).filter((k) => reset[k].workTimeId).map(async (k) => {
+        // Employee number comes before the first hyphen; the shift ID may contain hyphens
+        const separatorIndex = k.indexOf("-");
+        const empNum = Number(k.slice(0, separatorIndex));
+        const shiftId = k.slice(separatorIndex + 1);
+        const { start, end } = effectiveTimes(empNum, shiftId);
+        try {
+          const saved = await upsertWorktime(
+            // "00:00" explicitly: a missing time would leave the server's time as it is
+            { ...entryToPayload(reset[k], empNum, shiftId, date, start, end), clock_in: "00:00", clock_out: "00:00" },
+            reset[k].workTimeId,
+            "edit",
+            PER_SHIFT
+          );
+          markSaved(date, k, saved._id);
+        } catch (e) {
+          setApiError(friendlyError(e, `Couldn't save the times for employee ${empNum}`));
+          if (selectedDateRef.current === date) {
+            setEntries((prev) => ({ ...prev, [k]: { ...prev[k], _saving: false, _dirty: true } }));
+          }
+        }
+      })
+    );
   };
   
 const getAttendanceRows = (
