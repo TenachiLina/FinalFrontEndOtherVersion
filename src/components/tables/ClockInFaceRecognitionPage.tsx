@@ -2349,7 +2349,8 @@ const [deviceEntries, setDeviceEntries] =
       clockOut: machine.clockOut,
       periods: machine.periods,
       workHours: machine.workHours,
-      _dirty: false,
+      // Keep the entry's own saved state: forcing it to false showed
+      // "✓ Saved" after a failed save for anyone with machine punches.
     };
   };
 
