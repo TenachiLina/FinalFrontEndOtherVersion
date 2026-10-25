@@ -213,15 +213,28 @@ export function clearSession() {
 
 // ── Authenticated fetch ─────────────────────────────────────────────────────
 
-// Some components still call the backend on localhost:3001 directly.
+/** The URL's origin ("https://host:port"), or null for a relative or invalid URL. */
+function originOf(url: string): string | null {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return null;
+  }
+}
+
+// Some components still call the backend on localhost:3001 directly;
+// only trust those origins in development.
 const API_ORIGINS = [
-  API_BASE_URL,
-  "https://localhost:3001",
-  "http://localhost:3001",
+  originOf(API_BASE_URL),
+  ...(process.env.NODE_ENV === "development"
+    ? ["https://localhost:3001", "http://localhost:3001"]
+    : []),
 ].filter(Boolean);
 
+// Compare whole origins: a prefix check would also match "https://api.test.evil.com".
 function isApiUrl(url: string): boolean {
-  return API_ORIGINS.some((origin) => url.startsWith(origin));
+  const origin = originOf(url);
+  return origin !== null && API_ORIGINS.includes(origin);
 }
 
 // Requests that must never trigger a token refresh themselves
@@ -352,8 +365,9 @@ export function installAuthFetch() {
 
     let token = getToken();
     // Renew a little before expiry, so most requests never see a 401
+    let renewalRefused = false;
     if (token && !authUrl && getRefreshToken() && secondsLeft(token) < 30) {
-      await refreshTokens(originalFetch, token);
+      renewalRefused = !(await refreshTokens(originalFetch, token));
       token = getToken();
     }
 
@@ -363,9 +377,11 @@ export function installAuthFetch() {
     const body = await res.clone().json().catch(() => null);
     // A Request object's body can only be read once: it can't be sent again.
     const canRetry = !(input instanceof Request && input.body);
+    // A refresh token the server just refused must not be sent again.
     if (
       body?.code === "TOKEN_EXPIRED" &&
       canRetry &&
+      !renewalRefused &&
       (await refreshTokens(originalFetch, token))
     ) {
       res = await send(getToken());
