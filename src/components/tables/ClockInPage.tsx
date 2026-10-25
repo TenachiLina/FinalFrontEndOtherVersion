@@ -149,6 +149,8 @@ export default function AttendancePage({
 }: AttendancePageProps) {
 
   const [selectedDate, setSelectedDate] = useState(currentDate);
+  // Read by saves that finish after a date change
+  const selectedDateRef = useRef(currentDate);
 
   // ── DB-loaded state ───────────────────────────────────────
   const [shifts, setShifts] = useState<Shift[]>([]);
@@ -169,6 +171,7 @@ export default function AttendancePage({
   const [specialTimes, setSpecialTimes] =
     useState<Record<string, { clockIn?: string; clockOut?: string }>>({});
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const pendingSaves = useRef<Record<string, () => void>>({});
  
   //Backup Employees states: 
   const [absenceModal, setAbsenceModal] = useState<{
@@ -375,6 +378,13 @@ useEffect(() => {
   // Records a successful save on the page and in the browser's copy of that day,
   // so a reload doesn't take the saved entry for an unsaved change
   const markSaved = (date: string, k: string, workTimeId: string) => {
+    if (selectedDateRef.current !== date) {
+      const stored = loadEntriesFromStorage(date);
+      if (stored[k]) {
+        saveEntriesToStorage(date, { ...stored, [k]: { ...stored[k], workTimeId, _saving: false, _dirty: false } });
+      }
+      return;
+    }
     setEntries((prev) => {
       const next = { ...prev, [k]: { ...prev[k], workTimeId, _saving: false } };
       saveEntriesToStorage(date, next);
@@ -383,27 +393,33 @@ useEffect(() => {
   };
   const scheduleSave = useCallback((empNum: number, shiftId: string, updatedEntry: EmployeeTimeEntry) => {
     const k = `${empNum}-${shiftId}`;
+    const date = selectedDate;
     const { start, end } = effectiveTimes(empNum, shiftId);
-    clearTimeout(saveTimers.current[k]);
-    saveTimers.current[k] = setTimeout(async () => {
-      setEntries((prev) => ({ ...prev, [k]: { ...prev[k], _saving: true, _dirty: false } }));
+    const save = async () => {
+      delete pendingSaves.current[k];
+      // After a date change the save still goes to its own day, but must not touch the new day's rows
+      const onPage = () => selectedDateRef.current === date;
+      if (onPage()) setEntries((prev) => ({ ...prev, [k]: { ...prev[k], _saving: true, _dirty: false } }));
       try {
-        const payload = entryToPayload(
-  updatedEntry,
-  empNum,
-  shiftId,
-  selectedDate,
-  start,
-  end
-);
+        const payload = entryToPayload(updatedEntry, empNum, shiftId, date, start, end);
         const saved = await upsertWorktime(payload, updatedEntry.workTimeId ?? null, updatedEntry._auditAs, PER_SHIFT);
-        markSaved(selectedDate, k, saved._id);
+        markSaved(date, k, saved._id);
       } catch (e) {
         setApiError(friendlyError(e, `Couldn't save the times for employee ${empNum}`));
-        setEntries((prev) => ({ ...prev, [k]: { ...prev[k], _saving: false, _dirty: true } }));
+        if (onPage()) setEntries((prev) => ({ ...prev, [k]: { ...prev[k], _saving: false, _dirty: true } }));
       }
-    }, 800);
+    };
+    clearTimeout(saveTimers.current[k]);
+    pendingSaves.current[k] = save;
+    saveTimers.current[k] = setTimeout(save, 800);
   }, [selectedDate, shifts, employees, specialTimes]);
+  // Sends the saves still waiting for their timer now (before the date changes)
+  const flushPendingSaves = () => {
+    Object.entries(pendingSaves.current).forEach(([k, save]) => {
+      clearTimeout(saveTimers.current[k]);
+      save();
+    });
+  };
   const updateEntry = useCallback((empNum: number, patch: Partial<EmployeeTimeEntry>) => {
   if (!currentTab) return;
   const k = entryKey(empNum);
@@ -966,6 +982,9 @@ const getAttendanceRows = (
     <DateInput
       value={selectedDate}
       onChange={(v) => {
+        // Pending saves go out now, for the day they were made on
+        selectedDateRef.current = v;
+        flushPendingSaves();
         setSelectedDate(v);
         setEntries({});
         setCurrentTab(null);
