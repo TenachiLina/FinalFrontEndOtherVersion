@@ -311,14 +311,13 @@ export async function fetchScheduledEmpIds(range: DateRange): Promise<Set<string
   const data = await res.json();
   const list: PlanningRecordRaw[] = Array.isArray(data) ? data : [];
 
-  const start = new Date(`${range.start}T00:00:00`);
-  const end = new Date(`${range.end}T23:59:59`);
-
   const ids = new Set<string>();
   list.forEach((r) => {
     if (!r.planDate) return;
-    const planDate = new Date(r.planDate);
-    if (planDate < start || planDate > end) return;
+    // Compare the "YYYY-MM-DD" part as text: parsing "…T00:00:00.000Z" would
+    // move the plan to the previous day in time zones behind UTC.
+    const planDay = r.planDate.split("T")[0];
+    if (planDay < range.start || planDay > range.end) return;
 
     const empId = typeof r.empId === "object" && r.empId !== null ? r.empId.empNumber : r.empId;
     if (empId !== undefined && empId !== null) {
