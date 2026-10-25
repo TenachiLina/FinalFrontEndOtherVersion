@@ -956,6 +956,16 @@ if (shift && clockOut !== "00:00" && clockOut !== "—") {
     // 11. CREATE / UPDATE WORKTIME
     // ---------------------------------------------------------
 
+    // Keep the day's payroll fields: the form's values replace them only
+    // when they were filled in (left at 0, the saved values stay).
+    const existingWorktimes = await getWorktimesByDate(workDate);
+
+    const existingWorktime = existingWorktimes.find(
+      (item) =>
+        Number(item.emp_id) ===
+        Number(employee.num ?? employee.empNumber)
+    );
+
     const worktimePayload = {
       // Use the employee internal numeric ID for worktime.emp_id.
       emp_id: Number(employee.num ?? employee.empNumber),
@@ -973,9 +983,10 @@ if (shift && clockOut !== "00:00" && clockOut !== "—") {
 
       work_hours: workHours,
 
-      consomation: newPunch.consomation,
-      penalty: newPunch.penalty,
-      bonus: newPunch.bonus,
+      consomation:
+        Number(newPunch.consomation) || existingWorktime?.consomation || 0,
+      penalty: Number(newPunch.penalty) || existingWorktime?.penalty || 0,
+      bonus: Number(newPunch.bonus) || existingWorktime?.bonus || 0,
 
       absent: false,
       absent_comment: "",
@@ -990,7 +1001,7 @@ if (shift && clockOut !== "00:00" && clockOut !== "—") {
     // The backend and WorktimePayload type must also allow null.
     await upsertWorktime(
       worktimePayload as any,
-      null,
+      existingWorktime?._id ?? null,
       "edit"
     );
 
