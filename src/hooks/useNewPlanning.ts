@@ -35,6 +35,21 @@ function dayKey(date: Date): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+// The cell of an imported employee: the existing one when the file lists
+// them twice for the same hour (so their "Backup:" lines still merge),
+// otherwise a new one added to the list.
+function importedCell(cells: Cell[], employee: EmployeeRecord): Cell {
+  const existing = cells.find((c) => c.id === employee._id);
+  if (existing) return existing;
+  const cell: Cell = {
+    id: employee._id,
+    title: `${employee.firstName} ${employee.lastName}`,
+    backups: [],
+  };
+  cells.push(cell);
+  return cell;
+}
+
 // Backup ids of a cell: unique, and never the main employee himself
 function getBackupIds(cell: Cell): string[] {
   return [...new Set((cell.backups ?? []).map((b) => b.id))].filter(
@@ -1143,18 +1158,10 @@ export const useShiftGrid = () => {
               return;
             }
 
-            currentEmployee = {
-              id: employee._id,
-
-              title:
-                `${employee.firstName} ${employee.lastName}`,
-
-              backups: [],
-            };
-
-            importedGrid[
-              defaultPost.id
-            ][shift.id].push(currentEmployee);
+            currentEmployee = importedCell(
+              importedGrid[defaultPost.id][shift.id],
+              employee
+            );
           });
         });
       }
@@ -1370,19 +1377,9 @@ export const useShiftGrid = () => {
             return;
           }
 
-          currentEmployee = {
-            id: employee._id,
-
-            title:
-              `${employee.firstName} ${employee.lastName}`,
-
-            backups: [],
-          };
-
-          importedGrid[
-            defaultPost.id
-          ][currentShiftId].push(
-            currentEmployee
+          currentEmployee = importedCell(
+            importedGrid[defaultPost.id][currentShiftId],
+            employee
           );
         });
       }
