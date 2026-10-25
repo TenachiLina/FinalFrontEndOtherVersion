@@ -146,7 +146,7 @@ const WeeklyAdvancesContent: React.FC = () => {
                 <TableRow key="totals" className="border-t-2 border-gray-300 bg-gray-100 dark:border-gray-700 dark:bg-gray-800">
                   <TableCell className="p-3 text-sm font-bold uppercase text-gray-800 dark:text-white">{t("Total")}</TableCell>
                   <TableCell className="p-3 text-sm text-gray-400">—</TableCell>
-                  <TableCell className="p-3 text-sm font-bold text-gray-800 dark:text-white">{colTotals.hours} h</TableCell>
+                  <TableCell className="p-3 text-sm font-bold text-gray-800 dark:text-white">{Number(colTotals.hours.toFixed(2))} h</TableCell>
                   <TableCell className={`p-3 text-sm font-bold ${colTotals.absences > 0 ? "text-red-500" : "text-gray-400"}`}>
                     {colTotals.absences}
                   </TableCell>
