@@ -618,6 +618,94 @@ function deviceLogsToEntries(
 
   return result;
 }
+/**
+ * Copy the machine times into the day's entries
+ * (machine is authoritative for clockIn/clockOut),
+ * keeping everything else (penalty, absence, ...).
+ * Used on the first load and on every refresh.
+ */
+function applyMachineEntries(
+  next: Record<
+    string,
+    EmployeeTimeEntry
+  >,
+  machineEntries: ReturnType<
+    typeof deviceLogsToEntries
+  >,
+  employees: Employee[],
+  assignedShifts: Record<
+    number,
+    string[]
+  >
+) {
+  employees.forEach(
+    (emp) => {
+      const machine =
+        machineEntries[
+          String(
+            emp.empNumber
+          )
+        ];
+
+      if (!machine) {
+        return;
+      }
+
+      const employeeShifts =
+        assignedShifts[
+          emp.num
+        ] ?? [];
+
+      employeeShifts.forEach(
+        (shiftId) => {
+          const key =
+            `${emp.num}-${shiftId}`;
+
+          const existing =
+            next[key] ??
+            {
+              clockIn:
+                NO_PUNCH,
+
+              clockOut:
+                NO_PUNCH,
+
+              absent:
+                false,
+
+              absentComment:
+                "",
+
+              consomation:
+                0,
+
+              penalty:
+                0,
+
+              workTimeId:
+                null,
+            };
+
+          next[key] = {
+            ...existing,
+            clockIn: machine.clockIn,
+            clockOut: machine.clockOut,
+            periods: machine.periods,
+            workHours: machine.workHours,
+            _dirty: false,
+          };
+        }
+      );
+    }
+  );
+}
+
+/**
+ * How often the machine logs are read again
+ * while the page stays open.
+ */
+const MACHINE_REFRESH_MS = 60 * 1000;
+
 /* ============================================================================
    FETCH MACHINE ATTENDANCE
 ============================================================================ */
@@ -1122,8 +1210,10 @@ function entryToPayload(
   // Plan A: Worktime stores the daily total, while periods preserve
   // every IN/OUT pair. Recalculate from periods whenever they exist
   // so the value sent to Worktime is always the current total.
-  const hours =
-    entry.periods?.length > 0
+  // An absent employee is never paid for the machine periods.
+  const hours = entry.absent
+    ? "00:00"
+    : entry.periods?.length > 0
       ? calcHoursFromPeriods(entry.periods)
       : entry.workHours || "00:00";
 
@@ -1342,6 +1432,17 @@ export default function AttendancePage({
   const [loading, setLoading] =
     useState(true);
 
+  /*
+   * The employees / shifts / planning could not be
+   * loaded: show the error, not "No shifts found".
+   * Bumping loadAttempt loads them again.
+   */
+  const [loadFailed, setLoadFailed] =
+    useState(false);
+
+  const [loadAttempt, setLoadAttempt] =
+    useState(0);
+
   const [
     deviceLoading,
     setDeviceLoading,
@@ -1408,6 +1509,13 @@ const [deviceEntries, setDeviceEntries] =
     useRef<
       Record<string, string>
     >({});
+
+  /*
+   * The machine entries last shown, so a refresh
+   * that brings nothing new changes nothing.
+   */
+  const machineSnapshot =
+    useRef("");
 
   const [
     deviceStatus,
@@ -1574,6 +1682,7 @@ const [deviceEntries, setDeviceEntries] =
     let cancelled = false;
 
     setLoading(true);
+    setLoadFailed(false);
     setApiError(null);
 
     Promise.all([
@@ -1793,6 +1902,7 @@ const [deviceEntries, setDeviceEntries] =
       )
       .catch((e) => {
         if (!cancelled) {
+          setLoadFailed(true);
           setApiError(
             friendlyError(e, "Couldn't load today's data")
           );
@@ -1809,6 +1919,7 @@ const [deviceEntries, setDeviceEntries] =
     };
   }, [
     operationalDate,
+    loadAttempt,
   ]);
 
   /* --------------------------------------------------------------------------
@@ -1960,66 +2071,17 @@ const [deviceEntries, setDeviceEntries] =
           /*
            * Machine is authoritative for clockIn/clockOut.
            */
-          employees.forEach(
-            (emp) => {
-              const machine =
-                machineEntries[
-                  String(
-                    emp.empNumber
-                  )
-                ];
-
-              if (!machine) {
-                return;
-              }
-
-              const employeeShifts =
-                assignedShifts[
-                  emp.num
-                ] ?? [];
-
-              employeeShifts.forEach(
-                (shiftId) => {
-                  const key =
-                    `${emp.num}-${shiftId}`;
-
-                  const existing =
-                    next[key] ??
-                    {
-                      clockIn:
-                        NO_PUNCH,
-
-                      clockOut:
-                        NO_PUNCH,
-
-                      absent:
-                        false,
-
-                      absentComment:
-                        "",
-
-                      consomation:
-                        0,
-
-                      penalty:
-                        0,
-
-                      workTimeId:
-                        null,
-                    };
-
-                 next[key] = {
-                  ...existing,
-                  clockIn: machine.clockIn,
-                  clockOut: machine.clockOut,
-                  periods: machine.periods,
-                  workHours: machine.workHours,
-                  _dirty: false,
-                };
-                }
-              );
-            }
+          applyMachineEntries(
+            next,
+            machineEntries,
+            employees,
+            assignedShifts
           );
+
+          machineSnapshot.current =
+            JSON.stringify(
+              machineEntries
+            );
 
           saveEntriesToStorage(
             operationalDate,
@@ -2049,6 +2111,120 @@ const [deviceEntries, setDeviceEntries] =
 
     return () => {
       cancelled = true;
+    };
+  }, [
+    operationalDate,
+    employees,
+    shifts,
+    assignedShifts,
+  ]);
+
+  /* --------------------------------------------------------------------------
+     REFRESH MACHINE ATTENDANCE
+  -------------------------------------------------------------------------- */
+
+  /*
+   * Read the machine again while the page is open, so
+   * new punches are shown (and then saved by the
+   * automatic machine save) without a reload. The
+   * table is updated in place, never cleared.
+   */
+  useEffect(() => {
+    if (
+      !operationalDate ||
+      !employees.length ||
+      !shifts.length
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const refresh =
+      async () => {
+        try {
+          const logs =
+            await getDeviceAttendanceForOperationalDate(
+              operationalDate,
+              shifts
+            );
+
+          if (cancelled) {
+            return;
+          }
+
+          const machineEntries =
+            deviceLogsToEntries(
+              logs,
+              employees,
+              operationalDate,
+              shifts
+            );
+
+          const snapshot =
+            JSON.stringify(
+              machineEntries
+            );
+
+          if (
+            snapshot ===
+            machineSnapshot.current
+          ) {
+            return;
+          }
+
+          machineSnapshot.current =
+            snapshot;
+
+          setDeviceLogs(
+            logs
+          );
+
+          setDeviceEntries(
+            machineEntries
+          );
+
+          setEntries(
+            (prev) => {
+              const next = {
+                ...prev,
+              };
+
+              applyMachineEntries(
+                next,
+                machineEntries,
+                employees,
+                assignedShifts
+              );
+
+              saveEntriesToStorage(
+                operationalDate,
+                next
+              );
+
+              return next;
+            }
+          );
+        } catch {
+          /*
+           * Keep what is on screen; the next
+           * refresh will try again.
+           */
+        }
+      };
+
+    const interval =
+      setInterval(
+        refresh,
+        MACHINE_REFRESH_MS
+      );
+
+    return () => {
+      cancelled = true;
+
+      clearInterval(
+        interval
+      );
     };
   }, [
     operationalDate,
@@ -2179,6 +2355,59 @@ const [deviceEntries, setDeviceEntries] =
 
 
   /* --------------------------------------------------------------------------
+     EXPECTED TIMES
+  -------------------------------------------------------------------------- */
+
+  /**
+   * Start / end the delay and overtime are measured
+   * against: the planned task's times when there is
+   * one, otherwise the shift's. Used by the table and
+   * by every save, so the saved values match the screen.
+   */
+  const expectedTimesFor =
+    useCallback(
+      (
+        empNum: number,
+        shiftId: string
+      ) => {
+        const mongoId =
+          employees.find(
+            (e) =>
+              e.num === empNum
+          )?.mongoId;
+
+        const st =
+          specialTimes[
+            `${mongoId}-${shiftId}`
+          ];
+
+        const shift =
+          shifts.find(
+            (s) =>
+              s.shift_id ===
+              shiftId
+          );
+
+        return {
+          start:
+            st?.clockIn ??
+            shift?.start_time ??
+            "",
+
+          end:
+            st?.clockOut ??
+            shift?.end_time ??
+            "",
+        };
+      },
+      [
+        employees,
+        specialTimes,
+        shifts,
+      ]
+    );
+
+  /* --------------------------------------------------------------------------
      MANUAL SAVE
   -------------------------------------------------------------------------- */
 
@@ -2192,11 +2421,10 @@ const [deviceEntries, setDeviceEntries] =
         const key =
           `${empNum}-${shiftId}`;
 
-        const shift =
-          shifts.find(
-            (s) =>
-              s.shift_id ===
-              shiftId
+        const expected =
+          expectedTimesFor(
+            empNum,
+            shiftId
           );
 
         clearTimeout(
@@ -2233,10 +2461,8 @@ const [deviceEntries, setDeviceEntries] =
                     empNum,
                     shiftId,
                     operationalDate,
-                    shift?.start_time ??
-                      "",
-                    shift?.end_time ??
-                      ""
+                    expected.start,
+                    expected.end
                   );
 
                 const saved =
@@ -2301,7 +2527,7 @@ const [deviceEntries, setDeviceEntries] =
       },
       [
         operationalDate,
-        shifts,
+        expectedTimesFor,
       ]
     );
 
@@ -2582,14 +2808,20 @@ const [deviceEntries, setDeviceEntries] =
                 existing.penalty ?? 0,
             };
 
+          const expected =
+            expectedTimesFor(
+              emp.num,
+              shiftId
+            );
+
           const payload =
             entryToPayload(
               machineEntry,
               emp.num,
               shiftId,
               operationalDate,
-              shift.start_time,
-              shift.end_time
+              expected.start,
+              expected.end
             );
 
           console.log(
@@ -2816,6 +3048,7 @@ const [deviceEntries, setDeviceEntries] =
     shifts,
     assignedShifts,
     currentTab,
+    expectedTimesFor,
   ]);
 
   /* --------------------------------------------------------------------------
@@ -3191,6 +3424,29 @@ const confirmAbsence = () => {
     return (
       <div className="flex items-center justify-center h-32 text-gray-400 text-sm animate-pulse">
         {t("Loading attendance data…")}
+      </div>
+    );
+  }
+
+  if (loadFailed) {
+    return (
+      <div className="flex h-32 flex-col items-center justify-center gap-3 text-sm text-red-700 dark:text-red-300">
+        <span>
+          ⚠{" "}
+          {apiError ??
+            t("Couldn't load today's data")}
+        </span>
+
+        <button
+          onClick={() =>
+            setLoadAttempt(
+              (n) => n + 1
+            )
+          }
+          className="rounded-lg border border-red-200 dark:border-red-800 px-3 py-1.5 text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20"
+        >
+          {t("Try again")}
+        </button>
       </div>
     );
   }
@@ -3738,20 +3994,13 @@ const confirmAbsence = () => {
                             Number(item.empNumber) === Number(entry.backupEmpNum)
                         );
 
-                    const st =
-                      specialTimes[
-                        `${emp.mongoId}-${currentTab}`
-                      ];
-
-                    const effectiveStart =
-                      st?.clockIn ??
-                      currentShift?.start_time ??
-                      "";
-
-                    const effectiveEnd =
-                      st?.clockOut ??
-                      currentShift?.end_time ??
-                      "";
+                    const {
+                      start: effectiveStart,
+                      end: effectiveEnd,
+                    } = expectedTimesFor(
+                      emp.num,
+                      currentTab ?? ""
+                    );
 
                     const lateMin =
                       calcLate(
