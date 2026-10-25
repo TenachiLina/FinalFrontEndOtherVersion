@@ -56,7 +56,7 @@ const RangePicker: React.FC<RangePickerProps> = (props) => {
   const previewRange: DateRange = useMemo(() => {
     if (useCustom) return { start: customStart, end: customEnd };
     if (props.mode === "week") {
-      const start = new Date(weekStart);
+      const start = new Date(`${weekStart}T00:00:00`); // local midnight, not UTC
       const end = new Date(start);
       end.setDate(start.getDate() + 6);
       return { start: weekStart, end: toLocalDateString(end) };

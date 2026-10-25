@@ -21,7 +21,8 @@ export function useAttendanceReport(initialRange?: DateRange) {
   const [onlyIssues, setOnlyIssues] = useState(true); // show only late/absent rows by default
 
   const computeRange = useCallback((): DateRange => {
-    const ref = new Date(selectedDate);
+    // Local midnight: "YYYY-MM-DD" alone is parsed as UTC, a day early west of UTC
+    const ref = new Date(`${selectedDate}T00:00:00`);
 
     if (filterMode === "day") return { start: selectedDate, end: selectedDate };
 

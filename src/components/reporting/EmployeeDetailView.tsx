@@ -112,7 +112,7 @@ const WeeklyAdvanceTab: React.FC<{ week: ReturnType<typeof useEmployeeReport>["w
   }, [week.range.start]);
 
   const handleWeekChange = (start: string) => {
-    const startDate = new Date(start);
+    const startDate = new Date(`${start}T00:00:00`); // local midnight, not UTC
     const end = new Date(startDate);
     end.setDate(startDate.getDate() + 6);
     week.setRange({ start, end: toLocalDateString(end) });
