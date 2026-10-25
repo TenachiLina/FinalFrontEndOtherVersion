@@ -74,9 +74,10 @@ describe("KioskView access", () => {
   });
 
   // BUG-603: a kiosk account whose company has clock-in switched off is "redirected" to /kiosk itself and stays on "Loading…" with no way to sign out
-  it.fails("doesn't leave a kiosk account stuck when clock-in is switched off", async () => {
+  it("doesn't leave a kiosk account stuck when clock-in is switched off", async () => {
     renderKiosk({ company: makeCompany({ features: ["planning"] }) });
-    await waitFor(() => expect(router.replace).toHaveBeenCalled());
+    expect(await screen.findByText("The clock-in kiosk is switched off for this company.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sign out" })).toBeInTheDocument();
     expect(router.replace).not.toHaveBeenCalledWith("/kiosk");
   });
 
@@ -163,7 +164,7 @@ describe("KioskView list", () => {
   });
 
   // BUG-604: the kiosk list's loading text is hard-coded in English
-  it.fails("shows the list's loading text in the kiosk's language", async () => {
+  it("shows the list's loading text in the kiosk's language", async () => {
     setLang("fr");
     let release: () => void = () => {};
     server.use(

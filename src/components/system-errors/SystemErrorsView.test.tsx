@@ -217,7 +217,7 @@ describe("SystemErrorsView list", () => {
   });
 
   // BUG-602: the search debounce resets the page to 1 on first load, undoing a quick click on "Next"
-  it.fails("stays on page 2 when Next is clicked right after the list loads", async () => {
+  it("stays on page 2 when Next is clicked right after the list loads", async () => {
     serveErrors(() => ({ items: [makeEntry()], total: 120 }));
     const { user } = renderView();
     await user.click(await screen.findByRole("button", { name: "Next" }));

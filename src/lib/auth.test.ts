@@ -99,7 +99,7 @@ describe("canOpen", () => {
   });
 
   // BUG-011: the "no company" rule runs before the admin-only rule
-  it.fails("a manager without a company can't open the activity log", () => {
+  it("a manager without a company can't open the activity log", () => {
     expect(auth.canOpen("/activity-log", as("manager"), null)).toBe(false);
   });
 
@@ -258,7 +258,7 @@ describe("installAuthFetch", () => {
   });
 
   // BUG-007: "https://api.test.evil.com" starts with "https://api.test", so it gets the token
-  it.fails("does not send the token to a host that only starts with the API address", async () => {
+  it("does not send the token to a host that only starts with the API address", async () => {
     let headers: Headers | undefined;
     server.use(
       http.get("https://api.test.evil.com/x", ({ request }) => {
@@ -470,7 +470,7 @@ describe("installAuthFetch", () => {
   });
 
   // BUG-009: a refused early renewal is tried a second time with the same used-up refresh token
-  it.fails("tries the refresh token only once when it is refused", async () => {
+  it("tries the refresh token only once when it is refused", async () => {
     auth.saveTokens(makeJwt(10), "refresh-1");
     const refreshes = refreshEndpoint(() => HttpResponse.json({}, { status: 401 }));
     dataEndpoint(() => expired());
@@ -546,7 +546,7 @@ describe("downloadFile", () => {
   });
 
   // BUG-010: a "%" in a plain filename makes decodeURIComponent throw
-  it.fails("accepts a filename containing %", async () => {
+  it("accepts a filename containing %", async () => {
     fileEndpoint({ "Content-Disposition": 'attachment; filename="100% sales.xlsx"' });
     await auth.downloadFile(`${API}/export`, "fallback.xlsx");
     expect(clicked[0].download).toBe("100% sales.xlsx");

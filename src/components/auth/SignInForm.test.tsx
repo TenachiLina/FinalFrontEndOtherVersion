@@ -110,7 +110,7 @@ describe("SignInForm", () => {
   });
 
   // BUG-605: "/\evil.example" passes the ?next= check, and browsers read "/\" as "//", so sign-in redirects off-site
-  it.fails.each([
+  it.each([
     ["a backslash", "/\\evil.example"],
     ["a tab", "/\t/evil.example"],
   ])("doesn't follow ?next= to another site disguised with %s", async (_label, next) => {

@@ -67,7 +67,7 @@ describe("timeToDecimalHours", () => {
   });
 
   // BUG-005: the minus sign only applies to the hours part
-  it.fails("converts a negative duration", () => {
+  it("converts a negative duration", () => {
     expect(timeToDecimalHours("-01:30")).toBe(-1.5);
   });
 });
@@ -121,7 +121,7 @@ describe("normalizeRow", () => {
   });
 
   // BUG-006: text that is not a number becomes NaN and spreads into every total
-  it.fails("never produces NaN for bad numeric fields", () => {
+  it("never produces NaN for bad numeric fields", () => {
     const row = normalizeRow({ penalty: "n/a", late_minutes: "abc" });
     expect(Number.isNaN(row.penalty)).toBe(false);
     expect(Number.isNaN(row.late_minutes)).toBe(false);
@@ -202,7 +202,7 @@ describe("generateDateRange", () => {
   });
 
   // BUG-001: "YYYY-MM-DD" is parsed as UTC midnight, which is the previous day west of UTC
-  it.fails("starts on the requested day in a time zone behind UTC", () => {
+  it("starts on the requested day in a time zone behind UTC", () => {
     inTimeZone("America/New_York", () => {
       expect(generateDateRange("2026-03-01", "2026-03-02")).toEqual(["2026-03-01", "2026-03-02"]);
     });
@@ -395,7 +395,7 @@ describe("fetchers", () => {
   });
 
   // BUG-003: a plan stored as UTC midnight falls on the previous day west of UTC
-  it.fails("counts a plan on the first day of the range in a time zone behind UTC", async () => {
+  it("counts a plan on the first day of the range in a time zone behind UTC", async () => {
     server.use(http.get(`${API}/planning`, () => HttpResponse.json([{ empId: 101, planDate: "2026-03-01T00:00:00.000Z" }])));
     const previous = process.env.TZ;
     process.env.TZ = "America/New_York";

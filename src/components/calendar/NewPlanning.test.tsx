@@ -109,7 +109,7 @@ describe("day selection", () => {
   });
 
   // BUG-303: in a time zone ahead of Algiers the days are built at local midnight, which is the previous day in Algiers
-  it.fails("loads the clicked day, not the day before, for a manager whose browser is in Paris", async () => {
+  it("loads the clicked day, not the day before, for a manager whose browser is in Paris", async () => {
     const previous = process.env.TZ;
     process.env.TZ = "Europe/Paris";
     try {

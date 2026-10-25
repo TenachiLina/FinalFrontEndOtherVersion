@@ -79,7 +79,7 @@ describe("applyCompanySettings", () => {
 
   // BUG-002: 0 is treated as "not set", so a company can't turn weekly advances off,
   // and after switching company the previous company's ratio stays in place
-  it.fails("accepts a weekly advance ratio of 0", () => {
+  it("accepts a weekly advance ratio of 0", () => {
     applyCompanySettings({ weeklyAdvanceRatio: 0.3 });
     applyCompanySettings({ weeklyAdvanceRatio: 0 });
     expect(payrollConfig.weeklyAdvanceRatio).toBe(0);

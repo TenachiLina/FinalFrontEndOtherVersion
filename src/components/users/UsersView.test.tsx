@@ -279,7 +279,7 @@ describe("UsersView password reset", () => {
   });
 
   // BUG-601: a password typed then cancelled is pre-filled when resetting another user's password
-  it.fails("starts with an empty password for the next user after a cancelled reset", async () => {
+  it("starts with an empty password for the next user after a cancelled reset", async () => {
     serveUsers([makeUserRow(), makeUserRow({ _id: "u3", name: "Sam" })]);
     const { user } = renderWithProviders(<UsersView />);
     await screen.findByText("Sam");
