@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useMemo, useState, useRef} from "react";
+import { API_BASE_URL } from "@/lib/config";
 import { ensureOk, friendlyError } from "@/lib/errors";
 import { confirmDialog, toast } from "@/lib/notify";
 import LoadError from "@/components/ui/feedback/LoadError";
@@ -34,9 +35,6 @@ interface GroupedAttendance {
   clockOut: string | null;
   logs: AttendanceLog[];
 }
-
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
 
 const PAGE_SIZE = 15;
 
@@ -542,8 +540,9 @@ const currentLogs = filteredLogs;
 
     const checkDeviceStatus = async () => {
       try {
+        // The API server talks to the machine, not the viewer's computer
         const response = await fetch(
-          "http://localhost:3001/device/status",
+          `${API_BASE_URL}/device/status`,
           {
             cache: "no-store",
           }
