@@ -69,8 +69,8 @@ const Field = ({
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }) => (
   <div className="flex flex-col gap-1">
-    <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">{t(label)}</label>
-    <input type={type} name={name} value={value} onChange={onChange}
+    <label htmlFor={`employee-${name}`} className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">{t(label)}</label>
+    <input id={`employee-${name}`} type={type} name={name} value={value} onChange={onChange}
       className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 dark:border-white/[0.1] dark:bg-white/[0.05] dark:text-gray-200 transition"
     />
   </div>
