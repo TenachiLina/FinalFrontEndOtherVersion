@@ -168,6 +168,7 @@ export default function AttendancePage({
   const [search, setSearch] = useState("");
   const [apiError, setApiError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [reloadKey, setReloadKey] = useState(0);
   const [specialTimes, setSpecialTimes] =
     useState<Record<string, { clockIn?: string; clockOut?: string }>>({});
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -254,7 +255,7 @@ export default function AttendancePage({
       })
       .catch((e) => setApiError(friendlyError(e, "Couldn't load today's data")))
       .finally(() => setLoading(false));
-}, [selectedDate]);
+}, [selectedDate, reloadKey]);
   // ── Load existing worktime records for the date ───────────────────────────
   useEffect(() => {
   if (!currentDate) return;
@@ -289,7 +290,7 @@ export default function AttendancePage({
       });
     })
     .catch((e) => setApiError(friendlyError(e, "Couldn't load today's data")));
-}, [selectedDate]);
+}, [selectedDate, reloadKey]);
 
 
 useEffect(() => {
@@ -735,6 +736,20 @@ const getAttendanceRows = (
   if (loading) return (
     <div className="flex items-center justify-center h-32 text-gray-400 text-sm animate-pulse">
       {t("Loading attendance data…")}
+    </div>
+  );
+
+  // A failed load leaves shifts empty: show the error, not "No shifts found"
+  if (!shifts.length && apiError) return (
+    <div className="flex flex-col items-center justify-center gap-3 h-32 text-sm text-red-700 dark:text-red-300">
+      <span>⚠ {apiError}</span>
+      <button
+        type="button"
+        onClick={() => setReloadKey((k) => k + 1)}
+        className="rounded-lg border border-red-200 dark:border-red-800 px-3 py-1.5 hover:bg-red-50 dark:hover:bg-red-900/20"
+      >
+        {t("Try again")}
+      </button>
     </div>
   );
 
