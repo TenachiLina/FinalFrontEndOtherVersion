@@ -1432,6 +1432,17 @@ export default function AttendancePage({
   const [loading, setLoading] =
     useState(true);
 
+  /*
+   * The employees / shifts / planning could not be
+   * loaded: show the error, not "No shifts found".
+   * Bumping loadAttempt loads them again.
+   */
+  const [loadFailed, setLoadFailed] =
+    useState(false);
+
+  const [loadAttempt, setLoadAttempt] =
+    useState(0);
+
   const [
     deviceLoading,
     setDeviceLoading,
@@ -1671,6 +1682,7 @@ const [deviceEntries, setDeviceEntries] =
     let cancelled = false;
 
     setLoading(true);
+    setLoadFailed(false);
     setApiError(null);
 
     Promise.all([
@@ -1890,6 +1902,7 @@ const [deviceEntries, setDeviceEntries] =
       )
       .catch((e) => {
         if (!cancelled) {
+          setLoadFailed(true);
           setApiError(
             friendlyError(e, "Couldn't load today's data")
           );
@@ -1906,6 +1919,7 @@ const [deviceEntries, setDeviceEntries] =
     };
   }, [
     operationalDate,
+    loadAttempt,
   ]);
 
   /* --------------------------------------------------------------------------
@@ -3410,6 +3424,29 @@ const confirmAbsence = () => {
     return (
       <div className="flex items-center justify-center h-32 text-gray-400 text-sm animate-pulse">
         {t("Loading attendance data…")}
+      </div>
+    );
+  }
+
+  if (loadFailed) {
+    return (
+      <div className="flex h-32 flex-col items-center justify-center gap-3 text-sm text-red-700 dark:text-red-300">
+        <span>
+          ⚠{" "}
+          {apiError ??
+            t("Couldn't load today's data")}
+        </span>
+
+        <button
+          onClick={() =>
+            setLoadAttempt(
+              (n) => n + 1
+            )
+          }
+          className="rounded-lg border border-red-200 dark:border-red-800 px-3 py-1.5 text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20"
+        >
+          {t("Try again")}
+        </button>
       </div>
     );
   }
