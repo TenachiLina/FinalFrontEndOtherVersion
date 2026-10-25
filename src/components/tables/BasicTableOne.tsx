@@ -23,7 +23,7 @@ interface Employee {
   otherManager?: boolean;
 }
 
-type SortKey = "empNumber" | "name" | "baseSalary" | "address" | "phoneNumber";
+type SortKey = "empNumber" | "firstName" | "lastName" | "baseSalary" | "address" | "phoneNumber";
 type SortDir = "asc" | "desc";
 
 // ─── API ──────────────────────────────────────────────────────────────────────
@@ -121,9 +121,7 @@ export default function BasicTableOne() {
 
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
-      let av: any, bv: any;
-      if (sortKey === "name") { av = `${a.firstName} ${a.lastName}`; bv = `${b.firstName} ${b.lastName}`; }
-      else { av = (a as any)[sortKey]; bv = (b as any)[sortKey]; }
+      const av: any = (a as any)[sortKey], bv: any = (b as any)[sortKey];
       if (typeof av === "number" && typeof bv === "number") return sortDir === "asc" ? av - bv : bv - av;
       return sortDir === "asc" ? String(av ?? "").localeCompare(String(bv ?? "")) : String(bv ?? "").localeCompare(String(av ?? ""));
     });
@@ -294,8 +292,8 @@ export default function BasicTableOne() {
                 {([
                   { label: "Emp #", key: "empNumber" },
                   { label: "Photo", key: null },
-                  { label: "First Name", key: "name" },
-                  { label: "Last Name", key: "name" },
+                  { label: "First Name", key: "firstName" },
+                  { label: "Last Name", key: "lastName" },
                   { label: "Base Salary", key: "baseSalary" },
                   { label: "Address", key: "address" },
                   { label: "Phone", key: "phoneNumber" },
