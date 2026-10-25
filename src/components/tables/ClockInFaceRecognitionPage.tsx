@@ -3873,7 +3873,9 @@ const confirmAbsence = () => {
           TABLE
       ===================================================================== */}
 
-      {attendanceLoading ? (
+      {/* With no employees the attendance is never loaded: show the table's
+          "No employees found" message instead of loading for ever */}
+      {attendanceLoading && employees.length > 0 ? (
         <div className="p-6 text-center text-gray-500">
           {t("Loading attendance...")}
         </div>
