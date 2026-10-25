@@ -68,6 +68,7 @@ const ar: Record<string, string> = {
   "Forgot your password or need an account? Ask an admin.": "نسيت كلمة المرور أو تحتاج إلى حساب؟ اطلب ذلك من المدير.",
   "Planning, clock-in and payroll for your team.": "التخطيط والحضور والرواتب لفريقك.",
   "Exit kiosk": "الخروج من الجهاز",
+  "The clock-in kiosk is switched off for this company.": "جهاز تسجيل الحضور معطّل لهذه الشركة.",
   "Find your name": "ابحث عن اسمك",
   "Find your name or number…": "ابحث عن اسمك أو رقمك…",
   "No employees yet. An admin can add them.": "لا يوجد موظفون بعد. يمكن للمدير إضافتهم.",

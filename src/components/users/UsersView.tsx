@@ -118,6 +118,17 @@ export default function UsersView() {
     }
   };
 
+  // The password field is emptied whenever the dialog opens or closes, so a
+  // password typed for one user is never pre-filled for the next one.
+  const openReset = (u: UserRow) => {
+    setNewPassword("");
+    setResetFor(u);
+  };
+  const closeReset = () => {
+    setResetFor(null);
+    setNewPassword("");
+  };
+
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!resetFor) return;
@@ -127,8 +138,7 @@ export default function UsersView() {
         body: JSON.stringify({ password: newPassword }),
       });
       toast.success(t("Password updated for {name}.", { name: resetFor.name }));
-      setResetFor(null);
-      setNewPassword("");
+      closeReset();
     } catch (err) {
       toast.error(friendlyError(err, "Couldn't reset the password"));
     }
@@ -241,7 +251,7 @@ export default function UsersView() {
                     </span>
                   </td>
                   <td className="space-x-3 whitespace-nowrap px-4 py-3 text-end">
-                    <button type="button" className="text-brand-500 hover:underline" onClick={() => setResetFor(u)}>
+                    <button type="button" className="text-brand-500 hover:underline" onClick={() => openReset(u)}>
                       {t("Reset password")}
                     </button>
                     {!isMe && (
@@ -324,7 +334,7 @@ export default function UsersView() {
         </form>
       </Modal>
 
-      <Modal isOpen={!!resetFor} onClose={() => setResetFor(null)} className="max-w-[420px] p-6">
+      <Modal isOpen={!!resetFor} onClose={closeReset} className="max-w-[420px] p-6">
         <form onSubmit={handleReset} className="space-y-4">
           <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">{t("Reset password for {name}", { name: resetFor?.name ?? "" })}</h3>
           <div>
@@ -332,7 +342,7 @@ export default function UsersView() {
             <input id="reset-password" type="text" autoComplete="off" className={inputClass} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
           </div>
           <div className="flex justify-end gap-3">
-            <button type="button" className="rounded-lg px-4 py-3 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-400 dark:ring-gray-700 dark:hover:bg-white/[0.03]" onClick={() => setResetFor(null)}>
+            <button type="button" className="rounded-lg px-4 py-3 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-400 dark:ring-gray-700 dark:hover:bg-white/[0.03]" onClick={closeReset}>
               {t("Cancel")}
             </button>
             <Button size="sm">{t("Set password")}</Button>

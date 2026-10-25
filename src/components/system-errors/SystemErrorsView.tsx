@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { API_BASE_URL } from "@/lib/config";
 import { fetchJson, friendlyError } from "@/lib/errors";
 import LoadError from "@/components/ui/feedback/LoadError";
@@ -189,8 +189,14 @@ export default function SystemErrorsView() {
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState<string | null>(null);
 
+  // The search last applied. Only a real change of the typed search goes back
+  // to page 1: on first load nothing changed, and resetting then undid a quick
+  // click on "Next".
+  const appliedSearch = useRef(search);
   useEffect(() => {
+    if (search === appliedSearch.current) return;
     const id = setTimeout(() => {
+      appliedSearch.current = search;
       setFilters((f) => (f.search === search ? f : { ...f, search }));
       setPage(1);
     }, 400);
