@@ -84,9 +84,18 @@ export function applyCompanySettings(settings: {
   weeklyAdvanceRatio?: number;
   currency?: string;
 }) {
-  if (settings.hoursPerDay) payrollConfig.hoursPerDay = settings.hoursPerDay;
-  if (settings.workingDaysPerMonth) payrollConfig.workingDaysPerMonth = settings.workingDaysPerMonth;
-  if (settings.weeklyAdvanceRatio) payrollConfig.weeklyAdvanceRatio = settings.weeklyAdvanceRatio;
+  const isNumber = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+  // The hourly rate divides by these two, so they must be above 0
+  if (isNumber(settings.hoursPerDay) && settings.hoursPerDay > 0) {
+    payrollConfig.hoursPerDay = settings.hoursPerDay;
+  }
+  if (isNumber(settings.workingDaysPerMonth) && settings.workingDaysPerMonth > 0) {
+    payrollConfig.workingDaysPerMonth = settings.workingDaysPerMonth;
+  }
+  // 0 is a real choice here (no weekly advances), not "not set"
+  if (isNumber(settings.weeklyAdvanceRatio) && settings.weeklyAdvanceRatio >= 0) {
+    payrollConfig.weeklyAdvanceRatio = settings.weeklyAdvanceRatio;
+  }
   if (settings.currency) payrollConfig.currency = settings.currency;
 }
 
