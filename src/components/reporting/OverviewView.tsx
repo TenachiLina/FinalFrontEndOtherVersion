@@ -257,7 +257,8 @@ const fmtDA = (n: number) => `${n.toLocaleString(locale(), { minimumFractionDigi
 const fmtNum = (n: number, d = 1) => n.toLocaleString(locale(), { minimumFractionDigits: 0, maximumFractionDigits: d });
 
 /** % change vs previous period, or null when there is nothing to compare with. */
-const pctChange = (cur: number, prev: number): number | null => (prev === 0 ? null : ((cur - prev) / prev) * 100);
+// Divided by |prev| so a rise from a negative value is still shown as a rise
+const pctChange = (cur: number, prev: number): number | null => (prev === 0 ? null : ((cur - prev) / Math.abs(prev)) * 100);
 
 const baseChart = { fontFamily: "Outfit, sans-serif", toolbar: { show: false } };
 
