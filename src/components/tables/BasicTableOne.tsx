@@ -23,7 +23,7 @@ interface Employee {
   otherManager?: boolean;
 }
 
-type SortKey = "empNumber" | "name" | "baseSalary" | "address" | "phoneNumber";
+type SortKey = "empNumber" | "firstName" | "lastName" | "baseSalary" | "address" | "phoneNumber";
 type SortDir = "asc" | "desc";
 
 // ─── API ──────────────────────────────────────────────────────────────────────
@@ -69,8 +69,8 @@ const Field = ({
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }) => (
   <div className="flex flex-col gap-1">
-    <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">{t(label)}</label>
-    <input type={type} name={name} value={value} onChange={onChange}
+    <label htmlFor={`employee-${name}`} className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">{t(label)}</label>
+    <input id={`employee-${name}`} type={type} name={name} value={value} onChange={onChange}
       className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 dark:border-white/[0.1] dark:bg-white/[0.05] dark:text-gray-200 transition"
     />
   </div>
@@ -82,6 +82,8 @@ export default function BasicTableOne() {
   const [data, setData] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
+  // Shown in the drawer only: a failed save must not replace the table
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const [search, setSearch] = useState("");
@@ -119,15 +121,19 @@ export default function BasicTableOne() {
 
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
-      let av: any, bv: any;
-      if (sortKey === "name") { av = `${a.firstName} ${a.lastName}`; bv = `${b.firstName} ${b.lastName}`; }
-      else { av = (a as any)[sortKey]; bv = (b as any)[sortKey]; }
+      const av: any = (a as any)[sortKey], bv: any = (b as any)[sortKey];
       if (typeof av === "number" && typeof bv === "number") return sortDir === "asc" ? av - bv : bv - av;
       return sortDir === "asc" ? String(av ?? "").localeCompare(String(bv ?? "")) : String(bv ?? "").localeCompare(String(av ?? ""));
     });
   }, [filtered, sortKey, sortDir]);
 
   const totalPages = Math.max(1, Math.ceil(sorted.length / showEntries));
+
+  // After a delete the current page may no longer exist: show the last one
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages]);
+
   const paginated = sorted.slice((currentPage - 1) * showEntries, currentPage * showEntries);
 
   const handleSort = (key: SortKey) => {
@@ -142,6 +148,7 @@ export default function BasicTableOne() {
   };
 
   const openAdd = () => {
+    setSaveError(null);
     setForm(emptyForm());
     setIsEditing(false);
     setEditingId(null);
@@ -149,6 +156,7 @@ export default function BasicTableOne() {
   };
 
   const openEdit = (emp: Employee) => {
+    setSaveError(null);
     setForm({
       empNumber: String(emp.empNumber),
       firstName: emp.firstName,
@@ -163,13 +171,18 @@ export default function BasicTableOne() {
     setShowForm(true);
   };
 
+  const closeForm = () => {
+    setShowForm(false);
+    setSaveError(null);
+  };
+
   const handleSave = async () => {
     if (!form.firstName.trim() || !form.lastName.trim()) {
       toast.warning("Enter the employee's first and last name.");
       return;
     }
     setSaving(true);
-    setApiError(null);
+    setSaveError(null);
     try {
       const payload = {
         empNumber: Number(form.empNumber),
@@ -192,7 +205,7 @@ export default function BasicTableOne() {
       setForm(emptyForm());
       toast.success(isEditing ? "Employee updated." : "Employee added.");
     } catch (e) {
-      setApiError(friendlyError(e, "Couldn't save the employee"));
+      setSaveError(friendlyError(e, "Couldn't save the employee"));
     } finally {
       setSaving(false);
     }
@@ -223,14 +236,14 @@ export default function BasicTableOne() {
       {/* Drawer */}
       {showForm && (
         <>
-          <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm" onClick={() => setShowForm(false)} />
+          <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm" onClick={closeForm} />
           <div className="fixed end-0 top-0 z-50 h-full w-full max-w-md bg-white dark:bg-gray-900 shadow-2xl flex flex-col">
             <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 dark:border-white/[0.07]">
               <h3 className="text-base font-semibold text-gray-800 dark:text-white">{isEditing ? t("Edit Employee") : t("Add Employee")}</h3>
-              <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"><CloseIcon /></button>
+              <button onClick={closeForm} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"><CloseIcon /></button>
             </div>
             <div className="flex-1 overflow-y-auto px-6 py-5 flex flex-col gap-4">
-              {apiError && <div className="rounded-lg border border-red-200 bg-red-50 dark:bg-red-900/20 px-3 py-2 text-sm text-red-600">⚠ {apiError}</div>}
+              {saveError && <div className="rounded-lg border border-red-200 bg-red-50 dark:bg-red-900/20 px-3 py-2 text-sm text-red-600">⚠ {saveError}</div>}
               <Field label="Employee Number" name="empNumber" type="number" value={form.empNumber} onChange={handleChange} />
               <div className="grid grid-cols-2 gap-3">
                 <Field label="First Name" name="firstName" value={form.firstName} onChange={handleChange} />
@@ -241,7 +254,7 @@ export default function BasicTableOne() {
               <Field label="Phone" name="phoneNumber" value={form.phoneNumber} onChange={handleChange} />
             </div>
             <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 dark:border-white/[0.07]">
-              <button onClick={() => setShowForm(false)} className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:border-white/[0.1] dark:text-gray-300 dark:hover:bg-white/[0.05] transition-colors">{t("Cancel")}</button>
+              <button onClick={closeForm} className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:border-white/[0.1] dark:text-gray-300 dark:hover:bg-white/[0.05] transition-colors">{t("Cancel")}</button>
               <button onClick={handleSave} disabled={saving} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 transition-colors">
                 {saving ? t("Saving…") : isEditing ? t("Save Changes") : t("Save")}
               </button>
@@ -285,8 +298,8 @@ export default function BasicTableOne() {
                 {([
                   { label: "Emp #", key: "empNumber" },
                   { label: "Photo", key: null },
-                  { label: "First Name", key: "name" },
-                  { label: "Last Name", key: "name" },
+                  { label: "First Name", key: "firstName" },
+                  { label: "Last Name", key: "lastName" },
                   { label: "Base Salary", key: "baseSalary" },
                   { label: "Address", key: "address" },
                   { label: "Phone", key: "phoneNumber" },
