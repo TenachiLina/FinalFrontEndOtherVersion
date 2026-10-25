@@ -153,6 +153,28 @@ function addDays(date: string, days: number) {
 }
 
 /**
+ * Minutes worked: the sum of the periods (1st → 2nd punch, 3rd → 4th, …),
+ * so breaks between periods aren't counted. A last punch without its
+ * clock-out isn't counted yet.
+ */
+function workedMinutes(sortedPunches: AttendanceLog[]) {
+  let minutes = 0;
+
+  for (let i = 0; i + 1 < sortedPunches.length; i += 2) {
+    minutes += Math.max(
+      0,
+      Math.round(
+        (new Date(sortedPunches[i + 1].timestamp).getTime() -
+          new Date(sortedPunches[i].timestamp).getTime()) /
+          60000
+      )
+    );
+  }
+
+  return minutes;
+}
+
+/**
  * A shift's start or end ("HH:MM"). GET /shifts sends startTime/endTime;
  * start_time/end_time are still read for older data.
  */
@@ -896,35 +918,7 @@ const shiftEnd = shift ? shiftTime(shift, "end") : "00:00";
     // 8. CALCULATE WORK HOURS
     // ---------------------------------------------------------
 
-    let workMinutes = 0;
-
-    if (
-      clockIn !== "—" &&
-      clockOut !== "00:00" &&
-      clockOut !== "—"
-    ) {
-      const [inH, inM] = clockIn
-        .slice(0, 5)
-        .split(":")
-        .map(Number);
-
-      const [outH, outM] = clockOut
-        .slice(0, 5)
-        .split(":")
-        .map(Number);
-
-      let inMinutes = inH * 60 + inM;
-      let outMinutes = outH * 60 + outM;
-
-      if (outMinutes < inMinutes) {
-        outMinutes += 1440;
-      }
-
-      workMinutes = Math.max(
-        0,
-        outMinutes - inMinutes
-      );
-    }
+    const workMinutes = workedMinutes(employeeLogs);
 
     const workHours =
       `${String(Math.floor(workMinutes / 60)).padStart(
@@ -1303,22 +1297,8 @@ if (
 
     const shiftEnd = shift ? shiftTime(shift, "end") : "00:00";
 
-    // 7. Recalculate work hours, including overnight shifts.
-    let workMinutes = 0;
-
-    if (clockOut !== "00:00" && clockOut !== "—") {
-      const [inH, inM] = clockIn.slice(0, 5).split(":").map(Number);
-      const [outH, outM] = clockOut.slice(0, 5).split(":").map(Number);
-
-      const inMinutes = inH * 60 + inM;
-      let outMinutes = outH * 60 + outM;
-
-      if (outMinutes < inMinutes) {
-        outMinutes += 1440;
-      }
-
-      workMinutes = Math.max(0, outMinutes - inMinutes);
-    }
+    // 7. Recalculate work hours (the periods, without the breaks between them).
+    const workMinutes = workedMinutes(employeeLogs);
 
     const workHours =
       `${String(Math.floor(workMinutes / 60)).padStart(2, "0")}:` +
