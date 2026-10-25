@@ -128,6 +128,12 @@ export default function BasicTableOne() {
   }, [filtered, sortKey, sortDir]);
 
   const totalPages = Math.max(1, Math.ceil(sorted.length / showEntries));
+
+  // After a delete the current page may no longer exist: show the last one
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages]);
+
   const paginated = sorted.slice((currentPage - 1) * showEntries, currentPage * showEntries);
 
   const handleSort = (key: SortKey) => {
