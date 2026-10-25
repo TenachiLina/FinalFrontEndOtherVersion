@@ -71,6 +71,8 @@ const calcLate     = (i: string, s: string, e: string) => { if (i==="00:00"||!s)
 // On an overnight shift, the end and a clock-out earlier than the start are on the next day
 const calcOvertime = (o: string, s: string, e: string) => { if(o==="00:00"||!e) return 0; let em=toMinutes(e.slice(0,5)),om=toMinutes(o); if(isOvernight(s,e)){ em+=1440; if(om<toMinutes(s.slice(0,5)))om+=1440; } const ot=om-em; return ot>0?ot:0; };
 const nowTime      = () => { const d=new Date(); return `${d.getHours().toString().padStart(2,"0")}:${d.getMinutes().toString().padStart(2,"0")}`; };
+// Today in the browser's time zone (toISOString gives the UTC date, yesterday between 00:00 and 01:00 in Algeria)
+const todayLocal   = () => { const d=new Date(); return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,"0")}-${d.getDate().toString().padStart(2,"0")}`; };
 const getStatus    = (e: EmployeeTimeEntry): ShiftStatus => e.absent ? "absent" : e.clockIn!=="00:00" ? "present" : "pending";
 const badgeColor   = (s: ShiftStatus) => s==="present"?"success":s==="absent"?"error":"warning";
 const badgeLabel   = (s: ShiftStatus) => s==="present"?t("Present"):s==="absent"?t("Absent"):t("Pending");
@@ -145,7 +147,7 @@ interface AttendancePageProps {
 }
 
 export default function AttendancePage({
-  currentDate = new Date().toISOString().slice(0, 10),
+  currentDate = todayLocal(),
 }: AttendancePageProps) {
 
   const [selectedDate, setSelectedDate] = useState(currentDate);
