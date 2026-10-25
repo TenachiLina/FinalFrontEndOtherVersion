@@ -85,6 +85,7 @@ describe("AdvancesView", () => {
     const { user } = await renderView();
     const deletes = captureWrites("delete", "/advances/:id");
     await user.click(within(screen.getByRole("row", { name: /1000\.00 DA/ })).getByRole("button", { name: "Revoke" }));
+    await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Revoke" }));
     expect(await screen.findByRole("status")).toHaveTextContent("Advance removed.");
     expect(deletes.map((d) => d.url)).toEqual(["https://api.test/advances/a1"]);
     expect(tableBody()).toHaveLength(2);
@@ -92,7 +93,7 @@ describe("AdvancesView", () => {
   });
 
   // BUG-508: revoking an advance is a single click, with no confirmation
-  it.fails("asks for confirmation before revoking", async () => {
+  it("asks for confirmation before revoking", async () => {
     const { user } = await renderView();
     const deletes = captureWrites("delete", "/advances/:id");
     await user.click(screen.getAllByRole("button", { name: "Revoke" })[0]);

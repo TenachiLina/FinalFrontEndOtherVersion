@@ -177,7 +177,7 @@ describe("OverviewView", () => {
   });
 
   // BUG-512: the % change divides by a negative previous value, so a rise is shown as a fall
-  it.fails("shows a rise in net payroll as a rise when the previous net was negative", async () => {
+  it("shows a rise in net payroll as a rise when the previous net was negative", async () => {
     await renderView({
       ...WEEK,
       // previous week: gross 1600 − 500 consumption − 1500 advance = −400

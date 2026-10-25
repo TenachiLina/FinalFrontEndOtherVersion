@@ -208,7 +208,7 @@ describe("useReportingOverview", () => {
   });
 
   // BUG-501: the overview has no guard against an older, slower response
-  it.fails("shows the last range chosen when an earlier request answers late", async () => {
+  it("shows the last range chosen when an earlier request answers late", async () => {
     const { result } = await renderLoaded();
     slowWorktimeFor("2026-02-01", 150, WEEK);
     let first!: Promise<void>;

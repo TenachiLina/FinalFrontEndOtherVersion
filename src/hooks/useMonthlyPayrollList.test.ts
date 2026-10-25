@@ -78,12 +78,17 @@ describe("useMonthlyPayrollList", () => {
         empId: 102, firstName: "Sara", lastName: "Bel", baseSalary: 20800, hourlyRate: 100,
         hours: 10.5, brut: 1050, penalties: 0, consommation: 100, advancesDeducted: 200, bonuses: 0, net: 750, absences: 0,
       },
+      {
+        // not scheduled, but worked: 8 h × 125 = 1000 (BUG-506)
+        empId: 103, firstName: "Nadia", lastName: "Ouali", baseSalary: 26000, hourlyRate: 125,
+        hours: 8, brut: 1000, penalties: 0, consommation: 0, advancesDeducted: 0, bonuses: 0, net: 1000, absences: 0,
+      },
     ]);
   });
 
   it("adds up the totals", async () => {
     const { result } = await renderLoaded();
-    expect(result.current.totals).toEqual({ totalBrut: "5750.00", totalNet: "3750.00", totalAdvances: "1700.00", totalBonuses: "250.00" });
+    expect(result.current.totals).toEqual({ totalBrut: "6750.00", totalNet: "4750.00", totalAdvances: "1700.00", totalBonuses: "250.00" });
   });
 
   it("filters by name, ignoring case, and the totals follow", async () => {
@@ -114,8 +119,8 @@ describe("useMonthlyPayrollList", () => {
     expect(rangesRequested(requests, "/worktime")).toEqual(["2026-03-01..2026-03-31", "2026-03-01..2026-03-31"]);
   });
 
-  it("is empty when nobody is scheduled", async () => {
-    const { result } = await renderLoaded({ ...MARCH, planning: [] });
+  it("is empty when nobody is scheduled or worked", async () => {
+    const { result } = await renderLoaded({ ...MARCH, planning: [], worktime: [] });
     expect(result.current.payrollRows).toEqual([]);
     expect(result.current.totals.totalNet).toBe("0.00");
   });
@@ -138,12 +143,12 @@ describe("useMonthlyPayrollList", () => {
     failGet("/bonuses", 500);
     const { result } = renderHook(() => useMonthlyPayrollList());
     await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(result.current.payrollRows.map((r) => r.net)).toEqual([4250, 950]);
+    expect(result.current.payrollRows.map((r) => r.net)).toEqual([4250, 950, 1000]);
     await waitFor(() => expect(toastMessages("warning")).toHaveLength(2));
   });
 
   // BUG-502: when the planning can't be loaded, every employee disappears from the payroll
-  it.fails("still lists the employees who worked when the planning can't be loaded", async () => {
+  it("still lists the employees who worked when the planning can't be loaded", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     mockReportingApi(MARCH);
     failGet("/planning", 500);
@@ -153,13 +158,13 @@ describe("useMonthlyPayrollList", () => {
   });
 
   // BUG-506: hours worked by someone without a planning entry are never paid
-  it.fails("pays an employee who worked in the month even without a planning entry", async () => {
+  it("pays an employee who worked in the month even without a planning entry", async () => {
     const { result } = await renderLoaded();
     expect(result.current.payrollRows.find((r) => r.empId === 103)).toMatchObject({ hours: 8, brut: 1000, net: 1000 });
   });
 
   // BUG-501: no guard against an older, slower response
-  it.fails("shows the last month chosen when an earlier request answers late", async () => {
+  it("shows the last month chosen when an earlier request answers late", async () => {
     const { result } = await renderLoaded();
     slowWorktimeFor("2026-01-01", 150, MARCH);
     let first!: Promise<void>;
@@ -169,6 +174,6 @@ describe("useMonthlyPayrollList", () => {
     await act(() => result.current.setRange({ start: "2026-03-01", end: "2026-03-31" }));
     await act(() => first);
     expect(result.current.range.start).toBe("2026-03-01");
-    expect(result.current.payrollRows).toHaveLength(2);
+    expect(result.current.payrollRows).toHaveLength(3);
   });
 });

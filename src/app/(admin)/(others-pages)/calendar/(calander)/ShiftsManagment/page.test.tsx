@@ -94,7 +94,7 @@ describe("Shifts management page", () => {
   });
 
   // BUG-405: a slow answer for the Active tab replaces the archived list after switching tabs
-  it.fails("keeps showing the archived shifts when the active list answers late", async () => {
+  it("keeps showing the archived shifts when the active list answers late", async () => {
     server.use(
       http.get(`${API}/shifts`, async ({ request }) => {
         if (new URL(request.url).searchParams.get("status") === "archived") return HttpResponse.json([oldShift]);
@@ -263,7 +263,7 @@ describe("Shifts management page", () => {
     });
 
     // BUG-403: String(e) starts with "Error: ", so a 409 is never recognised as "shift in use"
-    it.fails("warns that a shift is still planned and deletes it on a second confirmation", async () => {
+    it("warns that a shift is still planned and deletes it on a second confirmation", async () => {
       server.use(
         http.delete(`${API}/shifts/:id`, async ({ request }) => {
           await remember(request);
@@ -283,7 +283,7 @@ describe("Shifts management page", () => {
     });
 
     // BUG-404: a failed delete shows the raw "Error: 500 <body>" text instead of a friendly message
-    it.fails("explains a failed delete without technical details", async () => {
+    it("explains a failed delete without technical details", async () => {
       server.use(
         http.delete(`${API}/shifts/:id`, () =>
           HttpResponse.json({ statusCode: 500, message: "Internal server error" }, { status: 500 })

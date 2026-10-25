@@ -174,7 +174,7 @@ describe("useBonusesHistory", () => {
   });
 
   // BUG-501: no guard against an older, slower response
-  it.fails("shows the last period chosen when an earlier request answers late", async () => {
+  it("shows the last period chosen when an earlier request answers late", async () => {
     const { result } = await renderLoaded();
     server.use(
       http.get(`${API}/bonuses`, async ({ request }) => {

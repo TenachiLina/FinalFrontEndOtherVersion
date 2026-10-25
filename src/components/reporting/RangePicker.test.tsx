@@ -51,7 +51,7 @@ describe("RangePicker — week mode", () => {
   });
 
   // BUG-507: the week end is computed from a UTC-parsed date, so west of UTC the week is 6 days
-  it.fails("ends the week 6 days later in a time zone behind UTC", async () => {
+  it("ends the week 6 days later in a time zone behind UTC", async () => {
     process.env.TZ = "America/New_York"; // restored by fixTodayInEachTest
     const onApply = vi.fn();
     const { user } = renderWithProviders(<RangePicker mode="week" range={week} onApply={onApply} />);
@@ -86,7 +86,7 @@ describe("RangePicker — month mode", () => {
   });
 
   // BUG-510: the month/year selects start on today's month, not on the month being shown
-  it.fails("starts on the month it was opened on", () => {
+  it("starts on the month it was opened on", () => {
     renderWithProviders(
       <RangePicker mode="month" range={{ start: "2026-01-01", end: "2026-01-31" }} onApply={vi.fn()} />
     );

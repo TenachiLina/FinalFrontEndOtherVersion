@@ -54,7 +54,7 @@ describe("FormInModal", () => {
   });
 
   // BUG-708: Button has no type prop, so "Close" inside the modal's <form> is a submit button and submits (reloads) the page
-  it.fails("doesn't submit the form when Close is clicked", async () => {
+  it("doesn't submit the form when Close is clicked", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     render(<FormInModal />);
     await userEvent.click(screen.getByRole("button", { name: "Open Modal" }));
@@ -96,7 +96,7 @@ describe("ModalBasedAlerts", () => {
   });
 
   // BUG-709: the "Okay, Got It" buttons of the alert modals have no click handler, so they don't close the modal
-  it.fails("closes the alert with Okay, Got It", async () => {
+  it("closes the alert with Okay, Got It", async () => {
     render(<ModalBasedAlerts />);
     await userEvent.click(screen.getByRole("button", { name: "Success Alert" }));
     const modal = screen.getByRole("heading", { name: "Well Done!" }).parentElement!;
