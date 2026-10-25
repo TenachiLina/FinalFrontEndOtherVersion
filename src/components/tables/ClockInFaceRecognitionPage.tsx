@@ -2179,6 +2179,59 @@ const [deviceEntries, setDeviceEntries] =
 
 
   /* --------------------------------------------------------------------------
+     EXPECTED TIMES
+  -------------------------------------------------------------------------- */
+
+  /**
+   * Start / end the delay and overtime are measured
+   * against: the planned task's times when there is
+   * one, otherwise the shift's. Used by the table and
+   * by every save, so the saved values match the screen.
+   */
+  const expectedTimesFor =
+    useCallback(
+      (
+        empNum: number,
+        shiftId: string
+      ) => {
+        const mongoId =
+          employees.find(
+            (e) =>
+              e.num === empNum
+          )?.mongoId;
+
+        const st =
+          specialTimes[
+            `${mongoId}-${shiftId}`
+          ];
+
+        const shift =
+          shifts.find(
+            (s) =>
+              s.shift_id ===
+              shiftId
+          );
+
+        return {
+          start:
+            st?.clockIn ??
+            shift?.start_time ??
+            "",
+
+          end:
+            st?.clockOut ??
+            shift?.end_time ??
+            "",
+        };
+      },
+      [
+        employees,
+        specialTimes,
+        shifts,
+      ]
+    );
+
+  /* --------------------------------------------------------------------------
      MANUAL SAVE
   -------------------------------------------------------------------------- */
 
@@ -2192,11 +2245,10 @@ const [deviceEntries, setDeviceEntries] =
         const key =
           `${empNum}-${shiftId}`;
 
-        const shift =
-          shifts.find(
-            (s) =>
-              s.shift_id ===
-              shiftId
+        const expected =
+          expectedTimesFor(
+            empNum,
+            shiftId
           );
 
         clearTimeout(
@@ -2233,10 +2285,8 @@ const [deviceEntries, setDeviceEntries] =
                     empNum,
                     shiftId,
                     operationalDate,
-                    shift?.start_time ??
-                      "",
-                    shift?.end_time ??
-                      ""
+                    expected.start,
+                    expected.end
                   );
 
                 const saved =
@@ -2301,7 +2351,7 @@ const [deviceEntries, setDeviceEntries] =
       },
       [
         operationalDate,
-        shifts,
+        expectedTimesFor,
       ]
     );
 
@@ -2582,14 +2632,20 @@ const [deviceEntries, setDeviceEntries] =
                 existing.penalty ?? 0,
             };
 
+          const expected =
+            expectedTimesFor(
+              emp.num,
+              shiftId
+            );
+
           const payload =
             entryToPayload(
               machineEntry,
               emp.num,
               shiftId,
               operationalDate,
-              shift.start_time,
-              shift.end_time
+              expected.start,
+              expected.end
             );
 
           console.log(
@@ -2816,6 +2872,7 @@ const [deviceEntries, setDeviceEntries] =
     shifts,
     assignedShifts,
     currentTab,
+    expectedTimesFor,
   ]);
 
   /* --------------------------------------------------------------------------
@@ -3738,20 +3795,13 @@ const confirmAbsence = () => {
                             Number(item.empNumber) === Number(entry.backupEmpNum)
                         );
 
-                    const st =
-                      specialTimes[
-                        `${emp.mongoId}-${currentTab}`
-                      ];
-
-                    const effectiveStart =
-                      st?.clockIn ??
-                      currentShift?.start_time ??
-                      "";
-
-                    const effectiveEnd =
-                      st?.clockOut ??
-                      currentShift?.end_time ??
-                      "";
+                    const {
+                      start: effectiveStart,
+                      end: effectiveEnd,
+                    } = expectedTimesFor(
+                      emp.num,
+                      currentTab ?? ""
+                    );
 
                     const lateMin =
                       calcLate(
