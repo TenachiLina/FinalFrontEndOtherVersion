@@ -253,6 +253,68 @@ function getLatestOvernightEnd(
 }
 
 /**
+ * How long after an overnight shift ends a punch
+ * still counts as its (late) clock-out.
+ */
+const OVERNIGHT_CLOCK_OUT_GRACE = 4 * 60;
+
+/**
+ * Early arrivals for the next shift must not be
+ * taken as last night's clock-out.
+ */
+const EARLY_ARRIVAL_MARGIN = 60;
+
+/**
+ * Minute of the morning up to which punches still
+ * belong to the previous night's shift.
+ *
+ * Example:
+ *
+ * Shifts 16:00 -> 02:00 and 08:00 -> 17:00
+ *
+ * returns 360 (06:00): 4 hours after 02:00,
+ * which is before 07:00 (one hour before 08:00).
+ */
+function getOvernightCutoff(
+  shifts: Shift[]
+): number | null {
+  const overnightEnd =
+    getLatestOvernightEnd(
+      shifts
+    );
+
+  if (overnightEnd === null) {
+    return null;
+  }
+
+  const laterStarts = shifts
+    .map((shift) =>
+      timeToMinutes(
+        shift.start_time
+      )
+    )
+    .filter(
+      (start) =>
+        start > overnightEnd
+    );
+
+  const nextStart =
+    laterStarts.length
+      ? Math.min(...laterStarts)
+      : Infinity;
+
+  return Math.max(
+    overnightEnd,
+    Math.min(
+      overnightEnd +
+        OVERNIGHT_CLOCK_OUT_GRACE,
+      nextStart -
+        EARLY_ARRIVAL_MARGIN
+    )
+  );
+}
+
+/**
  * Determine the current operational attendance date.
  *
  * Example:
@@ -333,12 +395,12 @@ function isPunchInsideOperationalDay(
     return false;
   }
 
-  const overnightEnd =
-    getLatestOvernightEnd(
+  const cutoff =
+    getOvernightCutoff(
       shifts
     );
 
-  if (overnightEnd === null) {
+  if (cutoff === null) {
     return (
       parsed.date ===
       operationDate
@@ -352,7 +414,7 @@ function isPunchInsideOperationalDay(
     );
 
   /*
-   * Early-morning punches up to the overnight end
+   * Early-morning punches up to the cutoff
    * belong to the previous operation day, the same
    * window that is kept on the next date below.
    */
@@ -362,7 +424,7 @@ function isPunchInsideOperationalDay(
   ) {
     return (
       parsed.minutes >
-      overnightEnd
+      cutoff
     );
   }
 
@@ -372,7 +434,7 @@ function isPunchInsideOperationalDay(
   ) {
     return (
       parsed.minutes <=
-      overnightEnd
+      cutoff
     );
   }
 
