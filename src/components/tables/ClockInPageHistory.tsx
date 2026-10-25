@@ -120,6 +120,22 @@ function formatDateForInput(date: Date) {
   )}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
+/**
+ * A shift's start or end ("HH:MM"). GET /shifts sends startTime/endTime;
+ * start_time/end_time are still read for older data.
+ */
+function shiftTime(
+  shift: { startTime?: string; endTime?: string; start_time?: string; end_time?: string },
+  which: "start" | "end"
+) {
+  const value =
+    which === "start"
+      ? shift?.startTime ?? shift?.start_time
+      : shift?.endTime ?? shift?.end_time;
+
+  return String(value ?? "00:00").slice(0, 5);
+}
+
 export default function ClockInPageHistory() {
   const today = new Date();
 
@@ -836,13 +852,9 @@ const shiftId = shift
   ? String(shift._id ?? shift.shift_id)
   : null;
 
-const shiftStart = shift
-  ? String(shift.start_time ?? "00:00").slice(0, 5)
-  : "00:00";
+const shiftStart = shift ? shiftTime(shift, "start") : "00:00";
 
-const shiftEnd = shift
-  ? String(shift.end_time ?? "00:00").slice(0, 5)
-  : "00:00";
+const shiftEnd = shift ? shiftTime(shift, "end") : "00:00";
 
 // L'employé peut travailler même sans planning ni shift.
 // Dans ce cas, on conservera le retard et l'overtime à 0.
@@ -1242,13 +1254,9 @@ const timestamp = new Date(
       ? String(shift._id ?? shift.shift_id)
       : null;
 
-    const shiftStart = shift
-      ? String(shift.start_time ?? "00:00").slice(0, 5)
-      : "00:00";
+    const shiftStart = shift ? shiftTime(shift, "start") : "00:00";
 
-    const shiftEnd = shift
-      ? String(shift.end_time ?? "00:00").slice(0, 5)
-      : "00:00";
+    const shiftEnd = shift ? shiftTime(shift, "end") : "00:00";
 
     // 7. Recalculate work hours, including overnight shifts.
     let workMinutes = 0;
