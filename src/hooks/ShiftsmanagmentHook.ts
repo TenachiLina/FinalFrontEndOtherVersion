@@ -1,5 +1,5 @@
 // Place at: src/hooks/useShiftsManagement.ts
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useModal } from "@/hooks/useModal";
 import { API_BASE_URL } from "@/lib/config";
 import { ensureOk, friendlyError } from "@/lib/errors";
@@ -58,13 +58,22 @@ export const useShiftsManagement = () => {
   const [pendingDelete, setPendingDelete] = useState<{ shift: ManagedShift; usageCount?: number } | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // Each call gets an id; a slow answer for the tab left behind is ignored
+  const shiftsReq = useRef(0);
   const fetchShifts = useCallback((targetView: ShiftView) => {
+    const reqId = ++shiftsReq.current;
     setLoading(true);
     setError(null);
     apiFetch<ManagedShift[]>(`/shifts?status=${targetView}`)
-      .then((data) => setShifts(sortShifts(data)))
-      .catch((e) => setError(friendlyError(e, "Couldn't load the shifts")))
-      .finally(() => setLoading(false));
+      .then((data) => {
+        if (reqId === shiftsReq.current) setShifts(sortShifts(data));
+      })
+      .catch((e) => {
+        if (reqId === shiftsReq.current) setError(friendlyError(e, "Couldn't load the shifts"));
+      })
+      .finally(() => {
+        if (reqId === shiftsReq.current) setLoading(false);
+      });
   }, []);
 
   useEffect(() => {
@@ -178,13 +187,19 @@ export const useShiftsManagement = () => {
         setShifts((prev) => prev.filter((s) => s._id !== pendingDelete.shift._id));
         setPendingDelete(null);
       } catch (e) {
-        const message = String(e);
+        // apiFetch throws `${status} ${body}`
+        const message = e instanceof Error ? e.message : String(e);
         if (message.startsWith("409")) {
           // Backend returned a usage count — surface it and let the manager confirm a forced delete.
-          const match = message.match(/"usageCount":(\d+)/);
-          setPendingDelete((prev) => (prev ? { ...prev, usageCount: match ? Number(match[1]) : 0 } : prev));
+          let usageCount = 0;
+          try {
+            usageCount = Number(JSON.parse(message.slice(4)).usageCount) || 0;
+          } catch {
+            /* no JSON body: count unknown */
+          }
+          setPendingDelete((prev) => (prev ? { ...prev, usageCount } : prev));
         } else {
-          setError(t("Could not delete this shift.") + " " + message);
+          setError(t("Could not delete this shift.") + " " + friendlyError(e));
           setPendingDelete(null);
         }
       } finally {
