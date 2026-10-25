@@ -23,6 +23,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
   });
   await ensureOk(res);
+  // A delete may be confirmed with "204 No Content": nothing to read
+  if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
 }
 

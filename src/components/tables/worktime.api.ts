@@ -78,6 +78,11 @@ async function request<T>(
     );
   }
 
+  // A delete may be confirmed with "204 No Content": nothing to read
+  if (res.status === 204) {
+    return undefined as T;
+  }
+
   if (!text.trim()) {
     throw new Error(
       `[worktime] ${res.status} - Empty response from ${path}`
