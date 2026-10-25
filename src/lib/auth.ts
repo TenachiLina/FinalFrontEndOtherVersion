@@ -409,6 +409,24 @@ export async function serverLogout() {
   clearSession();
 }
 
+/**
+ * The file name from a Content-Disposition header. Only filename*=UTF-8''...
+ * is percent-encoded (and preferred when both are sent); a plain filename is
+ * used as is, so "100% sales.xlsx" is not decoded (that would throw).
+ */
+function filenameFrom(disposition: string, fallbackName: string): string {
+  const encoded = /filename\*\s*=\s*(?:UTF-8)?''([^;]+)/i.exec(disposition);
+  if (encoded) {
+    try {
+      return decodeURIComponent(encoded[1].trim());
+    } catch {
+      /* badly encoded: try the plain name */
+    }
+  }
+  const plain = /filename\s*=\s*"?([^";]+)"?/i.exec(disposition);
+  return plain ? plain[1] : fallbackName;
+}
+
 /** Downloads a file from a protected backend endpoint (exports). */
 export async function downloadFile(url: string, fallbackName: string) {
   const res = await fetch(url);
@@ -422,9 +440,7 @@ export async function downloadFile(url: string, fallbackName: string) {
     }
     throw new Error(message);
   }
-  const disposition = res.headers.get("Content-Disposition") ?? "";
-  const match = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disposition);
-  const filename = match ? decodeURIComponent(match[1]) : fallbackName;
+  const filename = filenameFrom(res.headers.get("Content-Disposition") ?? "", fallbackName);
 
   const blobUrl = URL.createObjectURL(await res.blob());
   const a = document.createElement("a");
