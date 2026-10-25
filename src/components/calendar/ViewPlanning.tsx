@@ -193,11 +193,11 @@ const ViewCalender: React.FC = () => {
                   </div>
                   <div className="ms-auto flex min-w-0 flex-1 items-center justify-end gap-1">
                     {/* Date - LEFT */}
-                    {/* <div className="shrink-0">
+                    <div className="shrink-0">
                       <span className="text-sm font-medium text-gray-800 dark:text-white whitespace-nowrap">
                         {formattedDate}
                       </span>
-                    </div> */}
+                    </div>
                    
                     {/* Export Buttons - RIGHT */}
                     <div className="ms-auto flex shrink-0 items-center gap-2">

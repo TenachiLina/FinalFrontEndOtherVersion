@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useModal } from "@/hooks/useModal";
 import { Cell, GridData, TaskRecord, ShiftRecord, EmployeeRecord, PlanningRecord } from "../components/calendar/types";
 import * as XLSX from 'xlsx';
@@ -40,9 +40,14 @@ export const useViewPlanning = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [calendarMonth, setCalendarMonth] = useState(new Date());
 
-  const goToToday = () => setCurrentDate(new Date());
-  const goPrev = () => setCurrentDate((d) => { const n = new Date(d); n.setDate(d.getDate() - 1); return n; });
-  const goNext = () => setCurrentDate((d) => { const n = new Date(d); n.setDate(d.getDate() + 1); return n; });
+  // The mini calendar follows the selected day, so it stays visible
+  const selectDay = (d: Date) => {
+    setCurrentDate(d);
+    setCalendarMonth(d);
+  };
+  const goToToday = () => selectDay(new Date());
+  const goPrev = () => { const n = new Date(currentDate); n.setDate(currentDate.getDate() - 1); selectDay(n); };
+  const goNext = () => { const n = new Date(currentDate); n.setDate(currentDate.getDate() + 1); selectDay(n); };
 
   const formattedDate = currentDate.toLocaleDateString("en-CA", {
     month: "long", day: "numeric", year: "numeric",
@@ -102,13 +107,18 @@ export const useViewPlanning = () => {
   }, []);
 
   // ── Fetch planning ───────────────────────────────────────────────
+  // Each call gets an id; only the answer for the day selected last writes the grid
+  const planningReq = useRef(0);
   const fetchPlanning = useCallback(async (taskRecords: TaskRecord[], shiftRecords: ShiftRecord[]) => {
+    const reqId = ++planningReq.current;
     setLoading(true);
     setError(null);
     try {
       const data = await apiFetch<PlanningRecord[]>("/planning");
+      if (reqId !== planningReq.current) return; // outdated response → ignore
       console.log("📈📈📈📈Fetched planning data:", data);
-      const currentDateStr = currentDate.toLocaleDateString('en-CA', { timeZone: 'Africa/Algiers' });
+      // The day buttons hold local dates: build the key from the local calendar date
+      const currentDateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, "0")}-${String(currentDate.getDate()).padStart(2, "0")}`;
 
       const filteredData = data.filter((item) => {
         const itemDateStr = new Date(item.planDate).toISOString().split('T')[0];
@@ -151,10 +161,11 @@ export const useViewPlanning = () => {
 
       setGrid(newGrid);
     } catch (err) {
+      if (reqId !== planningReq.current) return;
       console.error("Error fetching planning:", err);
       setError(friendlyError(err, "Couldn't load the planning"));
     } finally {
-      setLoading(false);
+      if (reqId === planningReq.current) setLoading(false);
     }
   }, [currentDate]);
 
