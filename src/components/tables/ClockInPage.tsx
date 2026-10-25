@@ -372,6 +372,15 @@ useEffect(() => {
     };
   };
   // ── Auto-save ─────────────────────────────────────────────────────────────
+  // Records a successful save on the page and in the browser's copy of that day,
+  // so a reload doesn't take the saved entry for an unsaved change
+  const markSaved = (date: string, k: string, workTimeId: string) => {
+    setEntries((prev) => {
+      const next = { ...prev, [k]: { ...prev[k], workTimeId, _saving: false } };
+      saveEntriesToStorage(date, next);
+      return next;
+    });
+  };
   const scheduleSave = useCallback((empNum: number, shiftId: string, updatedEntry: EmployeeTimeEntry) => {
     const k = `${empNum}-${shiftId}`;
     const { start, end } = effectiveTimes(empNum, shiftId);
@@ -388,7 +397,7 @@ useEffect(() => {
   end
 );
         const saved = await upsertWorktime(payload, updatedEntry.workTimeId ?? null, updatedEntry._auditAs, PER_SHIFT);
-        setEntries((prev) => ({ ...prev, [k]: { ...prev[k], workTimeId: saved._id, _saving: false } }));
+        markSaved(selectedDate, k, saved._id);
       } catch (e) {
         setApiError(friendlyError(e, `Couldn't save the times for employee ${empNum}`));
         setEntries((prev) => ({ ...prev, [k]: { ...prev[k], _saving: false, _dirty: true } }));
