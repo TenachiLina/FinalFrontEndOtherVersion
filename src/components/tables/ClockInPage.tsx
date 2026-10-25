@@ -149,6 +149,8 @@ export default function AttendancePage({
 }: AttendancePageProps) {
 
   const [selectedDate, setSelectedDate] = useState(currentDate);
+  // Read by saves that finish after a date change
+  const selectedDateRef = useRef(currentDate);
 
   // ── DB-loaded state ───────────────────────────────────────
   const [shifts, setShifts] = useState<Shift[]>([]);
@@ -169,6 +171,7 @@ export default function AttendancePage({
   const [specialTimes, setSpecialTimes] =
     useState<Record<string, { clockIn?: string; clockOut?: string }>>({});
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const pendingSaves = useRef<Record<string, () => void>>({});
  
   //Backup Employees states: 
   const [absenceModal, setAbsenceModal] = useState<{
@@ -372,29 +375,51 @@ useEffect(() => {
     };
   };
   // ── Auto-save ─────────────────────────────────────────────────────────────
+  // Records a successful save on the page and in the browser's copy of that day,
+  // so a reload doesn't take the saved entry for an unsaved change
+  const markSaved = (date: string, k: string, workTimeId: string) => {
+    if (selectedDateRef.current !== date) {
+      const stored = loadEntriesFromStorage(date);
+      if (stored[k]) {
+        saveEntriesToStorage(date, { ...stored, [k]: { ...stored[k], workTimeId, _saving: false, _dirty: false } });
+      }
+      return;
+    }
+    setEntries((prev) => {
+      const next = { ...prev, [k]: { ...prev[k], workTimeId, _saving: false } };
+      saveEntriesToStorage(date, next);
+      return next;
+    });
+  };
   const scheduleSave = useCallback((empNum: number, shiftId: string, updatedEntry: EmployeeTimeEntry) => {
     const k = `${empNum}-${shiftId}`;
+    const date = selectedDate;
     const { start, end } = effectiveTimes(empNum, shiftId);
-    clearTimeout(saveTimers.current[k]);
-    saveTimers.current[k] = setTimeout(async () => {
-      setEntries((prev) => ({ ...prev, [k]: { ...prev[k], _saving: true, _dirty: false } }));
+    const save = async () => {
+      delete pendingSaves.current[k];
+      // After a date change the save still goes to its own day, but must not touch the new day's rows
+      const onPage = () => selectedDateRef.current === date;
+      if (onPage()) setEntries((prev) => ({ ...prev, [k]: { ...prev[k], _saving: true, _dirty: false } }));
       try {
-        const payload = entryToPayload(
-  updatedEntry,
-  empNum,
-  shiftId,
-  selectedDate,
-  start,
-  end
-);
+        const payload = entryToPayload(updatedEntry, empNum, shiftId, date, start, end);
         const saved = await upsertWorktime(payload, updatedEntry.workTimeId ?? null, updatedEntry._auditAs, PER_SHIFT);
-        setEntries((prev) => ({ ...prev, [k]: { ...prev[k], workTimeId: saved._id, _saving: false } }));
+        markSaved(date, k, saved._id);
       } catch (e) {
         setApiError(friendlyError(e, `Couldn't save the times for employee ${empNum}`));
-        setEntries((prev) => ({ ...prev, [k]: { ...prev[k], _saving: false, _dirty: true } }));
+        if (onPage()) setEntries((prev) => ({ ...prev, [k]: { ...prev[k], _saving: false, _dirty: true } }));
       }
-    }, 800);
+    };
+    clearTimeout(saveTimers.current[k]);
+    pendingSaves.current[k] = save;
+    saveTimers.current[k] = setTimeout(save, 800);
   }, [selectedDate, shifts, employees, specialTimes]);
+  // Sends the saves still waiting for their timer now (before the date changes)
+  const flushPendingSaves = () => {
+    Object.entries(pendingSaves.current).forEach(([k, save]) => {
+      clearTimeout(saveTimers.current[k]);
+      save();
+    });
+  };
   const updateEntry = useCallback((empNum: number, patch: Partial<EmployeeTimeEntry>) => {
   if (!currentTab) return;
   const k = entryKey(empNum);
@@ -402,7 +427,7 @@ useEffect(() => {
     const updated = { ...(prev[k] ?? getEntry(empNum)), _auditAs: undefined, ...patch, _dirty: true };
     scheduleSave(empNum, currentTab, updated);
     const next = { ...prev, [k]: updated };
-    saveEntriesToStorage(currentDate, next); // ← save to localStorage
+    saveEntriesToStorage(selectedDate, next); // ← save to localStorage
     return next;
   });
 }, [currentTab, selectedDate, scheduleSave]);
@@ -575,13 +600,44 @@ useEffect(() => {
       danger: true,
     });
     if (!ok) return;
-    setEntries((prev) => {
-      const reset: Record<string, EmployeeTimeEntry> = {};
-      Object.keys(prev).forEach((k) => {
-        reset[k] = { ...prev[k], clockIn: "00:00", clockOut: "00:00", absent: false, absentComment: "", consomation: 0, penalty: 0, _dirty: false };
-      });
-      return reset;
+    // A save still waiting for its timer would put the old times back
+    Object.keys(pendingSaves.current).forEach((k) => {
+      clearTimeout(saveTimers.current[k]);
+      delete pendingSaves.current[k];
     });
+    const date = selectedDate;
+    const reset: Record<string, EmployeeTimeEntry> = {};
+    Object.keys(entries).forEach((k) => {
+      reset[k] = { ...entries[k], clockIn: "00:00", clockOut: "00:00", absent: false, absentComment: "", consomation: 0, penalty: 0, _dirty: false, _saving: !!entries[k].workTimeId };
+    });
+    setEntries(reset);
+    saveEntriesToStorage(date, reset);
+
+    // Clear the server's copy too: payroll reads it, and it comes back on reload
+    await Promise.all(
+      Object.keys(reset).filter((k) => reset[k].workTimeId).map(async (k) => {
+        // Employee number comes before the first hyphen; the shift ID may contain hyphens
+        const separatorIndex = k.indexOf("-");
+        const empNum = Number(k.slice(0, separatorIndex));
+        const shiftId = k.slice(separatorIndex + 1);
+        const { start, end } = effectiveTimes(empNum, shiftId);
+        try {
+          const saved = await upsertWorktime(
+            // "00:00" explicitly: a missing time would leave the server's time as it is
+            { ...entryToPayload(reset[k], empNum, shiftId, date, start, end), clock_in: "00:00", clock_out: "00:00" },
+            reset[k].workTimeId,
+            "edit",
+            PER_SHIFT
+          );
+          markSaved(date, k, saved._id);
+        } catch (e) {
+          setApiError(friendlyError(e, `Couldn't save the times for employee ${empNum}`));
+          if (selectedDateRef.current === date) {
+            setEntries((prev) => ({ ...prev, [k]: { ...prev[k], _saving: false, _dirty: true } }));
+          }
+        }
+      })
+    );
   };
   
 const getAttendanceRows = (
@@ -957,6 +1013,9 @@ const getAttendanceRows = (
     <DateInput
       value={selectedDate}
       onChange={(v) => {
+        // Pending saves go out now, for the day they were made on
+        selectedDateRef.current = v;
+        flushPendingSaves();
         setSelectedDate(v);
         setEntries({});
         setCurrentTab(null);
