@@ -272,7 +272,7 @@ export default function KioskView() {
         />
 
         {loadError && <LoadError className="mb-6" message={loadError} onRetry={load} />}
-        {loadingList && <p className="text-gray-500 dark:text-gray-400">Loading…</p>}
+        {loadingList && <p className="text-gray-500 dark:text-gray-400">{t("Loading…")}</p>}
         {!loadingList && !loadError && filtered.length === 0 && (
           <p className="text-gray-500 dark:text-gray-400">
             {employees.length === 0 ? t("No employees yet. An admin can add them.") : t("No one matches this search.")}
