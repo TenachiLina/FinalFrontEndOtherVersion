@@ -118,6 +118,8 @@ const employeeRecordToEmployee = (
 
 // ─── localStorage persistence ─────────────────────────────────────────────────
 const LS_KEY = (date: string) => `worktime_${date}`;
+// This page keeps one record per employee AND shift: a save must never land on another shift's record
+const PER_SHIFT = { perShift: true };
 function saveEntriesToStorage(date: string, entries: Record<string, EmployeeTimeEntry>) {
   try {
     localStorage.setItem(LS_KEY(date), JSON.stringify(entries));
@@ -371,7 +373,7 @@ useEffect(() => {
   shift?.start_time ?? "",
   shift?.end_time ?? ""
 );
-        const saved = await upsertWorktime(payload, updatedEntry.workTimeId ?? null, updatedEntry._auditAs);
+        const saved = await upsertWorktime(payload, updatedEntry.workTimeId ?? null, updatedEntry._auditAs, PER_SHIFT);
         setEntries((prev) => ({ ...prev, [k]: { ...prev[k], workTimeId: saved._id, _saving: false } }));
       } catch (e) {
         setApiError(friendlyError(e, `Couldn't save the times for employee ${empNum}`));
@@ -430,7 +432,9 @@ useEffect(() => {
             absent: false,
             backup_emp_id: null,
           },
-          getEntry(emp.num).workTimeId
+          getEntry(emp.num).workTimeId,
+          undefined,
+          PER_SHIFT
         ).catch((error) => {
           console.error("Failed to clear saved backup:", error);
           setApiError("Could not clear the saved backup assignment.");
@@ -513,7 +517,9 @@ useEffect(() => {
         clock_out: "00:00",
         backup_emp_id: backup.empNumber,
       },
-      previousEntry.workTimeId
+      previousEntry.workTimeId,
+      undefined,
+      PER_SHIFT
     );
 
     // Update the attendance entry after the API succeeds.
