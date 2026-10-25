@@ -66,7 +66,8 @@ const formatMin    = (n: number) => n <= 0 ? "00:00" : `${Math.floor(n/60).toStr
 const calcHours    = (i: string, o: string) => { if (i==="00:00"||o==="00:00") return "00:00"; let d=toMinutes(o)-toMinutes(i); if(d<0) d+=1440; return formatMin(d); };
 // A shift that ends before it starts (22:00–06:00, 18:00–00:00) ends the next day
 const isOvernight  = (s: string, e: string) => !!s && !!e && toMinutes(e.slice(0,5)) < toMinutes(s.slice(0,5));
-const calcLate     = (i: string, s: string) => { if (i==="00:00"||!s) return 0; const l=toMinutes(i)-toMinutes(s.slice(0,5)); return l>0?l:0; };
+// On an overnight shift, a clock-in after midnight (before the shift's end) belongs to the next day
+const calcLate     = (i: string, s: string, e: string) => { if (i==="00:00"||!s) return 0; let im=toMinutes(i); const sm=toMinutes(s.slice(0,5)); if(isOvernight(s,e)&&im<sm&&im<=toMinutes(e.slice(0,5)))im+=1440; const l=im-sm; return l>0?l:0; };
 // On an overnight shift, the end and a clock-out earlier than the start are on the next day
 const calcOvertime = (o: string, s: string, e: string) => { if(o==="00:00"||!e) return 0; let em=toMinutes(e.slice(0,5)),om=toMinutes(o); if(isOvernight(s,e)){ em+=1440; if(om<toMinutes(s.slice(0,5)))om+=1440; } const ot=om-em; return ot>0?ot:0; };
 const nowTime      = () => { const d=new Date(); return `${d.getHours().toString().padStart(2,"0")}:${d.getMinutes().toString().padStart(2,"0")}`; };
@@ -93,7 +94,7 @@ function entryToPayload(
   shiftEnd: string,
 ): WorktimePayload {
   const hours = calcHours(entry.clockIn, entry.clockOut);
-  const late  = calcLate(entry.clockIn, shiftStart);
+  const late  = calcLate(entry.clockIn, shiftStart, shiftEnd);
   const ot    = calcOvertime(entry.clockOut, shiftStart, shiftEnd);
   return {
     emp_id:           empNum,
@@ -1035,7 +1036,7 @@ const getAttendanceRows = (
                     const effectiveEnd =
                       st?.clockOut ?? currentShift?.end_time ?? "";
 
-                    const lateMin = calcLate(entry.clockIn, effectiveStart);
+                    const lateMin = calcLate(entry.clockIn, effectiveStart, effectiveEnd);
                     const otMin = calcOvertime(entry.clockOut, effectiveStart, effectiveEnd);
                     const hours = calcHours(entry.clockIn, entry.clockOut);
 
