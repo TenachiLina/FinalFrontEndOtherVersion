@@ -120,6 +120,38 @@ function formatDateForInput(date: Date) {
   )}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
+// Punches are shown in Algerian time. Algeria is UTC+1 all year (no
+// daylight saving), so a time typed on this page is read in the same zone.
+const ALGIERS_OFFSET = "+01:00";
+
+/** The Algerian date (YYYY-MM-DD) of a punch: the day the table shows it on. */
+function algiersDate(timestamp: string) {
+  const d = new Date(timestamp);
+
+  if (Number.isNaN(d.getTime())) {
+    return timestamp.substring(0, 10);
+  }
+
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Africa/Algiers",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+}
+
+/** The ISO timestamp of `hhmm` (Algerian time) on the Algerian day `date`. */
+function algiersTimestamp(date: string, hhmm: string) {
+  return new Date(`${date}T${hhmm}:00${ALGIERS_OFFSET}`).toISOString();
+}
+
+/** `date` (YYYY-MM-DD) moved by `days`. */
+function addDays(date: string, days: number) {
+  const d = new Date(`${date}T00:00:00.000Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().substring(0, 10);
+}
+
 /**
  * A shift's start or end ("HH:MM"). GET /shifts sends startTime/endTime;
  * start_time/end_time are still read for older data.
@@ -1079,16 +1111,29 @@ const saveEditedPunch = async () => {
     return;
   }
 
+  // The work day of the row (a clock-out after midnight belongs to the day
+  // of its clock-in)
   const workDate =
-    editingPunch.workDate ?? rawLog.timestamp.substring(0, 10);
+    editingPunch.workDate ?? algiersDate(rawLog.timestamp);
 
   const employeeNumber = normalizeDeviceId(
     editingPunch.deviceUserId ?? rawLog.deviceUserId
   );
 
-const timestamp = new Date(
-  `${workDate}T${value}:00`
-).toISOString();
+// The time is picked in Algerian time, as the table shows it. An edited
+// punch stays on its own day; a missing clock-out earlier than its
+// clock-in is after midnight, on the next day.
+let timestamp =
+  mode === "edit"
+    ? algiersTimestamp(algiersDate(rawLog.timestamp), value)
+    : algiersTimestamp(workDate, value);
+
+if (
+  mode === "add-clock-out" &&
+  new Date(timestamp).getTime() < new Date(rawLog.timestamp).getTime()
+) {
+  timestamp = algiersTimestamp(addDays(workDate, 1), value);
+}
   try {
     setSavingPunch(true);
     setError(null);
@@ -1717,10 +1762,12 @@ onClick={() => {
 
         if (!rawLog?._id) return;
 
+        // Start from the Algerian time shown in the table, not the UTC time
         setEditingPunch({
   logId: rawLog._id!,
-  value: rawLog.timestamp.substring(11, 16),
+  value: formatTime(rawLog.timestamp),
   mode: "edit",
+  workDate: log.date,
 });
       }}
       title={t("Tap to edit")}
@@ -1798,10 +1845,12 @@ onClick={() => {
           const rawLog = log.logs[1];
           if (!rawLog?._id) return;
 
+          // Start from the Algerian time shown in the table, not the UTC time
           setEditingPunch({
             logId: rawLog._id,
-            value: rawLog.timestamp.substring(11, 16),
+            value: formatTime(rawLog.timestamp),
             mode: "edit",
+            workDate: log.date,
           });
         }}
         title={t("Tap to edit")}
