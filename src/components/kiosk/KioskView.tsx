@@ -114,12 +114,17 @@ export default function KioskView() {
 
   const allowed = !!user && canOpen("/kiosk", user, company);
 
+  // A kiosk account can only open the kiosk, so when its company has clock-in
+  // switched off there is nowhere to send it (homePathFor is /kiosk itself):
+  // it gets a message and a Sign out button instead of a redirect loop.
+  const kioskSwitchedOff = !!user && !allowed && user.role === "employee";
+
   // Same rules as the rest of the app: login required, clock-in feature on
   useEffect(() => {
     if (loading) return;
     if (!user) router.replace("/signin?next=%2Fkiosk");
-    else if (!allowed) router.replace(homePathFor(user, company));
-  }, [loading, user, company, allowed, router]);
+    else if (!allowed && !kioskSwitchedOff) router.replace(homePathFor(user, company));
+  }, [loading, user, company, allowed, kioskSwitchedOff, router]);
 
   const load = useCallback(async () => {
     try {
@@ -190,6 +195,23 @@ export default function KioskView() {
       setBusy(false);
     }
   };
+
+  if (!loading && kioskSwitchedOff) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-4 text-center dark:bg-gray-900">
+        <p className="text-sm text-gray-600 dark:text-gray-300">
+          {t("The clock-in kiosk is switched off for this company.")}
+        </p>
+        <button
+          type="button"
+          onClick={logout}
+          className="rounded-lg px-3 py-2 text-sm text-gray-500 ring-1 ring-inset ring-gray-200 hover:bg-gray-50 dark:text-gray-400 dark:ring-gray-700 dark:hover:bg-white/5"
+        >
+          {t("Sign out")}
+        </button>
+      </div>
+    );
+  }
 
   if (loading || !allowed) {
     return (
