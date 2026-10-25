@@ -1975,29 +1975,10 @@ const [deviceEntries, setDeviceEntries] =
             return;
           }
 
-          console.log(
-            "================================="
-          );
 
-          console.log(
-            "OPERATIONAL ATTENDANCE DATE:",
-            operationalDate
-          );
 
-          console.log(
-            "CURRENT LOCAL DATE:",
-            getLocalDateString()
-          );
 
-          console.log(
-            "SHIFTS:",
-            shifts
-          );
 
-          console.log(
-            "DEVICE LOGS:",
-            logs
-          );
 
           /* ---------------------------------------------------------------
              MACHINE ENTRIES
@@ -2011,10 +1992,6 @@ const [deviceEntries, setDeviceEntries] =
               shifts
             );
 
-          console.log(
-            "MACHINE ENTRIES:",
-            machineEntries
-          );
 
           setDeviceLogs(
             logs
@@ -2349,7 +2326,8 @@ const [deviceEntries, setDeviceEntries] =
       clockOut: machine.clockOut,
       periods: machine.periods,
       workHours: machine.workHours,
-      _dirty: false,
+      // Keep the entry's own saved state: forcing it to false showed
+      // "✓ Saved" after a failed save for anyone with machine punches.
     };
   };
 
@@ -2591,10 +2569,6 @@ const [deviceEntries, setDeviceEntries] =
           }
 
           if (machine.clockIn === NO_PUNCH) {
-            console.log(
-              "⏭️ MACHINE SAVE SKIPPED - no clock-in:",
-              emp.empNumber
-            );
             continue;
           }
 
@@ -2602,10 +2576,6 @@ const [deviceEntries, setDeviceEntries] =
             assignedShifts[emp.num] ?? [];
 
           if (!employeeShifts.length) {
-            console.log(
-              "⏭️ MACHINE SAVE SKIPPED - employee has no assigned shift:",
-              emp.empNumber
-            );
             continue;
           }
 
@@ -2700,21 +2670,6 @@ const [deviceEntries, setDeviceEntries] =
           const saveKey =
             `${operationalDate}-${emp.empNumber}`;
 
-          console.log(
-            "🔍 MACHINE SAVE CHECK:",
-            {
-              employee:
-                emp.empNumber,
-              operationalDate,
-              signature,
-              lastSuccessfullySaved:
-                lastSavedMachineSignature.current[
-                  saveKey
-                ],
-              periods:
-                machine.periods,
-            }
-          );
 
           /*
            * The exact same machine state was already successfully
@@ -2728,14 +2683,6 @@ const [deviceEntries, setDeviceEntries] =
               saveKey
             ] === signature
           ) {
-            console.log(
-              "⏭️ MACHINE SAVE SKIPPED - exact machine state already saved:",
-              {
-                employee:
-                  emp.empNumber,
-                signature,
-              }
-            );
             continue;
           }
 
@@ -2748,10 +2695,6 @@ const [deviceEntries, setDeviceEntries] =
               signature
             )
           ) {
-            console.log(
-              "⏭️ MACHINE SAVE SKIPPED - request already in flight:",
-              signature
-            );
             continue;
           }
 
@@ -2824,51 +2767,6 @@ const [deviceEntries, setDeviceEntries] =
               expected.end
             );
 
-          console.log(
-            "===================================================="
-          );
-          console.log(
-            "💾 MACHINE ATTENDANCE SAVE"
-          );
-          console.log(
-            "Employee:",
-            emp.empNumber
-          );
-          console.log(
-            "Operational date:",
-            operationalDate
-          );
-          console.log(
-            "Shift ID:",
-            shiftId
-          );
-          console.log(
-            "Assigned shifts:",
-            employeeShifts
-          );
-          console.log(
-            "Machine periods:",
-            machine.periods
-          );
-          console.log(
-            "Daily clock IN:",
-            firstClockIn
-          );
-          console.log(
-            "Daily clock OUT:",
-            lastClockOut
-          );
-          console.log(
-            "Daily work hours:",
-            totalWorkHours
-          );
-          console.log(
-            "FINAL PAYLOAD SENT TO BACKEND:",
-            payload
-          );
-          console.log(
-            "===================================================="
-          );
 
           try {
             /*
@@ -2896,39 +2794,6 @@ const [deviceEntries, setDeviceEntries] =
                 "clock"
               );
 
-            console.log(
-              "===================================================="
-            );
-            console.log(
-              "✅ MACHINE ATTENDANCE BACKEND RESPONSE"
-            );
-            console.log(
-              "Employee:",
-              emp.empNumber
-            );
-            console.log(
-              "Returned Mongo ID:",
-              saved?._id
-            );
-            console.log(
-              "Returned clock_in:",
-              saved?.clock_in
-            );
-            console.log(
-              "Returned clock_out:",
-              saved?.clock_out
-            );
-            console.log(
-              "Returned work_hours:",
-              saved?.work_hours
-            );
-            console.log(
-              "FULL BACKEND RESPONSE:",
-              saved
-            );
-            console.log(
-              "===================================================="
-            );
 
             /*
              * Only mark this machine state as saved AFTER the
@@ -2938,13 +2803,6 @@ const [deviceEntries, setDeviceEntries] =
               saveKey
             ] = signature;
 
-            console.log(
-              "💾 MACHINE SIGNATURE MARKED AS SUCCESSFULLY SAVED:",
-              {
-                saveKey,
-                signature,
-              }
-            );
 
             if (cancelled) {
               return;
@@ -2978,28 +2836,6 @@ const [deviceEntries, setDeviceEntries] =
               }
             );
           } catch (error) {
-            console.error(
-              "===================================================="
-            );
-            console.error(
-              "❌ MACHINE ATTENDANCE SAVE FAILED"
-            );
-            console.error(
-              "Employee:",
-              emp.empNumber
-            );
-            console.error(
-              "Payload that failed:",
-              payload
-            );
-            console.error(
-              "Error:",
-              error
-            );
-            console.error(
-              "===================================================="
-            );
-
             /*
              * IMPORTANT:
              * Do NOT update lastSavedMachineSignature on failure.
@@ -3873,7 +3709,9 @@ const confirmAbsence = () => {
           TABLE
       ===================================================================== */}
 
-      {attendanceLoading ? (
+      {/* With no employees the attendance is never loaded: show the table's
+          "No employees found" message instead of loading for ever */}
+      {attendanceLoading && employees.length > 0 ? (
         <div className="p-6 text-center text-gray-500">
           {t("Loading attendance...")}
         </div>
