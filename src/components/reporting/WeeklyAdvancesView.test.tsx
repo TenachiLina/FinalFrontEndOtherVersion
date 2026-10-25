@@ -74,7 +74,7 @@ describe("WeeklyAdvancesView", () => {
   });
 
   it("says when nobody is found", async () => {
-    mockReportingApi({ ...WEEK, planning: [] });
+    mockReportingApi({ ...WEEK, planning: [], worktime: [] });
     renderWithProviders(<WeeklyAdvancesView />, { url: "/reporting/weekly-advances" });
     expect(await screen.findByText("No employees found")).toBeInTheDocument();
   });
@@ -133,12 +133,13 @@ describe("WeeklyAdvancesView", () => {
     const { user } = await renderView();
     const deletes = captureWrites("delete", "/advances/:id");
     await user.click(within(rowOf("Sara Bel")).getByRole("button", { name: "Undo" }));
+    await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Undo" }));
     await waitFor(() => expect(deletes.map((d) => d.url)).toEqual(["https://api.test/advances/adv-102"]));
     expect(within(rowOf("Sara Bel")).getByText("Not given")).toBeInTheDocument();
   });
 
   // BUG-508: deleting an advance (money already handed over) is a single click, with no confirmation
-  it.fails("asks for confirmation before undoing an advance", async () => {
+  it("asks for confirmation before undoing an advance", async () => {
     const { user } = await renderView();
     const deletes = captureWrites("delete", "/advances/:id");
     await user.click(within(rowOf("Sara Bel")).getByRole("button", { name: "Undo" }));
@@ -161,7 +162,7 @@ describe("WeeklyAdvancesView", () => {
   });
 
   // BUG-509: the totals row adds rounded hours as floats and shows the binary noise
-  it.fails("shows the total hours rounded", async () => {
+  it("shows the total hours rounded", async () => {
     await renderView({
       ...WEEK,
       worktime: [

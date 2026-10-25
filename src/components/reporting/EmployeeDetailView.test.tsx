@@ -93,7 +93,7 @@ describe("EmployeeDetailView — weekly advance tab", () => {
   });
 
   // BUG-514: `{r.absent && …}` renders the number 0, so every day worked shows "0" as absent
-  it.fails("leaves the Absent column empty on days worked", async () => {
+  it("leaves the Absent column empty on days worked", async () => {
     await renderView();
     expect(tableBody().map((cells) => cells[6])).toEqual(["", ""]);
   });
@@ -115,7 +115,7 @@ describe("EmployeeDetailView — weekly advance tab", () => {
   });
 
   // BUG-507: the week end is computed from a UTC-parsed date, so west of UTC the week is 6 days
-  it.fails("ends the picked week 6 days later in a time zone behind UTC", async () => {
+  it("ends the picked week 6 days later in a time zone behind UTC", async () => {
     process.env.TZ = "America/New_York"; // restored by fixTodayInEachTest
     const { user, requests } = await renderView();
     await user.click(screen.getByPlaceholderText("YYYY-MM-DD"));
@@ -151,7 +151,7 @@ describe("EmployeeDetailView — weekly advance tab", () => {
   });
 
   // BUG-504: the button stays active while the advance is being saved, so a double click gives it twice
-  it.fails("gives the advance only once on a double click", async () => {
+  it("gives the advance only once on a double click", async () => {
     const { user } = await renderView();
     const posts = captureWrites("post", "/advances", async () => {
       await delay(100);
@@ -166,7 +166,7 @@ describe("EmployeeDetailView — weekly advance tab", () => {
   });
 
   // BUG-513: typing in "Week starting" loads a range per keystroke and the answers overwrite what is being typed
-  it.fails("loads the week whose start date is typed", async () => {
+  it("loads the week whose start date is typed", async () => {
     const { user, requests } = await renderView();
     const field = screen.getByPlaceholderText("YYYY-MM-DD");
     await user.clear(field);

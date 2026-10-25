@@ -153,7 +153,7 @@ describe("ViewPlanning", () => {
     });
 
     // BUG-406: backups saved by the planning editor (backupEmpIds) are never shown in the view
-    it.fails("shows the backups saved with the planning", async () => {
+    it("shows the backups saved with the planning", async () => {
       backend([makePlanning({ empId: ali, backupEmpIds: [sara] })]);
       await renderView();
       expect(cell("Pizzaiolo", 0)).toHaveTextContent("Ali Ben (Backup: Sara Kaci)");
@@ -288,7 +288,7 @@ describe("ViewPlanning", () => {
     });
 
     // BUG-407: "Today" (and the day arrows) don't bring the mini calendar to the selected day's month
-    it.fails("brings the mini calendar back to today's month with the Today button", async () => {
+    it("brings the mini calendar back to today's month with the Today button", async () => {
       planningOnSeveralDays();
       const { user } = await renderView();
       await user.click(monthArrows("October 2026").next);

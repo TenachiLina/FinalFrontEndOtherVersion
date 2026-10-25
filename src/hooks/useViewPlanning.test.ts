@@ -194,7 +194,7 @@ describe("planning of the day", () => {
   });
 
   // BUG-401: a slow answer for the previous day overwrites the grid of the day now selected
-  it.fails("shows the selected day even when the previous day's answer arrives last", async () => {
+  it("shows the selected day even when the previous day's answer arrives last", async () => {
     let call = 0;
     backend();
     server.use(
@@ -217,7 +217,7 @@ describe("planning of the day", () => {
   });
 
   // BUG-402: in a time zone ahead of Algeria a picked day shows the previous day's planning
-  it.fails("shows the picked day's planning for a manager in Paris in summer", async () => {
+  it("shows the picked day's planning for a manager in Paris in summer", async () => {
     process.env.TZ = "Europe/Paris";
     vi.setSystemTime(new Date("2026-07-15T10:00:00+02:00"));
     backend({

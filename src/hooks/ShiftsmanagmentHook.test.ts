@@ -256,7 +256,7 @@ describe("permanent delete", () => {
   });
 
   // BUG-403: String(e) starts with "Error: ", so a 409 is never recognised as "shift in use"
-  it.fails("shows how often a shift in use is planned, then forces the delete", async () => {
+  it("shows how often a shift in use is planned, then forces the delete", async () => {
     server.use(
       http.delete(`${API}/shifts/:id`, async ({ request }) => {
         await remember(request);
@@ -275,7 +275,7 @@ describe("permanent delete", () => {
   });
 
   // BUG-403: String(e) starts with "Error: ", so a 409 is never recognised as "shift in use"
-  it.fails("counts 0 uses when a conflict gives no count", async () => {
+  it("counts 0 uses when a conflict gives no count", async () => {
     server.use(http.delete(`${API}/shifts/:id`, () => new HttpResponse("conflict", { status: 409 })));
     const { result } = await renderReady();
     act(() => result.current.requestDelete(morning));

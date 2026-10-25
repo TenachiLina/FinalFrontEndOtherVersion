@@ -114,7 +114,7 @@ describe("BonusesGiveView", () => {
   });
 
   // BUG-511: the totals row counts the listed employees but adds up everyone's bonuses
-  it.fails("totals only the employees listed", async () => {
+  it("totals only the employees listed", async () => {
     const { user } = await renderView();
     await user.type(screen.getByPlaceholderText("Search employee…"), "amine");
     expect(tableBody().at(-1)).toEqual(["Total", "2", "350.50 DA", ""]);
@@ -168,13 +168,14 @@ describe("BonusesHistoryView", () => {
     const { user } = await renderView();
     const deletes = captureWrites("delete", "/bonuses/:id");
     await user.click(within(rowOf(/Extra shift/)).getByRole("button", { name: "Revoke" }));
+    await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Revoke" }));
     expect(await screen.findByRole("status")).toHaveTextContent("Bonus removed.");
     expect(deletes.map((d) => d.url)).toEqual(["https://api.test/bonuses/b2"]);
     expect(tableBody().at(-1)).toEqual(["Total (2)", "750.00 DA", "", "", ""]);
   });
 
   // BUG-508: revoking a bonus is a single click, with no confirmation
-  it.fails("asks for confirmation before revoking", async () => {
+  it("asks for confirmation before revoking", async () => {
     const { user } = await renderView();
     const deletes = captureWrites("delete", "/bonuses/:id");
     await user.click(within(rowOf(/Extra shift/)).getByRole("button", { name: "Revoke" }));

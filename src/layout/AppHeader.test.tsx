@@ -76,7 +76,7 @@ describe("AppHeader on a phone", () => {
   });
 
   // BUG-713: the header's "more" (⋯) button on phones has no accessible name and no aria-expanded state
-  it.fails("labels the application menu button", () => {
+  it("labels the application menu button", () => {
     setWidth(500);
     renderHeader();
     const more = screen.getByRole("button", { name: /menu|more|options/i });

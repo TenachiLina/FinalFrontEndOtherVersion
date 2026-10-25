@@ -36,7 +36,7 @@ async function renderView(data: ReportingData = DATA) {
   const requests = mockReportingApi(data);
   slowWorktimeFor("2026-03-09", 40, data, requests);
   const view = renderWithProviders(<AttendanceView />, { url: "/reporting/attendance" });
-  await waitFor(() => expect(rangesRequested(requests, "/worktime")).toHaveLength(2));
+  await waitFor(() => expect(rangesRequested(requests, "/worktime")).toHaveLength(1)); // one load on open (BUG-515)
   await waitFor(() => expect(screen.queryByText("Loading…")).not.toBeInTheDocument());
   return { ...view, requests };
 }
@@ -89,7 +89,7 @@ describe("AttendanceView", () => {
   });
 
   // BUG-515: on open, the hook loads last Thursday-Wednesday while the page loads this week; the slower answer wins
-  it.fails("shows the week displayed in the picker even when the other request answers last", async () => {
+  it("shows the week displayed in the picker even when the other request answers last", async () => {
     const requests = mockReportingApi(DATA);
     slowWorktimeFor("2026-03-05", 150, DATA);
     renderWithProviders(<AttendanceView />, { url: "/reporting/attendance" });

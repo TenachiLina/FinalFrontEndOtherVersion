@@ -107,7 +107,7 @@ describe("MonthlyPayrollView", () => {
   });
 
   it("says when nobody is found", async () => {
-    mockReportingApi({ ...MARCH, planning: [] });
+    mockReportingApi({ ...MARCH, planning: [], worktime: [] });
     renderWithProviders(<MonthlyPayrollView />, { url: "/reporting/monthly-payroll" });
     expect(await screen.findByText("No employees found")).toBeInTheDocument();
     expect(pill("Total Net Payout")).toBe("0.00 DA");
@@ -137,7 +137,7 @@ describe("MonthlyPayrollView", () => {
   });
 
   // BUG-509: the totals row adds rounded hours as floats and shows the binary noise
-  it.fails("shows the total hours rounded", async () => {
+  it("shows the total hours rounded", async () => {
     await renderView({
       ...MARCH,
       worktime: [

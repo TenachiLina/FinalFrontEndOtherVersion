@@ -159,7 +159,7 @@ describe("useWeeklyAdvancesList", () => {
   });
 
   // BUG-502: when the planning can't be loaded, the list is empty
-  it.fails("still lists the employees who worked when the planning can't be loaded", async () => {
+  it("still lists the employees who worked when the planning can't be loaded", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     mockReportingApi(WEEK);
     failGet("/planning", 500);
@@ -169,7 +169,7 @@ describe("useWeeklyAdvancesList", () => {
   });
 
   // BUG-501: no guard against an older, slower response
-  it.fails("shows the last week chosen when an earlier request answers late", async () => {
+  it("shows the last week chosen when an earlier request answers late", async () => {
     const { result } = await renderLoaded();
     slowWorktimeFor("2026-03-02", 150, WEEK);
     let first!: Promise<void>;

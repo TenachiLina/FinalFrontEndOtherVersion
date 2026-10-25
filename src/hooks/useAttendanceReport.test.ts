@@ -118,7 +118,7 @@ describe("useAttendanceReport", () => {
   });
 
   // BUG-507: "YYYY-MM-DD" is parsed as UTC midnight, so west of UTC the week starts a day early
-  it.fails("starts the week on the chosen day in a time zone behind UTC", async () => {
+  it("starts the week on the chosen day in a time zone behind UTC", async () => {
     process.env.TZ = "America/New_York"; // restored by fixTodayInEachTest
     const requests = mockReportingApi(DATA);
     const { result } = renderHook(() => useAttendanceReport());

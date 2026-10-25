@@ -168,7 +168,7 @@ describe("useEmployeeReport — weekly advance", () => {
   });
 
   // BUG-505: a failed revoke is silent: the advance just reappears, with no message
-  it.fails("tells the user when the revoke fails", async () => {
+  it("tells the user when the revoke fails", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const { result } = await renderReport({ ...DATA, advances: [rawAdvance({ _id: "adv-week", emp_id: 101, date: "2026-03-09" })] });
     captureWrites("delete", "/advances/:id", () => HttpResponse.json({}, { status: 500 }));
@@ -179,7 +179,7 @@ describe("useEmployeeReport — weekly advance", () => {
   });
 
   // BUG-503: when consumption is higher than what was earned, the offer is negative and is sent as is
-  it.fails("never sends an advance of zero or less", async () => {
+  it("never sends an advance of zero or less", async () => {
     const { result } = await renderReport({
       employees: [rawEmployee(AMINE)],
       worktime: [rawRow({ emp_id: 101, work_date: "2026-03-09", work_hours: "08:00", consommation: 2000 })],

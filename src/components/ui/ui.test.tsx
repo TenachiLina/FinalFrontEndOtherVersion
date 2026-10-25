@@ -506,13 +506,13 @@ describe("Modal", () => {
   });
 
   // BUG-701: the Modal's close button is an unlabelled icon, so screen readers announce just "button"
-  it.fails("gives the close button an accessible name", () => {
+  it("gives the close button an accessible name", () => {
     render(<Harness />);
     expect(screen.getByRole("button", { name: /close/i })).toBeInTheDocument();
   });
 
   // BUG-702: the Modal is not exposed as a dialog (no role="dialog" / aria-modal)
-  it.fails("is announced as a modal dialog", () => {
+  it("is announced as a modal dialog", () => {
     render(<Harness />);
     expect(screen.getByRole("dialog")).toHaveAttribute("aria-modal", "true");
   });

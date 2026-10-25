@@ -106,7 +106,7 @@ describe("LanguageSwitcher", () => {
   });
 
   // BUG-710: the language menu ignores Escape, so keyboard users can't close it without picking a language
-  it.fails("closes on Escape", async () => {
+  it("closes on Escape", async () => {
     render(<LanguageSwitcher />);
     await userEvent.click(toggle());
     await userEvent.keyboard("{Escape}");
@@ -134,7 +134,7 @@ describe.each([
   });
 
   // BUG-711: the theme toggle buttons only contain icons and have no accessible name
-  it.fails("has an accessible name", () => {
+  it("has an accessible name", () => {
     render(
       <ThemeProvider>
         <Toggle />
@@ -206,7 +206,7 @@ describe("Tooltip", () => {
   });
 
   // BUG-712: Tooltip only reacts to mouse hover; keyboard users focusing the element never see the text
-  it.fails("shows the text when the element gets keyboard focus", async () => {
+  it("shows the text when the element gets keyboard focus", async () => {
     render(
       <Tooltip text="Starts at 08:00">
         <button>Shift</button>

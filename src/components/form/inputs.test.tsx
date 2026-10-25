@@ -338,14 +338,14 @@ describe("MultiSelect", () => {
   });
 
   // BUG-703: the chevron button toggles the list twice (its own onClick + the field's), so it never opens
-  it.fails("opens the list with the arrow button", async () => {
+  it("opens the list with the arrow button", async () => {
     render(<MultiSelect label="Posts" options={options} />);
     await user().click(within(field()).getByRole("button"));
     expect(screen.getByText("Kitchen")).toBeInTheDocument();
   });
 
   // BUG-704: removing a chip also opens the option list (the click bubbles to the field)
-  it.fails("doesn't open the list when a chip is removed", async () => {
+  it("doesn't open the list when a chip is removed", async () => {
     render(<MultiSelect label="Posts" options={options} defaultSelected={["1", "2"]} />);
     const chip = screen.getByText("Kitchen").parentElement!;
     await user().click(within(chip).getByRole("button"));
@@ -353,7 +353,7 @@ describe("MultiSelect", () => {
   });
 
   // BUG-705: a disabled MultiSelect still lets the user remove selected options
-  it.fails("doesn't let a disabled field be changed", async () => {
+  it("doesn't let a disabled field be changed", async () => {
     const onChange = vi.fn();
     render(<MultiSelect label="Posts" options={options} defaultSelected={["1"]} onChange={onChange} disabled />);
     const chip = screen.getByText("Kitchen").parentElement!;
@@ -664,7 +664,7 @@ describe("Switch", () => {
   });
 
   // BUG-706: Switch has no input or switch role, so it can't be reached or toggled with the keyboard
-  it.fails("can be toggled with the keyboard", async () => {
+  it("can be toggled with the keyboard", async () => {
     const onChange = vi.fn();
     render(<Switch label="Notifications" onChange={onChange} />);
     const u = user();
@@ -711,7 +711,7 @@ describe("PhoneInput", () => {
   });
 
   // BUG-707: PhoneInput always starts on "US"/"+1", even when the country list doesn't contain the US
-  it.fails("starts on the first listed country's prefix", () => {
+  it("starts on the first listed country's prefix", () => {
     render(<PhoneInput countries={[{ code: "DZ", label: "+213" }, { code: "FR", label: "+33" }]} />);
     expect(screen.getByRole("combobox")).toHaveValue("DZ");
     expect(screen.getByRole("textbox")).toHaveValue("+213");
