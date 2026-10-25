@@ -683,8 +683,12 @@ const getAttendanceRows = (
     // 5. Convert the API employee record to the frontend format.
     const backupEmployee = employeeRecordToEmployee(backupRecord);
 
-    // 6. Prevent duplicate employee rows.
+    // 6. Prevent duplicate employee rows: skip a backup who is listed on this
+    //    shift (above or below) or who already replaces someone else.
     if (
+      employees.some(
+        (listed) => listed.mongoId === backupEmployee.mongoId
+      ) ||
       rows.some(
         (row) =>
           row.employee.mongoId === backupEmployee.mongoId
