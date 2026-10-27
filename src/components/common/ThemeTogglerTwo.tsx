@@ -1,12 +1,15 @@
 "use client";
 import { useTheme } from "@/context/ThemeContext";
+import { t } from "@/lib/i18n";
 import React from "react";
 
 export default function ThemeTogglerTwo() {
-  const { toggleTheme } = useTheme();
+  const { theme, toggleTheme } = useTheme();
   return (
     <button
+      type="button"
       onClick={toggleTheme}
+      aria-label={t(theme === "dark" ? "Switch to light mode" : "Switch to dark mode")}
       className="inline-flex size-14 items-center justify-center rounded-full bg-brand-500 text-white transition-colors hover:bg-brand-600"
     >
       <svg

@@ -44,6 +44,14 @@ export function timeToDecimalHours(value: string | number | null | undefined): n
     return isNaN(num) ? 0 : num;
   }
 
+  // "-01:30" is minus one and a half hours: the sign is for the whole
+  // duration, not only the hours ("-00:30" would otherwise lose it).
+  if (str.startsWith("-")) {
+    const rest = str.slice(1);
+    const hours = rest.startsWith("-") ? 0 : timeToDecimalHours(rest);
+    return hours === 0 ? 0 : -hours;
+  }
+
   const parts = str.split(":");
   if (parts.length === 3) {
     const [h, m, s] = parts.map((p) => parseInt(p, 10));
@@ -56,6 +64,13 @@ export function timeToDecimalHours(value: string | number | null | undefined): n
     return h + m / 60;
   }
   return 0;
+}
+
+/** A number from an API field; anything that isn't one ("n/a", "abc") is 0, never NaN,
+ *  since one NaN would spread into every total it is added to. */
+function toNumber(value: unknown): number {
+  const n = Number(value ?? 0);
+  return Number.isFinite(n) ? n : 0;
 }
 
 /** Normalize a raw API row into the clean WorktimeRow shape.
@@ -72,10 +87,10 @@ export function normalizeRow(raw: WorktimeRowRaw): WorktimeRow {
     emp_id: empId as number | string,
     work_date: workDate,
     work_hours: (raw.work_hours as string | number | null) ?? null,
-    late_minutes: Number(raw.late_minutes || 0),
-    overtime_minutes: Number(raw.overtime_minutes || 0),
-    penalty: Number(raw.penalty || 0),
-    consommation: Number(consommation || 0),
+    late_minutes: toNumber(raw.late_minutes),
+    overtime_minutes: toNumber(raw.overtime_minutes),
+    penalty: toNumber(raw.penalty),
+    consommation: toNumber(consommation),
     absent: raw.absent ? 1 : 0,
     absent_comment: raw.absent_comment || "",
     is_empty: false,
@@ -111,11 +126,17 @@ export function normalizeAdvance(raw: AdvanceRecordRaw, employees: Employee[]): 
   };
 }
 
+/** Parse "YYYY-MM-DD" as LOCAL midnight (`new Date("YYYY-MM-DD")` would be UTC midnight). */
+function parseLocalDate(value: string): Date {
+  const [y, m, d] = value.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
 /** Generate every "YYYY-MM-DD" date string between start and end (inclusive). */
 export function generateDateRange(start: string, end: string): string[] {
   const dates: string[] = [];
-  let current = new Date(start);
-  const last = new Date(end);
+  let current = parseLocalDate(start);
+  const last = parseLocalDate(end);
   while (current <= last) {
     const yyyy = current.getFullYear();
     const mm = String(current.getMonth() + 1).padStart(2, "0");
@@ -305,14 +326,13 @@ export async function fetchScheduledEmpIds(range: DateRange): Promise<Set<string
   const data = await res.json();
   const list: PlanningRecordRaw[] = Array.isArray(data) ? data : [];
 
-  const start = new Date(`${range.start}T00:00:00`);
-  const end = new Date(`${range.end}T23:59:59`);
-
   const ids = new Set<string>();
   list.forEach((r) => {
     if (!r.planDate) return;
-    const planDate = new Date(r.planDate);
-    if (planDate < start || planDate > end) return;
+    // Compare the "YYYY-MM-DD" part as text: parsing "…T00:00:00.000Z" would
+    // move the plan to the previous day in time zones behind UTC.
+    const planDay = r.planDate.split("T")[0];
+    if (planDay < range.start || planDay > range.end) return;
 
     const empId = typeof r.empId === "object" && r.empId !== null ? r.empId.empNumber : r.empId;
     if (empId !== undefined && empId !== null) {

@@ -123,7 +123,10 @@ const AppHeader: React.FC = () => {
           </Link>
 
           <button
+            type="button"
             onClick={toggleApplicationMenu}
+            aria-label={t("More options")}
+            aria-expanded={isApplicationMenuOpen}
             className="flex items-center justify-center w-10 h-10 text-gray-700 rounded-lg z-99999 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 lg:hidden"
           >
             <svg

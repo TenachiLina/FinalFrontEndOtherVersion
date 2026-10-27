@@ -64,9 +64,15 @@ const SaveIcon    = () => (<svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill
 const toMinutes    = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
 const formatMin    = (n: number) => n <= 0 ? "00:00" : `${Math.floor(n/60).toString().padStart(2,"0")}:${(n%60).toString().padStart(2,"0")}`;
 const calcHours    = (i: string, o: string) => { if (i==="00:00"||o==="00:00") return "00:00"; let d=toMinutes(o)-toMinutes(i); if(d<0) d+=1440; return formatMin(d); };
-const calcLate     = (i: string, s: string) => { if (i==="00:00"||!s) return 0; const l=toMinutes(i)-toMinutes(s.slice(0,5)); return l>0?l:0; };
-const calcOvertime = (o: string, e: string) => { if(o==="00:00"||!e) return 0; let em=toMinutes(e.slice(0,5)),om=toMinutes(o); if(em===0)em=1440; if(em===1440&&om<720)om+=1440; const ot=om-em; return ot>0?ot:0; };
+// A shift that ends before it starts (22:00–06:00, 18:00–00:00) ends the next day
+const isOvernight  = (s: string, e: string) => !!s && !!e && toMinutes(e.slice(0,5)) < toMinutes(s.slice(0,5));
+// On an overnight shift, a clock-in after midnight (before the shift's end) belongs to the next day
+const calcLate     = (i: string, s: string, e: string) => { if (i==="00:00"||!s) return 0; let im=toMinutes(i); const sm=toMinutes(s.slice(0,5)); if(isOvernight(s,e)&&im<sm&&im<=toMinutes(e.slice(0,5)))im+=1440; const l=im-sm; return l>0?l:0; };
+// On an overnight shift, the end and a clock-out earlier than the start are on the next day
+const calcOvertime = (o: string, s: string, e: string) => { if(o==="00:00"||!e) return 0; let em=toMinutes(e.slice(0,5)),om=toMinutes(o); if(isOvernight(s,e)){ em+=1440; if(om<toMinutes(s.slice(0,5)))om+=1440; } const ot=om-em; return ot>0?ot:0; };
 const nowTime      = () => { const d=new Date(); return `${d.getHours().toString().padStart(2,"0")}:${d.getMinutes().toString().padStart(2,"0")}`; };
+// Today in the browser's time zone (toISOString gives the UTC date, yesterday between 00:00 and 01:00 in Algeria)
+const todayLocal   = () => { const d=new Date(); return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,"0")}-${d.getDate().toString().padStart(2,"0")}`; };
 const getStatus    = (e: EmployeeTimeEntry): ShiftStatus => e.absent ? "absent" : e.clockIn!=="00:00" ? "present" : "pending";
 const badgeColor   = (s: ShiftStatus) => s==="present"?"success":s==="absent"?"error":"warning";
 const badgeLabel   = (s: ShiftStatus) => s==="present"?t("Present"):s==="absent"?t("Absent"):t("Pending");
@@ -90,8 +96,8 @@ function entryToPayload(
   shiftEnd: string,
 ): WorktimePayload {
   const hours = calcHours(entry.clockIn, entry.clockOut);
-  const late  = calcLate(entry.clockIn, shiftStart);
-  const ot    = calcOvertime(entry.clockOut, shiftEnd);
+  const late  = calcLate(entry.clockIn, shiftStart, shiftEnd);
+  const ot    = calcOvertime(entry.clockOut, shiftStart, shiftEnd);
   return {
     emp_id:           empNum,
     shift_id:         shiftId as any,
@@ -118,6 +124,8 @@ const employeeRecordToEmployee = (
 
 // ─── localStorage persistence ─────────────────────────────────────────────────
 const LS_KEY = (date: string) => `worktime_${date}`;
+// This page keeps one record per employee AND shift: a save must never land on another shift's record
+const PER_SHIFT = { perShift: true };
 function saveEntriesToStorage(date: string, entries: Record<string, EmployeeTimeEntry>) {
   try {
     localStorage.setItem(LS_KEY(date), JSON.stringify(entries));
@@ -139,10 +147,12 @@ interface AttendancePageProps {
 }
 
 export default function AttendancePage({
-  currentDate = new Date().toISOString().slice(0, 10),
+  currentDate = todayLocal(),
 }: AttendancePageProps) {
 
   const [selectedDate, setSelectedDate] = useState(currentDate);
+  // Read by saves that finish after a date change
+  const selectedDateRef = useRef(currentDate);
 
   // ── DB-loaded state ───────────────────────────────────────
   const [shifts, setShifts] = useState<Shift[]>([]);
@@ -160,9 +170,11 @@ export default function AttendancePage({
   const [search, setSearch] = useState("");
   const [apiError, setApiError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [reloadKey, setReloadKey] = useState(0);
   const [specialTimes, setSpecialTimes] =
     useState<Record<string, { clockIn?: string; clockOut?: string }>>({});
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const pendingSaves = useRef<Record<string, () => void>>({});
  
   //Backup Employees states: 
   const [absenceModal, setAbsenceModal] = useState<{
@@ -245,7 +257,7 @@ export default function AttendancePage({
       })
       .catch((e) => setApiError(friendlyError(e, "Couldn't load today's data")))
       .finally(() => setLoading(false));
-}, [selectedDate]);
+}, [selectedDate, reloadKey]);
   // ── Load existing worktime records for the date ───────────────────────────
   useEffect(() => {
   if (!currentDate) return;
@@ -280,7 +292,7 @@ export default function AttendancePage({
       });
     })
     .catch((e) => setApiError(friendlyError(e, "Couldn't load today's data")));
-}, [selectedDate]);
+}, [selectedDate, reloadKey]);
 
 
 useEffect(() => {
@@ -355,30 +367,62 @@ useEffect(() => {
 
   //   return planning?.backupEmpId ?? null;
   // };
+  // Start/end the delay and overtime are measured from: the planned task times when there are any
+  const effectiveTimes = (empNum: number, shiftId: string | null) => {
+    const shift = shifts.find((s) => s.shift_id === shiftId);
+    const mongoId = employees.find((e) => e.num === empNum)?.mongoId;
+    const st = specialTimes[`${mongoId}-${shiftId}`];
+    return {
+      start: st?.clockIn ?? shift?.start_time ?? "",
+      end: st?.clockOut ?? shift?.end_time ?? "",
+    };
+  };
   // ── Auto-save ─────────────────────────────────────────────────────────────
+  // Records a successful save on the page and in the browser's copy of that day,
+  // so a reload doesn't take the saved entry for an unsaved change
+  const markSaved = (date: string, k: string, workTimeId: string) => {
+    if (selectedDateRef.current !== date) {
+      const stored = loadEntriesFromStorage(date);
+      if (stored[k]) {
+        saveEntriesToStorage(date, { ...stored, [k]: { ...stored[k], workTimeId, _saving: false, _dirty: false } });
+      }
+      return;
+    }
+    setEntries((prev) => {
+      const next = { ...prev, [k]: { ...prev[k], workTimeId, _saving: false } };
+      saveEntriesToStorage(date, next);
+      return next;
+    });
+  };
   const scheduleSave = useCallback((empNum: number, shiftId: string, updatedEntry: EmployeeTimeEntry) => {
     const k = `${empNum}-${shiftId}`;
-    const shift = shifts.find((s) => s.shift_id === shiftId);
-    clearTimeout(saveTimers.current[k]);
-    saveTimers.current[k] = setTimeout(async () => {
-      setEntries((prev) => ({ ...prev, [k]: { ...prev[k], _saving: true, _dirty: false } }));
+    const date = selectedDate;
+    const { start, end } = effectiveTimes(empNum, shiftId);
+    const save = async () => {
+      delete pendingSaves.current[k];
+      // After a date change the save still goes to its own day, but must not touch the new day's rows
+      const onPage = () => selectedDateRef.current === date;
+      if (onPage()) setEntries((prev) => ({ ...prev, [k]: { ...prev[k], _saving: true, _dirty: false } }));
       try {
-        const payload = entryToPayload(
-  updatedEntry,
-  empNum,
-  shiftId,
-  selectedDate,
-  shift?.start_time ?? "",
-  shift?.end_time ?? ""
-);
-        const saved = await upsertWorktime(payload, updatedEntry.workTimeId ?? null, updatedEntry._auditAs);
-        setEntries((prev) => ({ ...prev, [k]: { ...prev[k], workTimeId: saved._id, _saving: false } }));
+        const payload = entryToPayload(updatedEntry, empNum, shiftId, date, start, end);
+        const saved = await upsertWorktime(payload, updatedEntry.workTimeId ?? null, updatedEntry._auditAs, PER_SHIFT);
+        markSaved(date, k, saved._id);
       } catch (e) {
         setApiError(friendlyError(e, `Couldn't save the times for employee ${empNum}`));
-        setEntries((prev) => ({ ...prev, [k]: { ...prev[k], _saving: false, _dirty: true } }));
+        if (onPage()) setEntries((prev) => ({ ...prev, [k]: { ...prev[k], _saving: false, _dirty: true } }));
       }
-    }, 800);
-  }, [selectedDate, shifts]);
+    };
+    clearTimeout(saveTimers.current[k]);
+    pendingSaves.current[k] = save;
+    saveTimers.current[k] = setTimeout(save, 800);
+  }, [selectedDate, shifts, employees, specialTimes]);
+  // Sends the saves still waiting for their timer now (before the date changes)
+  const flushPendingSaves = () => {
+    Object.entries(pendingSaves.current).forEach(([k, save]) => {
+      clearTimeout(saveTimers.current[k]);
+      save();
+    });
+  };
   const updateEntry = useCallback((empNum: number, patch: Partial<EmployeeTimeEntry>) => {
   if (!currentTab) return;
   const k = entryKey(empNum);
@@ -386,7 +430,7 @@ useEffect(() => {
     const updated = { ...(prev[k] ?? getEntry(empNum)), _auditAs: undefined, ...patch, _dirty: true };
     scheduleSave(empNum, currentTab, updated);
     const next = { ...prev, [k]: updated };
-    saveEntriesToStorage(currentDate, next); // ← save to localStorage
+    saveEntriesToStorage(selectedDate, next); // ← save to localStorage
     return next;
   });
 }, [currentTab, selectedDate, scheduleSave]);
@@ -430,7 +474,9 @@ useEffect(() => {
             absent: false,
             backup_emp_id: null,
           },
-          getEntry(emp.num).workTimeId
+          getEntry(emp.num).workTimeId,
+          undefined,
+          PER_SHIFT
         ).catch((error) => {
           console.error("Failed to clear saved backup:", error);
           setApiError("Could not clear the saved backup assignment.");
@@ -495,13 +541,14 @@ useEffect(() => {
 
   try {
     // Build the absent employee's worktime payload.
+    const { start, end } = effectiveTimes(mainEmpNum, currentTab);
     const payload = entryToPayload(
       updatedEntry,
       mainEmpNum,
       currentTab,
       selectedDate,
-      currentShift?.start_time ?? "",
-      currentShift?.end_time ?? ""
+      start,
+      end
     );
 
     // Save the absence and selected backup on the MAIN employee's record.
@@ -513,7 +560,9 @@ useEffect(() => {
         clock_out: "00:00",
         backup_emp_id: backup.empNumber,
       },
-      previousEntry.workTimeId
+      previousEntry.workTimeId,
+      undefined,
+      PER_SHIFT
     );
 
     // Update the attendance entry after the API succeeds.
@@ -554,13 +603,44 @@ useEffect(() => {
       danger: true,
     });
     if (!ok) return;
-    setEntries((prev) => {
-      const reset: Record<string, EmployeeTimeEntry> = {};
-      Object.keys(prev).forEach((k) => {
-        reset[k] = { ...prev[k], clockIn: "00:00", clockOut: "00:00", absent: false, absentComment: "", consomation: 0, penalty: 0, _dirty: false };
-      });
-      return reset;
+    // A save still waiting for its timer would put the old times back
+    Object.keys(pendingSaves.current).forEach((k) => {
+      clearTimeout(saveTimers.current[k]);
+      delete pendingSaves.current[k];
     });
+    const date = selectedDate;
+    const reset: Record<string, EmployeeTimeEntry> = {};
+    Object.keys(entries).forEach((k) => {
+      reset[k] = { ...entries[k], clockIn: "00:00", clockOut: "00:00", absent: false, absentComment: "", consomation: 0, penalty: 0, _dirty: false, _saving: !!entries[k].workTimeId };
+    });
+    setEntries(reset);
+    saveEntriesToStorage(date, reset);
+
+    // Clear the server's copy too: payroll reads it, and it comes back on reload
+    await Promise.all(
+      Object.keys(reset).filter((k) => reset[k].workTimeId).map(async (k) => {
+        // Employee number comes before the first hyphen; the shift ID may contain hyphens
+        const separatorIndex = k.indexOf("-");
+        const empNum = Number(k.slice(0, separatorIndex));
+        const shiftId = k.slice(separatorIndex + 1);
+        const { start, end } = effectiveTimes(empNum, shiftId);
+        try {
+          const saved = await upsertWorktime(
+            // "00:00" explicitly: a missing time would leave the server's time as it is
+            { ...entryToPayload(reset[k], empNum, shiftId, date, start, end), clock_in: "00:00", clock_out: "00:00" },
+            reset[k].workTimeId,
+            "edit",
+            PER_SHIFT
+          );
+          markSaved(date, k, saved._id);
+        } catch (e) {
+          setApiError(friendlyError(e, `Couldn't save the times for employee ${empNum}`));
+          if (selectedDateRef.current === date) {
+            setEntries((prev) => ({ ...prev, [k]: { ...prev[k], _saving: false, _dirty: true } }));
+          }
+        }
+      })
+    );
   };
   
 const getAttendanceRows = (
@@ -603,8 +683,12 @@ const getAttendanceRows = (
     // 5. Convert the API employee record to the frontend format.
     const backupEmployee = employeeRecordToEmployee(backupRecord);
 
-    // 6. Prevent duplicate employee rows.
+    // 6. Prevent duplicate employee rows: skip a backup who is listed on this
+    //    shift (above or below) or who already replaces someone else.
     if (
+      employees.some(
+        (listed) => listed.mongoId === backupEmployee.mongoId
+      ) ||
       rows.some(
         (row) =>
           row.employee.mongoId === backupEmployee.mongoId
@@ -658,6 +742,20 @@ const getAttendanceRows = (
   if (loading) return (
     <div className="flex items-center justify-center h-32 text-gray-400 text-sm animate-pulse">
       {t("Loading attendance data…")}
+    </div>
+  );
+
+  // A failed load leaves shifts empty: show the error, not "No shifts found"
+  if (!shifts.length && apiError) return (
+    <div className="flex flex-col items-center justify-center gap-3 h-32 text-sm text-red-700 dark:text-red-300">
+      <span>⚠ {apiError}</span>
+      <button
+        type="button"
+        onClick={() => setReloadKey((k) => k + 1)}
+        className="rounded-lg border border-red-200 dark:border-red-800 px-3 py-1.5 hover:bg-red-50 dark:hover:bg-red-900/20"
+      >
+        {t("Try again")}
+      </button>
     </div>
   );
 
@@ -936,6 +1034,9 @@ const getAttendanceRows = (
     <DateInput
       value={selectedDate}
       onChange={(v) => {
+        // Pending saves go out now, for the day they were made on
+        selectedDateRef.current = v;
+        flushPendingSaves();
         setSelectedDate(v);
         setEntries({});
         setCurrentTab(null);
@@ -1018,16 +1119,11 @@ const getAttendanceRows = (
                       ? employees.find((e) => e.num === backupOfEmpNum)
                       : null;
 
-                    const st = specialTimes[`${emp.mongoId}-${currentTab}`];
+                    const { start: effectiveStart, end: effectiveEnd } =
+                      effectiveTimes(emp.num, currentTab);
 
-                    const effectiveStart =
-                      st?.clockIn ?? currentShift?.start_time ?? "";
-
-                    const effectiveEnd =
-                      st?.clockOut ?? currentShift?.end_time ?? "";
-
-                    const lateMin = calcLate(entry.clockIn, effectiveStart);
-                    const otMin = calcOvertime(entry.clockOut, effectiveEnd);
+                    const lateMin = calcLate(entry.clockIn, effectiveStart, effectiveEnd);
+                    const otMin = calcOvertime(entry.clockOut, effectiveStart, effectiveEnd);
                     const hours = calcHours(entry.clockIn, entry.clockOut);
 
                 return (

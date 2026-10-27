@@ -72,6 +72,9 @@ const ADMIN_ONLY_PREFIXES = [
 // (The activity log then shows every company.)
 const NO_COMPANY_PATHS = ["/companies", "/account", "/help", "/activity-log", "/login-sessions"];
 
+// Any other account without a company only gets its own account and help.
+const NO_COMPANY_PATHS_OTHERS = ["/account", "/help"];
+
 // Page prefix → feature it needs. The first match wins.
 const PATH_FEATURES: [string, Feature][] = [
   ["/reporting/weekly-advances", "advances"],
@@ -117,7 +120,8 @@ export function canOpen(
     return matches(pathname, "/kiosk") && !!company?.features.includes("clockin");
   }
   if (!company) {
-    return NO_COMPANY_PATHS.some((p) => matches(pathname, p));
+    const allowed = user.role === "superadmin" ? NO_COMPANY_PATHS : NO_COMPANY_PATHS_OTHERS;
+    return allowed.some((p) => matches(pathname, p));
   }
   if (user.role === "manager" && isAdminOnlyPath(pathname)) return false;
   const feature = featureForPath(pathname);
@@ -213,15 +217,28 @@ export function clearSession() {
 
 // ── Authenticated fetch ─────────────────────────────────────────────────────
 
-// Some components still call the backend on localhost:3001 directly.
+/** The URL's origin ("https://host:port"), or null for a relative or invalid URL. */
+function originOf(url: string): string | null {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return null;
+  }
+}
+
+// Some components still call the backend on localhost:3001 directly;
+// only trust those origins in development.
 const API_ORIGINS = [
-  API_BASE_URL,
-  "https://localhost:3001",
-  "http://localhost:3001",
+  originOf(API_BASE_URL),
+  ...(process.env.NODE_ENV === "development"
+    ? ["https://localhost:3001", "http://localhost:3001"]
+    : []),
 ].filter(Boolean);
 
+// Compare whole origins: a prefix check would also match "https://api.test.evil.com".
 function isApiUrl(url: string): boolean {
-  return API_ORIGINS.some((origin) => url.startsWith(origin));
+  const origin = originOf(url);
+  return origin !== null && API_ORIGINS.includes(origin);
 }
 
 // Requests that must never trigger a token refresh themselves
@@ -352,8 +369,9 @@ export function installAuthFetch() {
 
     let token = getToken();
     // Renew a little before expiry, so most requests never see a 401
+    let renewalRefused = false;
     if (token && !authUrl && getRefreshToken() && secondsLeft(token) < 30) {
-      await refreshTokens(originalFetch, token);
+      renewalRefused = !(await refreshTokens(originalFetch, token));
       token = getToken();
     }
 
@@ -363,9 +381,11 @@ export function installAuthFetch() {
     const body = await res.clone().json().catch(() => null);
     // A Request object's body can only be read once: it can't be sent again.
     const canRetry = !(input instanceof Request && input.body);
+    // A refresh token the server just refused must not be sent again.
     if (
       body?.code === "TOKEN_EXPIRED" &&
       canRetry &&
+      !renewalRefused &&
       (await refreshTokens(originalFetch, token))
     ) {
       res = await send(getToken());
@@ -393,6 +413,24 @@ export async function serverLogout() {
   clearSession();
 }
 
+/**
+ * The file name from a Content-Disposition header. Only filename*=UTF-8''...
+ * is percent-encoded (and preferred when both are sent); a plain filename is
+ * used as is, so "100% sales.xlsx" is not decoded (that would throw).
+ */
+function filenameFrom(disposition: string, fallbackName: string): string {
+  const encoded = /filename\*\s*=\s*(?:UTF-8)?''([^;]+)/i.exec(disposition);
+  if (encoded) {
+    try {
+      return decodeURIComponent(encoded[1].trim());
+    } catch {
+      /* badly encoded: try the plain name */
+    }
+  }
+  const plain = /filename\s*=\s*"?([^";]+)"?/i.exec(disposition);
+  return plain ? plain[1] : fallbackName;
+}
+
 /** Downloads a file from a protected backend endpoint (exports). */
 export async function downloadFile(url: string, fallbackName: string) {
   const res = await fetch(url);
@@ -406,9 +444,7 @@ export async function downloadFile(url: string, fallbackName: string) {
     }
     throw new Error(message);
   }
-  const disposition = res.headers.get("Content-Disposition") ?? "";
-  const match = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disposition);
-  const filename = match ? decodeURIComponent(match[1]) : fallbackName;
+  const filename = filenameFrom(res.headers.get("Content-Disposition") ?? "", fallbackName);
 
   const blobUrl = URL.createObjectURL(await res.blob());
   const a = document.createElement("a");

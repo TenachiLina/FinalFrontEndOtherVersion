@@ -31,6 +31,7 @@ const MultiSelect: React.FC<MultiSelectProps> = ({
   };
 
   const handleSelect = (optionValue: string) => {
+    if (disabled) return;
     const newSelectedOptions = selectedOptions.includes(optionValue)
       ? selectedOptions.filter((value) => value !== optionValue)
       : [...selectedOptions, optionValue];
@@ -40,6 +41,7 @@ const MultiSelect: React.FC<MultiSelectProps> = ({
   };
 
   const removeOption = (index: number, value: string) => {
+    if (disabled) return;
     const newSelectedOptions = selectedOptions.filter((opt) => opt !== value);
     setSelectedOptions(newSelectedOptions);
     if (onChange) onChange(newSelectedOptions);
@@ -69,9 +71,11 @@ const MultiSelect: React.FC<MultiSelectProps> = ({
                       <span className="flex-initial max-w-full">{text}</span>
                       <div className="flex flex-row-reverse flex-auto">
                         <div
-                          onClick={() =>
-                            removeOption(index, selectedOptions[index])
-                          }
+                          onClick={(e) => {
+                            // Don't let the click reach the field, which would toggle the list
+                            e.stopPropagation();
+                            removeOption(index, selectedOptions[index]);
+                          }}
                           className="ps-2 text-gray-500 cursor-pointer group-hover:text-gray-400 dark:text-gray-400"
                         >
                           <svg
@@ -104,7 +108,11 @@ const MultiSelect: React.FC<MultiSelectProps> = ({
               <div className="flex items-center py-1 ps-1 pe-1 w-7">
                 <button
                   type="button"
-                  onClick={toggleDropdown} 
+                  onClick={(e) => {
+                    // The field around it toggles too: stop here so the list toggles once
+                    e.stopPropagation();
+                    toggleDropdown();
+                  }}
                   className="w-5 h-5 text-gray-700 outline-hidden cursor-pointer focus:outline-hidden dark:text-gray-400"
                 >
                   <svg

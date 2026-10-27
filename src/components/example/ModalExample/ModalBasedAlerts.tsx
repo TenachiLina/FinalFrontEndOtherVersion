@@ -90,6 +90,7 @@ export default function ModalBasedAlerts() {
           <div className="flex items-center justify-center w-full gap-3 mt-7">
             <button
               type="button"
+              onClick={successModal.closeModal}
               className="flex justify-center w-full px-4 py-3 text-sm font-medium text-white rounded-lg bg-success-500 shadow-theme-xs hover:bg-success-600 sm:w-auto"
             >
               Okay, Got It
@@ -150,6 +151,7 @@ export default function ModalBasedAlerts() {
           <div className="flex items-center justify-center w-full gap-3 mt-7">
             <button
               type="button"
+              onClick={infoModal.closeModal}
               className="flex justify-center w-full px-4 py-3 text-sm font-medium text-white rounded-lg bg-blue-light-500 shadow-theme-xs hover:bg-blue-light-600 sm:w-auto"
             >
               Okay, Got It
@@ -210,6 +212,7 @@ export default function ModalBasedAlerts() {
           <div className="flex items-center justify-center w-full gap-3 mt-7">
             <button
               type="button"
+              onClick={warningModal.closeModal}
               className="flex justify-center w-full px-4 py-3 text-sm font-medium text-white rounded-lg bg-warning-500 shadow-theme-xs hover:bg-warning-600 sm:w-auto"
             >
               Okay, Got It
@@ -270,6 +273,7 @@ export default function ModalBasedAlerts() {
           <div className="flex items-center justify-center w-full gap-3 mt-7">
             <button
               type="button"
+              onClick={errorModal.closeModal}
               className="flex justify-center w-full px-4 py-3 text-sm font-medium text-white rounded-lg bg-error-500 shadow-theme-xs hover:bg-error-600 sm:w-auto"
             >
               Okay, Got It

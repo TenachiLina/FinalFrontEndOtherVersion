@@ -3,6 +3,7 @@
 // Base URL can be overridden via NEXT_PUBLIC_API_URL env var.
 
 import { API_BASE_URL } from "@/lib/config";
+import { ensureOk } from "@/lib/errors";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface WorktimePayload {
@@ -52,31 +53,16 @@ async function request<T>(
     },
   });
 
-  const text = await res.text();
+  // Throws an ApiError carrying the server's message, which friendlyError
+  // can turn into a readable message
+  await ensureOk(res);
 
-  console.log(
-    "========== WORKTIME API RESPONSE =========="
-  );
-  console.log("PATH:", path);
-  console.log(
-    "METHOD:",
-    init?.method ?? "GET"
-  );
-  console.log("STATUS:", res.status);
-  console.log(
-    "BODY:",
-    JSON.stringify(text)
-  );
-  console.log(
-    "============================================"
-  );
-
-  if (!res.ok) {
-    throw new Error(
-      `[worktime] ${res.status} ${text || res.statusText
-      }`
-    );
+  // A delete may be confirmed with "204 No Content": nothing to read
+  if (res.status === 204) {
+    return undefined as T;
   }
+
+  const text = await res.text();
 
   if (!text.trim()) {
     throw new Error(
@@ -181,35 +167,31 @@ export const deleteWorktime = (
 //
 // The individual periods remain handled by AttendancePage.
 
+/**
+ * perShift: the caller keeps one record per employee AND shift (ClockInPage),
+ * so only a record of the same shift may be updated. Without it, the record
+ * of the employee's day is updated whatever its shift.
+ */
+export interface UpsertOptions {
+  perShift?: boolean;
+}
+
 export async function upsertWorktime(
   payload: WorktimePayload,
   existingId?: string | null,
-  auditAs?: AuditAs
+  auditAs?: AuditAs,
+  options: UpsertOptions = {}
 ): Promise<WorktimeRecord> {
-  console.log("🔵 UPSERT WORKTIME START");
-  console.log("Payload:", payload);
-  console.log("Existing ID:", existingId);
-
   // ------------------------------------------------------------
   // 1. If we already KNOW the correct MongoDB document ID,
   //    update it directly.
   // ------------------------------------------------------------
   if (existingId) {
     try {
-      console.log(
-        "🟡 Updating existing Worktime:",
-        existingId
-      );
-
       const updated = await updateWorktime(
         existingId,
         payload,
         auditAs
-      );
-
-      console.log(
-        "🟢 UPDATE SUCCESS:",
-        updated
       );
 
       return updated;
@@ -231,45 +213,38 @@ export async function upsertWorktime(
   // This is the important part.
   // There should be ONE Worktime document per employee/date.
   // ------------------------------------------------------------
-  console.log(
-    "🔎 Searching Worktime by employee + date:",
-    {
-      emp_id: payload.emp_id,
-      work_date: payload.work_date,
-    }
-  );
 
-  const existing = await getWorktimes({
+  const perShift = options.perShift === true;
+  const search: Record<string, string> = {
     emp_id: String(payload.emp_id),
     work_date: payload.work_date,
-  });
+  };
+  if (perShift && payload.shift_id) {
+    search.shift_id = payload.shift_id;
+  }
 
-  console.log(
-    "🔎 Existing Worktime records:",
-    existing
-  );
+  const existing = await getWorktimes(search);
 
   // ------------------------------------------------------------
   // 3. Record already exists -> UPDATE it.
+  //
+  // Don't trust the search blindly: if the backend ignores the
+  // filters, existing[0] can be another employee's (or another
+  // day's, or another shift's) record.
   // ------------------------------------------------------------
-  if (existing.length > 0) {
-    const existingRecord = existing[0];
+  const existingRecord = existing.find(
+    (r) =>
+      String(r.emp_id) === String(payload.emp_id) &&
+      String(r.work_date ?? "").split("T")[0] === payload.work_date &&
+      (!perShift || (r.shift_id ?? null) === (payload.shift_id ?? null))
+  );
 
-    console.log(
-      "🟡 Found existing daily Worktime.",
-      "Updating MongoDB record:",
-      existingRecord._id
-    );
+  if (existingRecord) {
 
     const updated = await updateWorktime(
       existingRecord._id,
       payload,
       auditAs
-    );
-
-    console.log(
-      "🟢 DAILY UPDATE SUCCESS:",
-      updated
     );
 
     return updated;
@@ -278,22 +253,10 @@ export async function upsertWorktime(
   // ------------------------------------------------------------
   // 4. No record exists -> CREATE one.
   // ------------------------------------------------------------
-  console.log(
-    "🟠 No daily Worktime found."
-  );
-
-  console.log(
-    "🟠 Creating new Worktime document..."
-  );
 
   const created = await createWorktime(
     payload,
     auditAs
-  );
-
-  console.log(
-    "🟢 CREATE SUCCESS:",
-    created
   );
 
   return created;

@@ -139,6 +139,12 @@ function deviceDateTime(
   };
 }
 
+/**
+ * "No punch" marker for clock-in / clock-out.
+ * Not "00:00": that is a real punch at midnight.
+ */
+const NO_PUNCH = "";
+
 const deviceTime = (
   timestamp: string
 ) => {
@@ -147,7 +153,7 @@ const deviceTime = (
 
   return (
     parsed?.time ??
-    "00:00"
+    NO_PUNCH
   );
 };
 
@@ -253,6 +259,68 @@ function getLatestOvernightEnd(
 }
 
 /**
+ * How long after an overnight shift ends a punch
+ * still counts as its (late) clock-out.
+ */
+const OVERNIGHT_CLOCK_OUT_GRACE = 4 * 60;
+
+/**
+ * Early arrivals for the next shift must not be
+ * taken as last night's clock-out.
+ */
+const EARLY_ARRIVAL_MARGIN = 60;
+
+/**
+ * Minute of the morning up to which punches still
+ * belong to the previous night's shift.
+ *
+ * Example:
+ *
+ * Shifts 16:00 -> 02:00 and 08:00 -> 17:00
+ *
+ * returns 360 (06:00): 4 hours after 02:00,
+ * which is before 07:00 (one hour before 08:00).
+ */
+function getOvernightCutoff(
+  shifts: Shift[]
+): number | null {
+  const overnightEnd =
+    getLatestOvernightEnd(
+      shifts
+    );
+
+  if (overnightEnd === null) {
+    return null;
+  }
+
+  const laterStarts = shifts
+    .map((shift) =>
+      timeToMinutes(
+        shift.start_time
+      )
+    )
+    .filter(
+      (start) =>
+        start > overnightEnd
+    );
+
+  const nextStart =
+    laterStarts.length
+      ? Math.min(...laterStarts)
+      : Infinity;
+
+  return Math.max(
+    overnightEnd,
+    Math.min(
+      overnightEnd +
+        OVERNIGHT_CLOCK_OUT_GRACE,
+      nextStart -
+        EARLY_ARRIVAL_MARGIN
+    )
+  );
+}
+
+/**
  * Determine the current operational attendance date.
  *
  * Example:
@@ -317,6 +385,9 @@ function getOperationalDate(
  * Aug 29 01:30
  *
  * all belong to Aug 28 operation.
+ *
+ * Aug 28 01:30 belongs to the Aug 27 operation
+ * (it closes the previous night's shift).
  */
 function isPunchInsideOperationalDay(
   timestamp: string,
@@ -330,12 +401,12 @@ function isPunchInsideOperationalDay(
     return false;
   }
 
-  const hasOvernightShift =
-    shifts.some(
-      isOvernightShift
+  const cutoff =
+    getOvernightCutoff(
+      shifts
     );
 
-  if (!hasOvernightShift) {
+  if (cutoff === null) {
     return (
       parsed.date ===
       operationDate
@@ -348,31 +419,28 @@ function isPunchInsideOperationalDay(
       1
     );
 
+  /*
+   * Early-morning punches up to the cutoff
+   * belong to the previous operation day, the same
+   * window that is kept on the next date below.
+   */
   if (
     parsed.date ===
     operationDate
   ) {
-    return true;
+    return (
+      parsed.minutes >
+      cutoff
+    );
   }
 
   if (
     parsed.date ===
     nextDate
   ) {
-    const overnightEnd =
-      getLatestOvernightEnd(
-        shifts
-      );
-
-    if (
-      overnightEnd === null
-    ) {
-      return false;
-    }
-
     return (
       parsed.minutes <=
-      overnightEnd
+      cutoff
     );
   }
 
@@ -484,7 +552,7 @@ function deviceLogsToEntries(
           ].timestamp
         ),
 
-        clockOut: "00:00",
+        clockOut: NO_PUNCH,
       });
     }
 
@@ -498,8 +566,8 @@ function deviceLogsToEntries(
 
     for (const period of periods) {
       if (
-        period.clockIn === "00:00" ||
-        period.clockOut === "00:00"
+        period.clockIn === NO_PUNCH ||
+        period.clockOut === NO_PUNCH
       ) {
         continue;
       }
@@ -539,7 +607,7 @@ function deviceLogsToEntries(
                 employeeLogs.length - 1
               ].timestamp
             )
-          : "00:00",
+          : NO_PUNCH,
 
       periods,
 
@@ -550,6 +618,94 @@ function deviceLogsToEntries(
 
   return result;
 }
+/**
+ * Copy the machine times into the day's entries
+ * (machine is authoritative for clockIn/clockOut),
+ * keeping everything else (penalty, absence, ...).
+ * Used on the first load and on every refresh.
+ */
+function applyMachineEntries(
+  next: Record<
+    string,
+    EmployeeTimeEntry
+  >,
+  machineEntries: ReturnType<
+    typeof deviceLogsToEntries
+  >,
+  employees: Employee[],
+  assignedShifts: Record<
+    number,
+    string[]
+  >
+) {
+  employees.forEach(
+    (emp) => {
+      const machine =
+        machineEntries[
+          String(
+            emp.empNumber
+          )
+        ];
+
+      if (!machine) {
+        return;
+      }
+
+      const employeeShifts =
+        assignedShifts[
+          emp.num
+        ] ?? [];
+
+      employeeShifts.forEach(
+        (shiftId) => {
+          const key =
+            `${emp.num}-${shiftId}`;
+
+          const existing =
+            next[key] ??
+            {
+              clockIn:
+                NO_PUNCH,
+
+              clockOut:
+                NO_PUNCH,
+
+              absent:
+                false,
+
+              absentComment:
+                "",
+
+              consomation:
+                0,
+
+              penalty:
+                0,
+
+              workTimeId:
+                null,
+            };
+
+          next[key] = {
+            ...existing,
+            clockIn: machine.clockIn,
+            clockOut: machine.clockOut,
+            periods: machine.periods,
+            workHours: machine.workHours,
+            _dirty: false,
+          };
+        }
+      );
+    }
+  );
+}
+
+/**
+ * How often the machine logs are read again
+ * while the page stays open.
+ */
+const MACHINE_REFRESH_MS = 60 * 1000;
+
 /* ============================================================================
    FETCH MACHINE ATTENDANCE
 ============================================================================ */
@@ -853,8 +1009,8 @@ const calcHoursFromPeriods = (
 
   for (const period of periods) {
     if (
-      period.clockIn === "00:00" ||
-      period.clockOut === "00:00"
+      period.clockIn === NO_PUNCH ||
+      period.clockOut === NO_PUNCH
     ) {
       continue;
     }
@@ -878,7 +1034,7 @@ const calcLate = (
   s: string
 ) => {
   if (
-    i === "00:00" ||
+    i === NO_PUNCH ||
     !s
   ) {
     return 0;
@@ -896,77 +1052,60 @@ const calcLate = (
 };
 
 /**
- * Correct overtime calculation for both:
+ * Overtime after the shift end, for day shifts
+ * (06:00 -> 14:00) and for shifts that cross
+ * midnight (16:00 -> 00:00, 16:00 -> 02:00).
  *
- * 16:00 -> 00:00
- *
- * and:
- *
- * 16:00 -> 02:00
+ * The shift is overnight when its end is not
+ * after its start: then the end is on the next
+ * day (16:00 -> 02:00 ends at 1560).
  */
 const calcOvertime = (
   o: string,
+  s: string,
   e: string
 ) => {
   if (
-    o === "00:00" ||
+    o === NO_PUNCH ||
     !e
   ) {
     return 0;
   }
+
+  const startMinutes =
+    toMinutes(
+      s.slice(0, 5)
+    );
 
   let endMinutes =
     toMinutes(
       e.slice(0, 5)
     );
 
-  const outMinutes =
-    toMinutes(o);
+  const overnight =
+    endMinutes <=
+    startMinutes;
 
-  /*
-   * 00:00 means midnight / 24:00.
-   */
-  if (
-    endMinutes === 0
-  ) {
-    endMinutes =
-      1440;
-  }
-
-  /*
-   * For an overnight shift:
-   *
-   * 16:00 -> 02:00
-   *
-   * the end is actually 1560.
-   */
-  if (
-    endMinutes <
-    toMinutes(
-      "16:00"
-    )
-  ) {
-    /*
-     * Only add 24h when the shift is genuinely
-     * an overnight shift.
-     */
+  if (overnight) {
     endMinutes +=
       1440;
   }
 
   let actualOut =
-    outMinutes;
+    toMinutes(o);
 
   /*
-   * A clock-out after midnight belongs to
-   * the following day.
+   * On an overnight shift, a morning clock-out
+   * (before the shift start) is on the next day.
    */
   if (
+    overnight &&
     actualOut <
-    toMinutes(
-      "12:00"
-    ) &&
-    endMinutes > 1440
+      startMinutes &&
+    actualOut <
+      toMinutes(
+        "12:00"
+      )
   ) {
     actualOut +=
       1440;
@@ -991,9 +1130,9 @@ const getStatus = (
   e.absent
     ? "absent"
     : e.clockIn !==
-          "00:00" &&
+          NO_PUNCH &&
       e.clockOut !==
-          "00:00"
+          NO_PUNCH
     ? "present"
     : "pending";
 
@@ -1021,10 +1160,17 @@ const badgeLabel = (
 function recordToEntry(
   r: WorktimeRecord
 ): EmployeeTimeEntry {
-  return {
-    clockIn: r.clock_in ?? "00:00",
+  // Absences are saved elsewhere with "00:00" times: they have no punch.
+  const absent = r.absent ?? false;
 
-    clockOut: r.clock_out ?? "00:00",
+  return {
+    clockIn: absent
+      ? NO_PUNCH
+      : r.clock_in ?? NO_PUNCH,
+
+    clockOut: absent
+      ? NO_PUNCH
+      : r.clock_out ?? NO_PUNCH,
 
     /*
      * Worktime currently stores the daily summary.
@@ -1064,8 +1210,10 @@ function entryToPayload(
   // Plan A: Worktime stores the daily total, while periods preserve
   // every IN/OUT pair. Recalculate from periods whenever they exist
   // so the value sent to Worktime is always the current total.
-  const hours =
-    entry.periods?.length > 0
+  // An absent employee is never paid for the machine periods.
+  const hours = entry.absent
+    ? "00:00"
+    : entry.periods?.length > 0
       ? calcHoursFromPeriods(entry.periods)
       : entry.workHours || "00:00";
 
@@ -1076,6 +1224,7 @@ function entryToPayload(
 
   const ot = calcOvertime(
     entry.clockOut,
+    shiftStart,
     shiftEnd
   );
 
@@ -1087,12 +1236,12 @@ function entryToPayload(
     work_date: date,
 
     clock_in:
-      entry.clockIn !== "00:00"
+      entry.clockIn !== NO_PUNCH
         ? entry.clockIn
         : undefined,
 
     clock_out:
-      entry.clockOut !== "00:00"
+      entry.clockOut !== NO_PUNCH
         ? entry.clockOut
         : undefined,
 
@@ -1283,6 +1432,17 @@ export default function AttendancePage({
   const [loading, setLoading] =
     useState(true);
 
+  /*
+   * The employees / shifts / planning could not be
+   * loaded: show the error, not "No shifts found".
+   * Bumping loadAttempt loads them again.
+   */
+  const [loadFailed, setLoadFailed] =
+    useState(false);
+
+  const [loadAttempt, setLoadAttempt] =
+    useState(0);
+
   const [
     deviceLoading,
     setDeviceLoading,
@@ -1349,6 +1509,13 @@ const [deviceEntries, setDeviceEntries] =
     useRef<
       Record<string, string>
     >({});
+
+  /*
+   * The machine entries last shown, so a refresh
+   * that brings nothing new changes nothing.
+   */
+  const machineSnapshot =
+    useRef("");
 
   const [
     deviceStatus,
@@ -1515,6 +1682,7 @@ const [deviceEntries, setDeviceEntries] =
     let cancelled = false;
 
     setLoading(true);
+    setLoadFailed(false);
     setApiError(null);
 
     Promise.all([
@@ -1734,6 +1902,7 @@ const [deviceEntries, setDeviceEntries] =
       )
       .catch((e) => {
         if (!cancelled) {
+          setLoadFailed(true);
           setApiError(
             friendlyError(e, "Couldn't load today's data")
           );
@@ -1750,6 +1919,7 @@ const [deviceEntries, setDeviceEntries] =
     };
   }, [
     operationalDate,
+    loadAttempt,
   ]);
 
   /* --------------------------------------------------------------------------
@@ -1805,29 +1975,10 @@ const [deviceEntries, setDeviceEntries] =
             return;
           }
 
-          console.log(
-            "================================="
-          );
 
-          console.log(
-            "OPERATIONAL ATTENDANCE DATE:",
-            operationalDate
-          );
 
-          console.log(
-            "CURRENT LOCAL DATE:",
-            getLocalDateString()
-          );
 
-          console.log(
-            "SHIFTS:",
-            shifts
-          );
 
-          console.log(
-            "DEVICE LOGS:",
-            logs
-          );
 
           /* ---------------------------------------------------------------
              MACHINE ENTRIES
@@ -1841,10 +1992,6 @@ const [deviceEntries, setDeviceEntries] =
               shifts
             );
 
-          console.log(
-            "MACHINE ENTRIES:",
-            machineEntries
-          );
 
           setDeviceLogs(
             logs
@@ -1901,66 +2048,17 @@ const [deviceEntries, setDeviceEntries] =
           /*
            * Machine is authoritative for clockIn/clockOut.
            */
-          employees.forEach(
-            (emp) => {
-              const machine =
-                machineEntries[
-                  String(
-                    emp.empNumber
-                  )
-                ];
-
-              if (!machine) {
-                return;
-              }
-
-              const employeeShifts =
-                assignedShifts[
-                  emp.num
-                ] ?? [];
-
-              employeeShifts.forEach(
-                (shiftId) => {
-                  const key =
-                    `${emp.num}-${shiftId}`;
-
-                  const existing =
-                    next[key] ??
-                    {
-                      clockIn:
-                        "00:00",
-
-                      clockOut:
-                        "00:00",
-
-                      absent:
-                        false,
-
-                      absentComment:
-                        "",
-
-                      consomation:
-                        0,
-
-                      penalty:
-                        0,
-
-                      workTimeId:
-                        null,
-                    };
-
-                 next[key] = {
-                  ...existing,
-                  clockIn: machine.clockIn,
-                  clockOut: machine.clockOut,
-                  periods: machine.periods,
-                  workHours: machine.workHours,
-                  _dirty: false,
-                };
-                }
-              );
-            }
+          applyMachineEntries(
+            next,
+            machineEntries,
+            employees,
+            assignedShifts
           );
+
+          machineSnapshot.current =
+            JSON.stringify(
+              machineEntries
+            );
 
           saveEntriesToStorage(
             operationalDate,
@@ -1990,6 +2088,120 @@ const [deviceEntries, setDeviceEntries] =
 
     return () => {
       cancelled = true;
+    };
+  }, [
+    operationalDate,
+    employees,
+    shifts,
+    assignedShifts,
+  ]);
+
+  /* --------------------------------------------------------------------------
+     REFRESH MACHINE ATTENDANCE
+  -------------------------------------------------------------------------- */
+
+  /*
+   * Read the machine again while the page is open, so
+   * new punches are shown (and then saved by the
+   * automatic machine save) without a reload. The
+   * table is updated in place, never cleared.
+   */
+  useEffect(() => {
+    if (
+      !operationalDate ||
+      !employees.length ||
+      !shifts.length
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const refresh =
+      async () => {
+        try {
+          const logs =
+            await getDeviceAttendanceForOperationalDate(
+              operationalDate,
+              shifts
+            );
+
+          if (cancelled) {
+            return;
+          }
+
+          const machineEntries =
+            deviceLogsToEntries(
+              logs,
+              employees,
+              operationalDate,
+              shifts
+            );
+
+          const snapshot =
+            JSON.stringify(
+              machineEntries
+            );
+
+          if (
+            snapshot ===
+            machineSnapshot.current
+          ) {
+            return;
+          }
+
+          machineSnapshot.current =
+            snapshot;
+
+          setDeviceLogs(
+            logs
+          );
+
+          setDeviceEntries(
+            machineEntries
+          );
+
+          setEntries(
+            (prev) => {
+              const next = {
+                ...prev,
+              };
+
+              applyMachineEntries(
+                next,
+                machineEntries,
+                employees,
+                assignedShifts
+              );
+
+              saveEntriesToStorage(
+                operationalDate,
+                next
+              );
+
+              return next;
+            }
+          );
+        } catch {
+          /*
+           * Keep what is on screen; the next
+           * refresh will try again.
+           */
+        }
+      };
+
+    const interval =
+      setInterval(
+        refresh,
+        MACHINE_REFRESH_MS
+      );
+
+    return () => {
+      cancelled = true;
+
+      clearInterval(
+        interval
+      );
     };
   }, [
     operationalDate,
@@ -2087,8 +2299,8 @@ const [deviceEntries, setDeviceEntries] =
   ): EmployeeTimeEntry => {
     const stored =
       entries[entryKey(empNum)] ?? {
-        clockIn: "00:00",
-        clockOut: "00:00",
+        clockIn: NO_PUNCH,
+        clockOut: NO_PUNCH,
         periods: [],
         workHours: "00:00",
         absent: false,
@@ -2114,10 +2326,64 @@ const [deviceEntries, setDeviceEntries] =
       clockOut: machine.clockOut,
       periods: machine.periods,
       workHours: machine.workHours,
-      _dirty: false,
+      // Keep the entry's own saved state: forcing it to false showed
+      // "✓ Saved" after a failed save for anyone with machine punches.
     };
   };
 
+
+  /* --------------------------------------------------------------------------
+     EXPECTED TIMES
+  -------------------------------------------------------------------------- */
+
+  /**
+   * Start / end the delay and overtime are measured
+   * against: the planned task's times when there is
+   * one, otherwise the shift's. Used by the table and
+   * by every save, so the saved values match the screen.
+   */
+  const expectedTimesFor =
+    useCallback(
+      (
+        empNum: number,
+        shiftId: string
+      ) => {
+        const mongoId =
+          employees.find(
+            (e) =>
+              e.num === empNum
+          )?.mongoId;
+
+        const st =
+          specialTimes[
+            `${mongoId}-${shiftId}`
+          ];
+
+        const shift =
+          shifts.find(
+            (s) =>
+              s.shift_id ===
+              shiftId
+          );
+
+        return {
+          start:
+            st?.clockIn ??
+            shift?.start_time ??
+            "",
+
+          end:
+            st?.clockOut ??
+            shift?.end_time ??
+            "",
+        };
+      },
+      [
+        employees,
+        specialTimes,
+        shifts,
+      ]
+    );
 
   /* --------------------------------------------------------------------------
      MANUAL SAVE
@@ -2133,11 +2399,10 @@ const [deviceEntries, setDeviceEntries] =
         const key =
           `${empNum}-${shiftId}`;
 
-        const shift =
-          shifts.find(
-            (s) =>
-              s.shift_id ===
-              shiftId
+        const expected =
+          expectedTimesFor(
+            empNum,
+            shiftId
           );
 
         clearTimeout(
@@ -2174,10 +2439,8 @@ const [deviceEntries, setDeviceEntries] =
                     empNum,
                     shiftId,
                     operationalDate,
-                    shift?.start_time ??
-                      "",
-                    shift?.end_time ??
-                      ""
+                    expected.start,
+                    expected.end
                   );
 
                 const saved =
@@ -2242,7 +2505,7 @@ const [deviceEntries, setDeviceEntries] =
       },
       [
         operationalDate,
-        shifts,
+        expectedTimesFor,
       ]
     );
 
@@ -2305,11 +2568,7 @@ const [deviceEntries, setDeviceEntries] =
             continue;
           }
 
-          if (machine.clockIn === "00:00") {
-            console.log(
-              "⏭️ MACHINE SAVE SKIPPED - no clock-in:",
-              emp.empNumber
-            );
+          if (machine.clockIn === NO_PUNCH) {
             continue;
           }
 
@@ -2317,10 +2576,6 @@ const [deviceEntries, setDeviceEntries] =
             assignedShifts[emp.num] ?? [];
 
           if (!employeeShifts.length) {
-            console.log(
-              "⏭️ MACHINE SAVE SKIPPED - employee has no assigned shift:",
-              emp.empNumber
-            );
             continue;
           }
 
@@ -2373,21 +2628,21 @@ const [deviceEntries, setDeviceEntries] =
           const completedPeriods =
             machine.periods.filter(
               (period) =>
-                period.clockIn !== "00:00" &&
-                period.clockOut !== "00:00"
+                period.clockIn !== NO_PUNCH &&
+                period.clockOut !== NO_PUNCH
             );
 
           const firstClockIn =
             machine.periods.length > 0
               ? machine.periods[0].clockIn
-              : "00:00";
+              : NO_PUNCH;
 
           const lastClockOut =
             completedPeriods.length > 0
               ? completedPeriods[
                   completedPeriods.length - 1
                 ].clockOut
-              : "00:00";
+              : NO_PUNCH;
 
           const totalWorkHours =
             calcHoursFromPeriods(
@@ -2415,21 +2670,6 @@ const [deviceEntries, setDeviceEntries] =
           const saveKey =
             `${operationalDate}-${emp.empNumber}`;
 
-          console.log(
-            "🔍 MACHINE SAVE CHECK:",
-            {
-              employee:
-                emp.empNumber,
-              operationalDate,
-              signature,
-              lastSuccessfullySaved:
-                lastSavedMachineSignature.current[
-                  saveKey
-                ],
-              periods:
-                machine.periods,
-            }
-          );
 
           /*
            * The exact same machine state was already successfully
@@ -2443,14 +2683,6 @@ const [deviceEntries, setDeviceEntries] =
               saveKey
             ] === signature
           ) {
-            console.log(
-              "⏭️ MACHINE SAVE SKIPPED - exact machine state already saved:",
-              {
-                employee:
-                  emp.empNumber,
-                signature,
-              }
-            );
             continue;
           }
 
@@ -2463,10 +2695,6 @@ const [deviceEntries, setDeviceEntries] =
               signature
             )
           ) {
-            console.log(
-              "⏭️ MACHINE SAVE SKIPPED - request already in flight:",
-              signature
-            );
             continue;
           }
 
@@ -2483,8 +2711,8 @@ const [deviceEntries, setDeviceEntries] =
           const existing =
             entries[key] ??
             {
-              clockIn: "00:00",
-              clockOut: "00:00",
+              clockIn: NO_PUNCH,
+              clockOut: NO_PUNCH,
               periods: [],
               workHours: "00:00",
               absent: false,
@@ -2523,61 +2751,22 @@ const [deviceEntries, setDeviceEntries] =
                 existing.penalty ?? 0,
             };
 
+          const expected =
+            expectedTimesFor(
+              emp.num,
+              shiftId
+            );
+
           const payload =
             entryToPayload(
               machineEntry,
               emp.num,
               shiftId,
               operationalDate,
-              shift.start_time,
-              shift.end_time
+              expected.start,
+              expected.end
             );
 
-          console.log(
-            "===================================================="
-          );
-          console.log(
-            "💾 MACHINE ATTENDANCE SAVE"
-          );
-          console.log(
-            "Employee:",
-            emp.empNumber
-          );
-          console.log(
-            "Operational date:",
-            operationalDate
-          );
-          console.log(
-            "Shift ID:",
-            shiftId
-          );
-          console.log(
-            "Assigned shifts:",
-            employeeShifts
-          );
-          console.log(
-            "Machine periods:",
-            machine.periods
-          );
-          console.log(
-            "Daily clock IN:",
-            firstClockIn
-          );
-          console.log(
-            "Daily clock OUT:",
-            lastClockOut
-          );
-          console.log(
-            "Daily work hours:",
-            totalWorkHours
-          );
-          console.log(
-            "FINAL PAYLOAD SENT TO BACKEND:",
-            payload
-          );
-          console.log(
-            "===================================================="
-          );
 
           try {
             /*
@@ -2605,39 +2794,6 @@ const [deviceEntries, setDeviceEntries] =
                 "clock"
               );
 
-            console.log(
-              "===================================================="
-            );
-            console.log(
-              "✅ MACHINE ATTENDANCE BACKEND RESPONSE"
-            );
-            console.log(
-              "Employee:",
-              emp.empNumber
-            );
-            console.log(
-              "Returned Mongo ID:",
-              saved?._id
-            );
-            console.log(
-              "Returned clock_in:",
-              saved?.clock_in
-            );
-            console.log(
-              "Returned clock_out:",
-              saved?.clock_out
-            );
-            console.log(
-              "Returned work_hours:",
-              saved?.work_hours
-            );
-            console.log(
-              "FULL BACKEND RESPONSE:",
-              saved
-            );
-            console.log(
-              "===================================================="
-            );
 
             /*
              * Only mark this machine state as saved AFTER the
@@ -2647,13 +2803,6 @@ const [deviceEntries, setDeviceEntries] =
               saveKey
             ] = signature;
 
-            console.log(
-              "💾 MACHINE SIGNATURE MARKED AS SUCCESSFULLY SAVED:",
-              {
-                saveKey,
-                signature,
-              }
-            );
 
             if (cancelled) {
               return;
@@ -2687,28 +2836,6 @@ const [deviceEntries, setDeviceEntries] =
               }
             );
           } catch (error) {
-            console.error(
-              "===================================================="
-            );
-            console.error(
-              "❌ MACHINE ATTENDANCE SAVE FAILED"
-            );
-            console.error(
-              "Employee:",
-              emp.empNumber
-            );
-            console.error(
-              "Payload that failed:",
-              payload
-            );
-            console.error(
-              "Error:",
-              error
-            );
-            console.error(
-              "===================================================="
-            );
-
             /*
              * IMPORTANT:
              * Do NOT update lastSavedMachineSignature on failure.
@@ -2757,6 +2884,7 @@ const [deviceEntries, setDeviceEntries] =
     shifts,
     assignedShifts,
     currentTab,
+    expectedTimesFor,
   ]);
 
   /* --------------------------------------------------------------------------
@@ -2942,8 +3070,8 @@ const toggleAbsent = (
   if (backups.length === 0) {
     updateEntry(empNum, {
       absent: true,
-      clockIn: "00:00",
-      clockOut: "00:00",
+      clockIn: NO_PUNCH,
+      clockOut: NO_PUNCH,
       backupEmpNum: null,
     });
     return;
@@ -2981,8 +3109,8 @@ const confirmAbsence = () => {
   // 1. Mark the original employee absent.
   updateEntry(absenceModal.empNum, {
     absent: true,
-    clockIn: "00:00",
-    clockOut: "00:00",
+    clockIn: NO_PUNCH,
+    clockOut: NO_PUNCH,
     backupEmpNum: backup.empNumber,
   });
 
@@ -3031,10 +3159,10 @@ const confirmAbsence = () => {
                 ...prev[key],
 
                 clockIn:
-                  "00:00",
+                  NO_PUNCH,
 
                 clockOut:
-                  "00:00",
+                  NO_PUNCH,
 
                 absent:
                   false,
@@ -3132,6 +3260,29 @@ const confirmAbsence = () => {
     return (
       <div className="flex items-center justify-center h-32 text-gray-400 text-sm animate-pulse">
         {t("Loading attendance data…")}
+      </div>
+    );
+  }
+
+  if (loadFailed) {
+    return (
+      <div className="flex h-32 flex-col items-center justify-center gap-3 text-sm text-red-700 dark:text-red-300">
+        <span>
+          ⚠{" "}
+          {apiError ??
+            t("Couldn't load today's data")}
+        </span>
+
+        <button
+          onClick={() =>
+            setLoadAttempt(
+              (n) => n + 1
+            )
+          }
+          className="rounded-lg border border-red-200 dark:border-red-800 px-3 py-1.5 text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20"
+        >
+          {t("Try again")}
+        </button>
       </div>
     );
   }
@@ -3558,7 +3709,9 @@ const confirmAbsence = () => {
           TABLE
       ===================================================================== */}
 
-      {attendanceLoading ? (
+      {/* With no employees the attendance is never loaded: show the table's
+          "No employees found" message instead of loading for ever */}
+      {attendanceLoading && employees.length > 0 ? (
         <div className="p-6 text-center text-gray-500">
           {t("Loading attendance...")}
         </div>
@@ -3679,20 +3832,13 @@ const confirmAbsence = () => {
                             Number(item.empNumber) === Number(entry.backupEmpNum)
                         );
 
-                    const st =
-                      specialTimes[
-                        `${emp.mongoId}-${currentTab}`
-                      ];
-
-                    const effectiveStart =
-                      st?.clockIn ??
-                      currentShift?.start_time ??
-                      "";
-
-                    const effectiveEnd =
-                      st?.clockOut ??
-                      currentShift?.end_time ??
-                      "";
+                    const {
+                      start: effectiveStart,
+                      end: effectiveEnd,
+                    } = expectedTimesFor(
+                      emp.num,
+                      currentTab ?? ""
+                    );
 
                     const lateMin =
                       calcLate(
@@ -3703,6 +3849,7 @@ const confirmAbsence = () => {
                     const otMin =
                       calcOvertime(
                         entry.clockOut,
+                        effectiveStart,
                         effectiveEnd
                       );
 
@@ -3774,7 +3921,7 @@ const confirmAbsence = () => {
                               <span
                                 className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium ${
                                   entry.clockIn !==
-                                  "00:00"
+                                  NO_PUNCH
                                     ? "bg-green-600 text-white"
                                     : "border border-gray-200 dark:border-white/[0.1] text-gray-400"
                                 }`}
@@ -3782,7 +3929,7 @@ const confirmAbsence = () => {
                                 <ClockInIcon />
 
                                 {entry.clockIn !==
-                                "00:00"
+                                NO_PUNCH
                                   ? entry.clockIn
                                   : t("No punch")}
                               </span>
@@ -3806,7 +3953,7 @@ const confirmAbsence = () => {
                               <span
                                 className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium ${
                                   entry.clockOut !==
-                                  "00:00"
+                                  NO_PUNCH
                                     ? "bg-red-500 text-white"
                                     : "border border-gray-200 dark:border-white/[0.1] text-gray-400"
                                 }`}
@@ -3814,7 +3961,7 @@ const confirmAbsence = () => {
                                 <ClockInIcon />
 
                                 {entry.clockOut !==
-                                "00:00"
+                                NO_PUNCH
                                   ? entry.clockOut
                                   : t("No punch")}
                               </span>

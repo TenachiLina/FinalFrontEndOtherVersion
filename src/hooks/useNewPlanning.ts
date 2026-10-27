@@ -25,6 +25,31 @@ function buildEmptyGrid(posts: Post[], shifts: Shift[]): GridData {
   return g;
 }
 
+// "YYYY-MM-DD" of a date, as the planning is loaded and saved. The calendar
+// builds days at local midnight, so read the local parts: converting to
+// Algiers time gave the previous day in time zones ahead of Algiers.
+function dayKey(date: Date): string {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+// The cell of an imported employee: the existing one when the file lists
+// them twice for the same hour (so their "Backup:" lines still merge),
+// otherwise a new one added to the list.
+function importedCell(cells: Cell[], employee: EmployeeRecord): Cell {
+  const existing = cells.find((c) => c.id === employee._id);
+  if (existing) return existing;
+  const cell: Cell = {
+    id: employee._id,
+    title: `${employee.firstName} ${employee.lastName}`,
+    backups: [],
+  };
+  cells.push(cell);
+  return cell;
+}
+
 // Backup ids of a cell: unique, and never the main employee himself
 function getBackupIds(cell: Cell): string[] {
   return [...new Set((cell.backups ?? []).map((b) => b.id))].filter(
@@ -201,9 +226,7 @@ export const useShiftGrid = () => {
       try {
         setLoadingGrid(true);
 
-        const dateStr = date.toLocaleDateString("en-CA", {
-          timeZone: "Africa/Algiers",
-        });
+        const dateStr = dayKey(date);
 
         const records = await apiFetch<PlanningRecord[]>(
           `/planning/import/${dateStr}`
@@ -269,16 +292,28 @@ export const useShiftGrid = () => {
     [posts, shifts, employees]
   );
 
+  // The day the grid was loaded for. While the next day is still loading,
+  // the grid holds the previous day: saving then would copy it onto the new day.
+  const gridDayRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (posts.length === 0 || shifts.length === 0) return;
 
     const signal = { cancelled: false };
-    loadPlanningForDate(currentDate, { signal });
+    loadPlanningForDate(currentDate, { signal }).then(() => {
+      if (!signal.cancelled) gridDayRef.current = dayKey(currentDate);
+    });
 
     return () => {
       signal.cancelled = true;
     };
   }, [currentDate, posts, shifts, loadPlanningForDate]);
+
+  /** True when the grid on screen is the planning of the selected day. */
+  const gridIsForCurrentDay = useCallback(
+    () => gridDayRef.current === dayKey(currentDate),
+    [currentDate]
+  );
 
   // ── Date navigation ───────────────────────────────────────────────────────
   const goToToday = () => { const d = new Date(); setCurrentDate(d); setCalendarMonth(d); };
@@ -475,6 +510,13 @@ export const useShiftGrid = () => {
 
     const { postId, shiftId } = activeCell;
 
+    // A typed name that wasn't picked from the list has no employee behind
+    // it: the cell would show that name but keep saving the old employee.
+    if (!editSelectedEmployee && editTitle.trim() !== editingEmployee.title) {
+      toast.warning("Pick the employee from the list.");
+      return;
+    }
+
     // Check duplicate main employee
     const already = grid[postId]?.[shiftId]?.some(
       (c) =>
@@ -505,7 +547,7 @@ export const useShiftGrid = () => {
               // Main employee name
               title: editSelectedEmployee
                 ? `${editSelectedEmployee.firstName} ${editSelectedEmployee.lastName}`
-                : editTitle.trim(),
+                : emp.title,
 
               // Backup employees (the main employee can never be his own backup)
               backups: editBackupEmployees
@@ -576,7 +618,8 @@ export const useShiftGrid = () => {
 
   // ── Save planning to DB ───────────────────────────────────────────────────
   const handleSavePlanning = useCallback(async () => {
-    const planDate = currentDate.toLocaleDateString('en-CA', { timeZone: 'Africa/Algiers' }); // → "YYYY-MM-DD"
+    if (!gridIsForCurrentDay()) return;
+    const planDate = dayKey(currentDate);
     const entries: {
       shiftId: string;
       empId: string;
@@ -614,7 +657,7 @@ export const useShiftGrid = () => {
     } catch (err) {
       toast.error(friendlyError(err, "Couldn't save the planning"));
     }
-  }, [grid, currentDate, posts, shifts]);
+  }, [grid, currentDate, posts, shifts, gridIsForCurrentDay]);
 
   const handleCopyMonth = useCallback(async () => {
     if (!copySourceMonth || !copyDestinationMonth) {
@@ -677,6 +720,7 @@ export const useShiftGrid = () => {
   };
 
   const handleSaveToAllWeekdays = useCallback(async () => {
+    if (!gridIsForCurrentDay()) return;
     const entries: {
       shiftId: string;
       empId: string;
@@ -715,9 +759,7 @@ export const useShiftGrid = () => {
     try {
       const results = await Promise.allSettled(
         targetDates.map(async (date) => {
-          const planDate = date.toLocaleDateString("en-CA", {
-            timeZone: "Africa/Algiers",
-          });
+          const planDate = dayKey(date);
 
           const entriesWithDate = entries.map((e) => ({
             ...e,
@@ -735,12 +777,8 @@ export const useShiftGrid = () => {
             }),
           });
 
-          if (!res.ok) {
-            const errText = await res.text();
-            throw new Error(
-              `${planDate}: ${res.status} ${errText}`
-            );
-          }
+          // A typed error, so the toast shows a plain reason, not the raw reply
+          await ensureOk(res);
 
           return planDate;
         })
@@ -762,9 +800,10 @@ export const useShiftGrid = () => {
     } catch (err) {
       toast.error(friendlyError(err, "Couldn't copy the planning"));
     }
-  }, [grid, currentDate, posts, shifts]);
+  }, [grid, currentDate, posts, shifts, gridIsForCurrentDay]);
 
   const handleSaveToNextWeekdays = useCallback(async () => {
+    if (!gridIsForCurrentDay()) return;
     const entries: {
       shiftId: string;
       empId: string;
@@ -819,9 +858,7 @@ export const useShiftGrid = () => {
     try {
       const results = await Promise.allSettled(
         targetDates.map(async (targetDate) => {
-          const planDate = targetDate.toLocaleDateString("en-CA", {
-            timeZone: "Africa/Algiers",
-          });
+          const planDate = dayKey(targetDate);
 
           const entriesWithDate = entries.map((entry) => ({
             ...entry,
@@ -839,10 +876,8 @@ export const useShiftGrid = () => {
             }),
           });
 
-          if (!res.ok) {
-            const errText = await res.text();
-            throw new Error(`${planDate}: ${res.status} ${errText}`);
-          }
+          // A typed error, so the toast shows a plain reason, not the raw reply
+          await ensureOk(res);
 
           return planDate;
         })
@@ -867,7 +902,7 @@ export const useShiftGrid = () => {
     } catch (err) {
       toast.error(friendlyError(err, "Couldn't save the planning to the next weeks"));
     }
-  }, [grid, currentDate, posts, shifts]);
+  }, [grid, currentDate, posts, shifts, gridIsForCurrentDay]);
 
   const excelInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
@@ -1123,18 +1158,10 @@ export const useShiftGrid = () => {
               return;
             }
 
-            currentEmployee = {
-              id: employee._id,
-
-              title:
-                `${employee.firstName} ${employee.lastName}`,
-
-              backups: [],
-            };
-
-            importedGrid[
-              defaultPost.id
-            ][shift.id].push(currentEmployee);
+            currentEmployee = importedCell(
+              importedGrid[defaultPost.id][shift.id],
+              employee
+            );
           });
         });
       }
@@ -1259,9 +1286,11 @@ export const useShiftGrid = () => {
           // Detect hour
           // ---------------------------------------------
 
+          // Any hour 0H–23H; findShiftByHour decides which shift it is
+          // (an hour with no shift skips the names under it)
           const hourMatch =
             cleanLine.match(
-              /^(06|07|08|09|10|11|12|14|15|16)H$/i
+              /^([01]?\d|2[0-3])H$/i
             );
 
           if (hourMatch) {
@@ -1350,19 +1379,9 @@ export const useShiftGrid = () => {
             return;
           }
 
-          currentEmployee = {
-            id: employee._id,
-
-            title:
-              `${employee.firstName} ${employee.lastName}`,
-
-            backups: [],
-          };
-
-          importedGrid[
-            defaultPost.id
-          ][currentShiftId].push(
-            currentEmployee
+          currentEmployee = importedCell(
+            importedGrid[defaultPost.id][currentShiftId],
+            employee
           );
         });
       }

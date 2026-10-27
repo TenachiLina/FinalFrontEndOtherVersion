@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useMemo, useState, useRef} from "react";
+import { API_BASE_URL } from "@/lib/config";
 import { ensureOk, friendlyError } from "@/lib/errors";
 import { confirmDialog, toast } from "@/lib/notify";
 import LoadError from "@/components/ui/feedback/LoadError";
@@ -34,9 +35,6 @@ interface GroupedAttendance {
   clockOut: string | null;
   logs: AttendanceLog[];
 }
-
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
 
 const PAGE_SIZE = 15;
 
@@ -118,6 +116,155 @@ function formatDateForInput(date: Date) {
     2,
     "0"
   )}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+// Punches are shown in Algerian time. Algeria is UTC+1 all year (no
+// daylight saving), so a time typed on this page is read in the same zone.
+const ALGIERS_OFFSET = "+01:00";
+
+/** The Algerian date (YYYY-MM-DD) of a punch: the day the table shows it on. */
+function algiersDate(timestamp: string) {
+  const d = new Date(timestamp);
+
+  if (Number.isNaN(d.getTime())) {
+    return timestamp.substring(0, 10);
+  }
+
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Africa/Algiers",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+}
+
+/** The ISO timestamp of `hhmm` (Algerian time) on the Algerian day `date`. */
+function algiersTimestamp(date: string, hhmm: string) {
+  return new Date(`${date}T${hhmm}:00${ALGIERS_OFFSET}`).toISOString();
+}
+
+/** `date` (YYYY-MM-DD) moved by `days`. */
+function addDays(date: string, days: number) {
+  const d = new Date(`${date}T00:00:00.000Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().substring(0, 10);
+}
+
+// A day that ends with an open clock-in is closed by the next punch when it
+// comes within this time: a clock-out after midnight belongs to the day of
+// its clock-in (overnight shifts), as on the kiosk.
+const MAX_OVERNIGHT_GAP_MS = 12 * 60 * 60 * 1000;
+
+/**
+ * Splits one employee's punches into work days (Algerian dates), each
+ * sorted by time.
+ */
+function splitIntoWorkDays(punches: AttendanceLog[]) {
+  const sorted = [...punches].sort(
+    (a, b) =>
+      new Date(a.timestamp).getTime() -
+      new Date(b.timestamp).getTime()
+  );
+
+  const days = new Map<string, AttendanceLog[]>();
+  let current: { date: string; punches: AttendanceLog[] } | null = null;
+
+  for (const punch of sorted) {
+    const date = algiersDate(punch.timestamp);
+    const lastPunch = current?.punches[current.punches.length - 1];
+
+    const closesOvernightPeriod =
+      current !== null &&
+      lastPunch !== undefined &&
+      current.date < date &&
+      current.punches.length % 2 === 1 &&
+      new Date(punch.timestamp).getTime() -
+        new Date(lastPunch.timestamp).getTime() <=
+        MAX_OVERNIGHT_GAP_MS;
+
+    if (!closesOvernightPeriod) {
+      if (!days.has(date)) {
+        days.set(date, []);
+      }
+      current = { date, punches: days.get(date)! };
+    }
+
+    current!.punches.push(punch);
+  }
+
+  return days;
+}
+
+/**
+ * One employee's punches for a work day. The API filters by UTC date, so the
+ * days around it are loaded too (punches after midnight, overnight periods).
+ */
+async function loadWorkDayPunches(
+  employeeNumber: string,
+  workDate: string
+) {
+  const response = await fetch(
+    `${API_BASE_URL}/attendance/device-logs` +
+      `?from=${encodeURIComponent(addDays(workDate, -1))}` +
+      `&to=${encodeURIComponent(addDays(workDate, 1))}`,
+    { cache: "no-store" }
+  );
+
+  await ensureOk(response);
+
+  const data = await response.json();
+
+  const logs: AttendanceLog[] = Array.isArray(data)
+    ? data
+    : Array.isArray(data?.data)
+    ? data.data
+    : [];
+
+  return (
+    splitIntoWorkDays(
+      logs.filter(
+        (log) => normalizeDeviceId(log.deviceUserId) === employeeNumber
+      )
+    ).get(workDate) ?? []
+  );
+}
+
+/**
+ * Minutes worked: the sum of the periods (1st → 2nd punch, 3rd → 4th, …),
+ * so breaks between periods aren't counted. A last punch without its
+ * clock-out isn't counted yet.
+ */
+function workedMinutes(sortedPunches: AttendanceLog[]) {
+  let minutes = 0;
+
+  for (let i = 0; i + 1 < sortedPunches.length; i += 2) {
+    minutes += Math.max(
+      0,
+      Math.round(
+        (new Date(sortedPunches[i + 1].timestamp).getTime() -
+          new Date(sortedPunches[i].timestamp).getTime()) /
+          60000
+      )
+    );
+  }
+
+  return minutes;
+}
+
+/**
+ * A shift's start or end ("HH:MM"). GET /shifts sends startTime/endTime;
+ * start_time/end_time are still read for older data.
+ */
+function shiftTime(
+  shift: { startTime?: string; endTime?: string; start_time?: string; end_time?: string },
+  which: "start" | "end"
+) {
+  const value =
+    which === "start"
+      ? shift?.startTime ?? shift?.start_time
+      : shift?.endTime ?? shift?.end_time;
+
+  return String(value ?? "00:00").slice(0, 5);
 }
 
 export default function ClockInPageHistory() {
@@ -240,20 +387,15 @@ const searchBoxRef = useRef<HTMLDivElement>(null);
 const groupedLogs = useMemo(() => {
   const groups: Record<string, AttendanceLog[]> = {};
 
-  // First group all punches by employee + date
+  // First group all punches by employee
   logs.forEach((log) => {
     const deviceId = normalizeDeviceId(log.deviceUserId);
 
-    // Use the date contained in the machine timestamp
-    const date = log.timestamp.substring(0, 10);
-
-    const key = `${deviceId}-${date}`;
-
-    if (!groups[key]) {
-      groups[key] = [];
+    if (!groups[deviceId]) {
+      groups[deviceId] = [];
     }
 
-    groups[key].push(log);
+    groups[deviceId].push(log);
   });
 
   const result: GroupedAttendance[] = [];
@@ -271,13 +413,10 @@ const groupedLogs = useMemo(() => {
   // Each pair becomes its own table row.
   // ---------------------------------------------------------
 
-  Object.values(groups).forEach((dayLogs) => {
-    const sorted = [...dayLogs].sort(
-      (a, b) =>
-        new Date(a.timestamp).getTime() -
-        new Date(b.timestamp).getTime()
-    );
-
+  // Then by work day: the Algerian date the table shows (not the UTC
+  // date), with a clock-out after midnight kept on its clock-in's day.
+  Object.values(groups).forEach((employeeLogs) => {
+    splitIntoWorkDays(employeeLogs).forEach((sorted, date) => {
     for (let i = 0; i < sorted.length; i += 2) {
       const clockInLog = sorted[i];
 
@@ -299,7 +438,7 @@ const groupedLogs = useMemo(() => {
         firstName: clockInLog.firstName,
         lastName: clockInLog.lastName,
 
-        date: clockInLog.timestamp.substring(0, 10),
+        date,
 
         // First punch of this interval
         clockIn: clockInLog.timestamp,
@@ -316,6 +455,7 @@ const groupedLogs = useMemo(() => {
           : [clockInLog],
       });
     }
+    });
   });
 
   // Newest intervals first
@@ -400,8 +540,9 @@ const currentLogs = filteredLogs;
 
     const checkDeviceStatus = async () => {
       try {
+        // The API server talks to the machine, not the viewer's computer
         const response = await fetch(
-          "http://localhost:3001/device/status",
+          `${API_BASE_URL}/device/status`,
           {
             cache: "no-store",
           }
@@ -611,9 +752,9 @@ const addPunch = async () => {
 
 const workDate = newPunch.timestamp.substring(0, 10);
 
-// datetime-local contient l'heure locale saisie dans le formulaire.
-// La conversion en ISO produit un timestamp UTC terminé par Z.
-const timestamp = new Date(newPunch.timestamp);
+// The form holds "YYYY-MM-DDTHH:MM" in Algerian time (the time the table
+// shows). The conversion to ISO gives a UTC timestamp ending in Z.
+const timestamp = new Date(`${newPunch.timestamp}:00${ALGIERS_OFFSET}`);
 
 if (Number.isNaN(timestamp.getTime())) {
   toast.warning("The date and time aren't valid.");
@@ -651,44 +792,13 @@ if (Number.isNaN(timestamp.getTime())) {
     console.log("Punch created:", result);
 
     // ---------------------------------------------------------
-    // 2. RELOAD ALL PUNCHES FOR THIS DATE
+    // 2-3. RELOAD ALL PUNCHES FOR THIS EMPLOYEE + WORK DAY
     // ---------------------------------------------------------
 
-    const logsResponse = await fetch(
-      `${API_BASE_URL}/attendance/device-logs` +
-        `?from=${encodeURIComponent(workDate)}` +
-        `&to=${encodeURIComponent(workDate)}`,
-      {
-        cache: "no-store",
-      }
+    const employeeLogs = await loadWorkDayPunches(
+      employeeNumber,
+      workDate
     );
-
-    await ensureOk(logsResponse);
-
-    const logsData = await logsResponse.json();
-
-    const dateLogs: AttendanceLog[] = Array.isArray(logsData)
-      ? logsData
-      : Array.isArray(logsData?.data)
-      ? logsData.data
-      : [];
-
-    // ---------------------------------------------------------
-    // 3. GET ALL PUNCHES FOR THIS EMPLOYEE + DATE
-    // ---------------------------------------------------------
-
-    const employeeLogs = dateLogs
-      .filter(
-        (log) =>
-          normalizeDeviceId(log.deviceUserId) ===
-            employeeNumber &&
-          log.timestamp.substring(0, 10) === workDate
-      )
-      .sort(
-        (a, b) =>
-          new Date(a.timestamp).getTime() -
-          new Date(b.timestamp).getTime()
-      );
 
     if (employeeLogs.length === 0) {
       throw new Error(
@@ -836,13 +946,9 @@ const shiftId = shift
   ? String(shift._id ?? shift.shift_id)
   : null;
 
-const shiftStart = shift
-  ? String(shift.start_time ?? "00:00").slice(0, 5)
-  : "00:00";
+const shiftStart = shift ? shiftTime(shift, "start") : "00:00";
 
-const shiftEnd = shift
-  ? String(shift.end_time ?? "00:00").slice(0, 5)
-  : "00:00";
+const shiftEnd = shift ? shiftTime(shift, "end") : "00:00";
 
 // L'employé peut travailler même sans planning ni shift.
 // Dans ce cas, on conservera le retard et l'overtime à 0.
@@ -852,35 +958,7 @@ const shiftEnd = shift
     // 8. CALCULATE WORK HOURS
     // ---------------------------------------------------------
 
-    let workMinutes = 0;
-
-    if (
-      clockIn !== "—" &&
-      clockOut !== "00:00" &&
-      clockOut !== "—"
-    ) {
-      const [inH, inM] = clockIn
-        .slice(0, 5)
-        .split(":")
-        .map(Number);
-
-      const [outH, outM] = clockOut
-        .slice(0, 5)
-        .split(":")
-        .map(Number);
-
-      let inMinutes = inH * 60 + inM;
-      let outMinutes = outH * 60 + outM;
-
-      if (outMinutes < inMinutes) {
-        outMinutes += 1440;
-      }
-
-      workMinutes = Math.max(
-        0,
-        outMinutes - inMinutes
-      );
-    }
+    const workMinutes = workedMinutes(employeeLogs);
 
     const workHours =
       `${String(Math.floor(workMinutes / 60)).padStart(
@@ -956,6 +1034,16 @@ if (shift && clockOut !== "00:00" && clockOut !== "—") {
     // 11. CREATE / UPDATE WORKTIME
     // ---------------------------------------------------------
 
+    // Keep the day's payroll fields: the form's values replace them only
+    // when they were filled in (left at 0, the saved values stay).
+    const existingWorktimes = await getWorktimesByDate(workDate);
+
+    const existingWorktime = existingWorktimes.find(
+      (item) =>
+        Number(item.emp_id) ===
+        Number(employee.num ?? employee.empNumber)
+    );
+
     const worktimePayload = {
       // Use the employee internal numeric ID for worktime.emp_id.
       emp_id: Number(employee.num ?? employee.empNumber),
@@ -973,9 +1061,10 @@ if (shift && clockOut !== "00:00" && clockOut !== "—") {
 
       work_hours: workHours,
 
-      consomation: newPunch.consomation,
-      penalty: newPunch.penalty,
-      bonus: newPunch.bonus,
+      consomation:
+        Number(newPunch.consomation) || existingWorktime?.consomation || 0,
+      penalty: Number(newPunch.penalty) || existingWorktime?.penalty || 0,
+      bonus: Number(newPunch.bonus) || existingWorktime?.bonus || 0,
 
       absent: false,
       absent_comment: "",
@@ -990,7 +1079,7 @@ if (shift && clockOut !== "00:00" && clockOut !== "—") {
     // The backend and WorktimePayload type must also allow null.
     await upsertWorktime(
       worktimePayload as any,
-      null,
+      existingWorktime?._id ?? null,
       "edit"
     );
 
@@ -1056,16 +1145,29 @@ const saveEditedPunch = async () => {
     return;
   }
 
+  // The work day of the row (a clock-out after midnight belongs to the day
+  // of its clock-in)
   const workDate =
-    editingPunch.workDate ?? rawLog.timestamp.substring(0, 10);
+    editingPunch.workDate ?? algiersDate(rawLog.timestamp);
 
   const employeeNumber = normalizeDeviceId(
     editingPunch.deviceUserId ?? rawLog.deviceUserId
   );
 
-const timestamp = new Date(
-  `${workDate}T${value}:00`
-).toISOString();
+// The time is picked in Algerian time, as the table shows it. An edited
+// punch stays on its own day; a missing clock-out earlier than its
+// clock-in is after midnight, on the next day.
+let timestamp =
+  mode === "edit"
+    ? algiersTimestamp(algiersDate(rawLog.timestamp), value)
+    : algiersTimestamp(workDate, value);
+
+if (
+  mode === "add-clock-out" &&
+  new Date(timestamp).getTime() < new Date(rawLog.timestamp).getTime()
+) {
+  timestamp = algiersTimestamp(addDays(workDate, 1), value);
+}
   try {
     setSavingPunch(true);
     setError(null);
@@ -1101,35 +1203,11 @@ const timestamp = new Date(
       );
     }
 
-    // 2. Reload raw logs for the employee and date.
-    const logsResponse = await fetch(
-      `${API_BASE_URL}/attendance/device-logs` +
-        `?from=${encodeURIComponent(workDate)}` +
-        `&to=${encodeURIComponent(workDate)}`,
-      { cache: "no-store" }
+    // 2. Reload raw logs for the employee and work day.
+    const employeeLogs = await loadWorkDayPunches(
+      employeeNumber,
+      workDate
     );
-
-    await ensureOk(logsResponse);
-
-    const logsData = await logsResponse.json();
-
-    const dateLogs: AttendanceLog[] = Array.isArray(logsData)
-      ? logsData
-      : Array.isArray(logsData?.data)
-      ? logsData.data
-      : [];
-
-    const employeeLogs = dateLogs
-      .filter(
-        (item) =>
-          normalizeDeviceId(item.deviceUserId) === employeeNumber &&
-          item.timestamp.substring(0, 10) === workDate
-      )
-      .sort(
-        (a, b) =>
-          new Date(a.timestamp).getTime() -
-          new Date(b.timestamp).getTime()
-      );
 
     if (employeeLogs.length === 0) {
       throw new Error("No records were found to recalculate the worked hours.");
@@ -1231,30 +1309,12 @@ const timestamp = new Date(
       ? String(shift._id ?? shift.shift_id)
       : null;
 
-    const shiftStart = shift
-      ? String(shift.start_time ?? "00:00").slice(0, 5)
-      : "00:00";
+    const shiftStart = shift ? shiftTime(shift, "start") : "00:00";
 
-    const shiftEnd = shift
-      ? String(shift.end_time ?? "00:00").slice(0, 5)
-      : "00:00";
+    const shiftEnd = shift ? shiftTime(shift, "end") : "00:00";
 
-    // 7. Recalculate work hours, including overnight shifts.
-    let workMinutes = 0;
-
-    if (clockOut !== "00:00" && clockOut !== "—") {
-      const [inH, inM] = clockIn.slice(0, 5).split(":").map(Number);
-      const [outH, outM] = clockOut.slice(0, 5).split(":").map(Number);
-
-      const inMinutes = inH * 60 + inM;
-      let outMinutes = outH * 60 + outM;
-
-      if (outMinutes < inMinutes) {
-        outMinutes += 1440;
-      }
-
-      workMinutes = Math.max(0, outMinutes - inMinutes);
-    }
+    // 7. Recalculate work hours (the periods, without the breaks between them).
+    const workMinutes = workedMinutes(employeeLogs);
 
     const workHours =
       `${String(Math.floor(workMinutes / 60)).padStart(2, "0")}:` +
@@ -1661,7 +1721,7 @@ onClick={() => {
 
                       {/* CLOCK IN */}
                      <td className="border-b border-gray-100 px-4 py-2 text-sm font-medium text-gray-700">
-  {editingPunch?.logId === log.logs[0]?._id ? (
+  {editingPunch !== null && editingPunch.logId === log.logs[0]?._id ? (
     <div className="flex items-center gap-1">
       
 <TimeSelect
@@ -1691,23 +1751,26 @@ onClick={() => {
       </button>
     </div>
   ) : (
-    <span
-      onDoubleClick={() => {
+    <button
+      type="button"
+      onClick={() => {
         const rawLog = log.logs[0];
 
         if (!rawLog?._id) return;
 
+        // Start from the Algerian time shown in the table, not the UTC time
         setEditingPunch({
   logId: rawLog._id!,
-  value: rawLog.timestamp.substring(11, 16),
+  value: formatTime(rawLog.timestamp),
   mode: "edit",
+  workDate: log.date,
 });
       }}
-      title={t("Double-click to edit")}
+      title={t("Tap to edit")}
       className="inline-flex cursor-pointer rounded-md bg-green-100 px-2 py-1 text-xs font-medium text-green-700 hover:ring-2 hover:ring-green-300"
     >
       {formatTime(log.clockIn)}
-    </span>
+    </button>
   )}
 </td>
 
@@ -1772,26 +1835,30 @@ onClick={() => {
         </button>
       </div>
     ) : (
-      <span
-        onDoubleClick={() => {
+      <button
+        type="button"
+        onClick={() => {
           const rawLog = log.logs[1];
           if (!rawLog?._id) return;
 
+          // Start from the Algerian time shown in the table, not the UTC time
           setEditingPunch({
             logId: rawLog._id,
-            value: rawLog.timestamp.substring(11, 16),
+            value: formatTime(rawLog.timestamp),
             mode: "edit",
+            workDate: log.date,
           });
         }}
-        title={t("Double-click to edit")}
+        title={t("Tap to edit")}
         className="inline-flex cursor-pointer rounded-md bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700 hover:ring-2 hover:ring-blue-300"
       >
         {formatTime(log.clockOut)}
-      </span>
+      </button>
     )
   ) : (
-    <span
-      onDoubleClick={() => {
+    <button
+      type="button"
+      onClick={() => {
         const clockInLog = log.logs[0];
         if (!clockInLog?._id) return;
 
@@ -1804,11 +1871,12 @@ onClick={() => {
           workDate: log.date,
         });
       }}
-      title={t("Double-click to add a clock-out")}
+      title={t("Tap to add a clock-out")}
+      aria-label={t("Tap to add a clock-out")}
       className="inline-flex cursor-pointer rounded-md border border-dashed border-orange-300 px-2 py-1 text-xs font-medium text-orange-600 hover:bg-orange-50 hover:ring-2 hover:ring-orange-200"
     >
       —
-    </span>
+    </button>
   )}
 </td>
 

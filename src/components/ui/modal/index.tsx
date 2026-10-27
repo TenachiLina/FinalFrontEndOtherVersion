@@ -1,5 +1,6 @@
 "use client";
 import React, { useRef, useEffect } from "react";
+import { t } from "@/lib/i18n";
 
 interface ModalProps {
   isOpen: boolean;
@@ -8,6 +9,7 @@ interface ModalProps {
   children: React.ReactNode;
   showCloseButton?: boolean; // New prop to control close button visibility
   isFullscreen?: boolean; // Default to false for backwards compatibility
+  "aria-labelledby"?: string; // id of the modal's heading, so the dialog is announced by its title
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -17,8 +19,16 @@ export const Modal: React.FC<ModalProps> = ({
   className,
   showCloseButton = true, // Default to true for backwards compatibility
   isFullscreen = false,
+  "aria-labelledby": labelledBy,
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
+
+  // Move focus into the dialog on open (unless a field inside already took it)
+  useEffect(() => {
+    if (isOpen && modalRef.current && !modalRef.current.contains(document.activeElement)) {
+      modalRef.current.focus();
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
@@ -64,15 +74,22 @@ export const Modal: React.FC<ModalProps> = ({
       )}
       <div
         ref={modalRef}
-        className={`${contentClasses}  ${className}`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={labelledBy}
+        tabIndex={-1}
+        className={`${contentClasses}  ${className} outline-none`}
         onClick={(e) => e.stopPropagation()}
       >
         {showCloseButton && (
           <button
+            type="button"
             onClick={onClose}
+            aria-label={t("Close dialog")}
             className="absolute end-3 top-3 z-999 flex h-9.5 w-9.5 items-center justify-center rounded-full bg-gray-100 text-gray-400 transition-colors hover:bg-gray-200 hover:text-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white sm:end-6 sm:top-6 sm:h-11 sm:w-11"
           >
             <svg
+              aria-hidden="true"
               width="24"
               height="24"
               viewBox="0 0 24 24"

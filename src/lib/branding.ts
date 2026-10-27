@@ -55,11 +55,23 @@ const cache = new Map<string, Promise<CompanyBrand | null>>();
 
 function fetchBrand(slug: string): Promise<CompanyBrand | null> {
   if (!cache.has(slug)) {
+    // A failure (offline, server error) is not an answer: forget it, so the
+    // next sign-in page asks again instead of keeping the default look.
+    const forget = () => {
+      cache.delete(slug);
+      return null;
+    };
     cache.set(
       slug,
       fetch(`${API_BASE_URL}/branding/${encodeURIComponent(slug)}`)
-        .then((res) => (res.ok ? (res.json() as Promise<CompanyBrand>) : null))
-        .catch(() => null)
+        .then((res) =>
+          res.ok
+            ? (res.json() as Promise<CompanyBrand>)
+            : res.status >= 500
+              ? forget()
+              : null
+        )
+        .catch(forget)
     );
   }
   return cache.get(slug)!;

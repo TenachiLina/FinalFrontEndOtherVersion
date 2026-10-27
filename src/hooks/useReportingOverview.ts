@@ -261,7 +261,7 @@
 
 //   return { range, setRange: load, previousRange: prevRange, current, previous, trend, loading, error };
 // }
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { DateRange, Employee, WorktimeRow, AdvanceRecord } from "@/components/reporting/types";
 import {
   getThisWeekRange,
@@ -498,8 +498,11 @@ export function useReportingOverview() {
   const [prevBonuses, setPrevBonuses] = useState<BonusRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  // Each call gets an id; a response is only applied if no newer call started meanwhile
+  const req = useRef(0);
 
   const load = useCallback(async (r: DateRange) => {
+    const reqId = ++req.current;
     setLoading(true);
     setError("");
     try {
@@ -513,6 +516,7 @@ export function useReportingOverview() {
         fetchBonuses(r).catch(optionalData([] as BonusRecord[], "Bonuses")),
         fetchBonuses(prev).catch(optionalData([] as BonusRecord[], "Bonuses")),
       ]);
+      if (reqId !== req.current) return; // outdated response → ignore
       setEmployees(emps);
       setRows(cur);
       setAdvances(curAdv);
@@ -522,10 +526,11 @@ export function useReportingOverview() {
       setPrevBonuses(prvBon);
       setRangeState(r);
     } catch (err) {
+      if (reqId !== req.current) return;
       console.error("Error loading overview:", err);
       setError("Failed to load the overview.");
     } finally {
-      setLoading(false);
+      if (reqId === req.current) setLoading(false);
     }
   }, []);
 

@@ -6,6 +6,7 @@ import type {
 } from "./../calendar/types";
 
 import { API_BASE_URL } from "@/lib/config";
+import { ensureOk } from "@/lib/errors";
 
 async function request<T>(
   path: string,
@@ -18,15 +19,9 @@ async function request<T>(
     ...init,
   });
 
-  if (!res.ok) {
-    const text = await res.text().catch(
-      () => res.statusText
-    );
-
-    throw new Error(
-      `[api] ${res.status} ${text}`
-    );
-  }
+  // Throws an ApiError carrying the server's message, which friendlyError
+  // can turn into a readable message
+  await ensureOk(res);
 
   return res.json() as Promise<T>;
 }

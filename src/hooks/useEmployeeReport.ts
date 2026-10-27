@@ -119,8 +119,20 @@ export function useEmployeeReport(empId: number | string, initial?: EmployeeRepo
     checkAdvance();
   }, [empId, weekRange.start, weekRange.end, employee]);
 
+  // Set while an advance is being saved, so a double click doesn't give it twice
+  const [savingAdvance, setSavingAdvance] = useState(false);
+  const savingRef = useRef(false);
+
   const giveAdvance = useCallback(async () => {
     if (!empId || !weekRange.start || !weekRange.end) return;
+    if (savingRef.current) return;
+    // A zero or negative advance would add money to the month-end net
+    if (weekAdvanceOffer <= 0) {
+      toast.error("There is nothing to advance for this week.");
+      return;
+    }
+    savingRef.current = true;
+    setSavingAdvance(true);
     try {
       const res = await fetch(`${API_BASE_URL}/advances`, {
         method: "POST",
@@ -138,6 +150,9 @@ export function useEmployeeReport(empId: number | string, initial?: EmployeeRepo
       toast.success("Advance given.");
     } catch (err) {
       toast.error(friendlyError(err, "Couldn't give the advance"));
+    } finally {
+      savingRef.current = false;
+      setSavingAdvance(false);
     }
   }, [empId, weekRange, weekAdvanceOffer]);
 
@@ -150,6 +165,7 @@ export function useEmployeeReport(empId: number | string, initial?: EmployeeRepo
     } catch (err) {
       console.error("Error revoking advance:", err);
       setExistingAdvance(previous);
+      toast.error(friendlyError(err, "Couldn't remove the advance"));
     }
   }, [existingAdvance]);
 
@@ -237,6 +253,7 @@ export function useEmployeeReport(empId: number | string, initial?: EmployeeRepo
       advanceOffer: weekAdvanceOffer,
       advanceGiven,
       isLoadingAdvance,
+      savingAdvance,
       giveAdvance,
       revokeAdvance,
       loading: loadingWeek,
