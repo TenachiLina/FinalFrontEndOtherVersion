@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { http, HttpResponse } from "msw";
 import BasicTableOne from "./BasicTableOne";
+import { locale } from "@/lib/i18n";
 import { API, server } from "@/test/server";
 import { answerConfirmDialog, renderWithProviders, screen, waitFor, within } from "@/test/render";
 import { dismissToast, getToasts } from "@/lib/notify";
@@ -97,7 +98,7 @@ describe("BasicTableOne – loading", () => {
     const row = (await screen.findByText("Ali")).closest("tr")!;
     expect(within(row).getByText("101")).toBeInTheDocument();
     expect(within(row).getByText("Zerrouki")).toBeInTheDocument();
-    expect(within(row).getByText(`${(40000).toLocaleString()} DA`)).toBeInTheDocument();
+    expect(within(row).getByText(`${(40000).toLocaleString(locale())} DA`)).toBeInTheDocument();
     expect(within(row).getByText("Oran")).toBeInTheDocument();
     expect(within(row).getByText("0550")).toBeInTheDocument();
   });
@@ -284,7 +285,7 @@ describe("BasicTableOne – add and edit", () => {
       url: "/employees/ali",
       body: { empNumber: 101, firstName: "Ali", lastName: "Zerrouki", baseSalary: 45000, address: "Oran", phoneNumber: "0550" },
     });
-    expect(screen.getByText(`${(45000).toLocaleString()} DA`)).toBeInTheDocument();
+    expect(screen.getByText(`${(45000).toLocaleString(locale())} DA`)).toBeInTheDocument();
   });
 
   it("starts an empty form after editing", async () => {
