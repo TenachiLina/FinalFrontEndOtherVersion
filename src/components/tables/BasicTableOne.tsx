@@ -6,7 +6,7 @@ import { API_BASE_URL } from "@/lib/config";
 import { ensureOk, friendlyError } from "@/lib/errors";
 import { confirmDialog, toast } from "@/lib/notify";
 import { currency } from "@/lib/payrollConfig";
-import { t } from "@/lib/i18n";
+import { locale, t } from "@/lib/i18n";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -334,7 +334,7 @@ export default function BasicTableOne() {
                   </td>
                   <td className="px-4 py-4 text-sm font-medium text-gray-800 dark:text-white/90">{emp.firstName}</td>
                   <td className="px-4 py-4 text-sm font-medium text-gray-800 dark:text-white/90">{emp.lastName}</td>
-                  <td className="px-4 py-4 text-sm text-gray-700 dark:text-gray-300 font-medium">{Number(emp.baseSalary).toLocaleString()} {currency()}</td>
+                  <td className="px-4 py-4 text-sm text-gray-700 dark:text-gray-300 font-medium">{Number(emp.baseSalary).toLocaleString(locale())} {currency()}</td>
                   <td className="px-4 py-4 text-sm text-gray-600 dark:text-gray-400">{emp.address ?? "—"}</td>
                   <td className="px-4 py-4 text-sm text-gray-600 dark:text-gray-400 font-mono">{emp.phoneNumber ?? "—"}</td>
                   <td className="px-4 py-4">
