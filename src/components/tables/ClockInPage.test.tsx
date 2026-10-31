@@ -374,6 +374,31 @@ describe("ClockInPage – clock in and out", () => {
     expect(cell("Ali Zerrouki", "Overtime")).toHaveTextContent("00:30");
   });
 
+  // BUG-003: "00:00" is a real midnight, not "no time"
+  it("counts a clock-out at exactly midnight", async () => {
+    db.shifts = [makeShift("s3", "16:00", "00:00")];
+    db.planning = [makePlan(ali, db.shifts[0])];
+    db.worktimes = [makeWorktime({ shift_id: "s3", clock_in: "16:00", clock_out: "00:00" })];
+    await renderPage();
+    await screen.findByRole("button", { name: "16:00" });
+    expect(screen.getAllByRole("button", { name: "00:00" }).length).toBeGreaterThan(0);
+    expect(cell("Ali Zerrouki", "Hours")).toHaveTextContent("08:00");
+  });
+
+  it("shows someone who clocked in at exactly midnight as present", async () => {
+    db.worktimes = [makeWorktime({ clock_in: "00:00", clock_out: null as any })];
+    await renderPage();
+    expect((await screen.findAllByRole("button", { name: "00:00" })).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Present").length).toBeGreaterThan(0);
+  });
+
+  it("shows a record without times as not clocked in", async () => {
+    db.worktimes = [makeWorktime({ clock_in: null as any, clock_out: null as any })];
+    await renderPage();
+    expect((await screen.findAllByRole("button", { name: "Clock In" })).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: "00:00" })).not.toBeInTheDocument();
+  });
+
   // BUG-206: on a shift that ends after midnight, leaving before midnight counts as ~21 h of overtime
   it("gives no overtime for leaving early on a shift that ends after midnight", async () => {
     db.shifts = [makeShift("s3", "18:00", "02:00")];
@@ -551,7 +576,7 @@ describe("ClockInPage – absences and backups", () => {
     expect(writes()).toEqual([
       expect.objectContaining({
         method: "POST",
-        body: expect.objectContaining({ emp_id: 101, shift_id: "s1", absent: true, backup_emp_id: 103, clock_in: "00:00", clock_out: "00:00" }),
+        body: expect.objectContaining({ emp_id: 101, shift_id: "s1", absent: true, backup_emp_id: 103, clock_in: null, clock_out: null }),
       }),
     ]);
     expect(cell("Ali Zerrouki", "Saved")).toHaveTextContent("✓ Saved");
@@ -666,6 +691,7 @@ describe("ClockInPage – reset, dates and local copies", () => {
     await user.click(screen.getByRole("button", { name: "Reset" }));
     await answerConfirmDialog(true);
     await new Promise((r) => setTimeout(r, 1000));
+    expect(requests.filter((r) => r.method === "PUT").at(-1)?.body).toMatchObject({ clock_in: null, clock_out: null });
     unmount();
 
     await renderPage();
@@ -688,10 +714,10 @@ describe("ClockInPage – reset, dates and local copies", () => {
 
   it("keeps unsaved changes from this browser over the server's copy", async () => {
     localStorage.setItem(
-      `worktime_${TODAY}`,
+      `worktime_v2_${TODAY}`,
       JSON.stringify({
-        "101-s1": { clockIn: "07:58", clockOut: "00:00", absent: false, absentComment: "", consomation: 0, penalty: 0, workTimeId: "w1", _dirty: true },
-        "102-s1": { clockIn: "07:40", clockOut: "00:00", absent: false, absentComment: "", consomation: 0, penalty: 0, workTimeId: "w2" },
+        "101-s1": { clockIn: "07:58", clockOut: "", absent: false, absentComment: "", consomation: 0, penalty: 0, workTimeId: "w1", _dirty: true },
+        "102-s1": { clockIn: "07:40", clockOut: "", absent: false, absentComment: "", consomation: 0, penalty: 0, workTimeId: "w2" },
       })
     );
     db.worktimes = [makeWorktime({ clock_in: "08:00" }), makeWorktime({ _id: "w2", emp_id: 102, clock_in: "07:55" })];
@@ -716,7 +742,7 @@ describe("ClockInPage – reset, dates and local copies", () => {
   });
 
   it("ignores an unreadable local copy", async () => {
-    localStorage.setItem(`worktime_${TODAY}`, "{not json");
+    localStorage.setItem(`worktime_v2_${TODAY}`, "{not json");
     db.worktimes = [makeWorktime({ clock_in: "08:00" })];
     await renderPage();
     expect(await screen.findByRole("button", { name: "08:00" })).toBeInTheDocument();

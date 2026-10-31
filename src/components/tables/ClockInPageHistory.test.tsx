@@ -538,7 +538,7 @@ describe("ClockInPageHistory – adding a clock-in", () => {
         shift_id: "s1",
         work_date: "2026-03-09",
         clock_in: "08:10",
-        clock_out: "00:00",
+        clock_out: null,
         late_minutes: expect.any(String),
         overtime_minutes: "0",
         work_hours: "00:00",
