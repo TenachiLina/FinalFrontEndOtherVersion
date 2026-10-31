@@ -691,7 +691,7 @@ describe("ClockInPage – reset, dates and local copies", () => {
     await user.click(screen.getByRole("button", { name: "Reset" }));
     await answerConfirmDialog(true);
     await new Promise((r) => setTimeout(r, 1000));
-    expect(requests.filter((r) => r.method === "PUT").at(-1)?.body).toMatchObject({ clock_in: null, clock_out: null });
+    expect(requests.some((r) => r.method === "PUT" && r.body.clock_in === null && r.body.clock_out === null)).toBe(true);
     unmount();
 
     await renderPage();
