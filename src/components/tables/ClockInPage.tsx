@@ -61,25 +61,27 @@ const TrashIcon   = () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="no
 const SaveIcon    = () => (<svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>);
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+// "No time" marker. Not "00:00": that is a real punch at midnight.
+const NO_TIME = "";
 const toMinutes    = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
 const formatMin    = (n: number) => n <= 0 ? "00:00" : `${Math.floor(n/60).toString().padStart(2,"0")}:${(n%60).toString().padStart(2,"0")}`;
-const calcHours    = (i: string, o: string) => { if (i==="00:00"||o==="00:00") return "00:00"; let d=toMinutes(o)-toMinutes(i); if(d<0) d+=1440; return formatMin(d); };
+const calcHours    = (i: string, o: string) => { if (i===NO_TIME||o===NO_TIME) return "00:00"; let d=toMinutes(o)-toMinutes(i); if(d<0) d+=1440; return formatMin(d); };
 // A shift that ends before it starts (22:00–06:00, 18:00–00:00) ends the next day
 const isOvernight  = (s: string, e: string) => !!s && !!e && toMinutes(e.slice(0,5)) < toMinutes(s.slice(0,5));
 // On an overnight shift, a clock-in after midnight (before the shift's end) belongs to the next day
-const calcLate     = (i: string, s: string, e: string) => { if (i==="00:00"||!s) return 0; let im=toMinutes(i); const sm=toMinutes(s.slice(0,5)); if(isOvernight(s,e)&&im<sm&&im<=toMinutes(e.slice(0,5)))im+=1440; const l=im-sm; return l>0?l:0; };
+const calcLate     = (i: string, s: string, e: string) => { if (i===NO_TIME||!s) return 0; let im=toMinutes(i); const sm=toMinutes(s.slice(0,5)); if(isOvernight(s,e)&&im<sm&&im<=toMinutes(e.slice(0,5)))im+=1440; const l=im-sm; return l>0?l:0; };
 // On an overnight shift, the end and a clock-out earlier than the start are on the next day
-const calcOvertime = (o: string, s: string, e: string) => { if(o==="00:00"||!e) return 0; let em=toMinutes(e.slice(0,5)),om=toMinutes(o); if(isOvernight(s,e)){ em+=1440; if(om<toMinutes(s.slice(0,5)))om+=1440; } const ot=om-em; return ot>0?ot:0; };
+const calcOvertime = (o: string, s: string, e: string) => { if(o===NO_TIME||!e) return 0; let em=toMinutes(e.slice(0,5)),om=toMinutes(o); if(isOvernight(s,e)){ em+=1440; if(om<toMinutes(s.slice(0,5)))om+=1440; } const ot=om-em; return ot>0?ot:0; };
 const nowTime      = () => { const d=new Date(); return `${d.getHours().toString().padStart(2,"0")}:${d.getMinutes().toString().padStart(2,"0")}`; };
 // Today in the browser's time zone (toISOString gives the UTC date, yesterday between 00:00 and 01:00 in Algeria)
 const todayLocal   = () => { const d=new Date(); return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,"0")}-${d.getDate().toString().padStart(2,"0")}`; };
-const getStatus    = (e: EmployeeTimeEntry): ShiftStatus => e.absent ? "absent" : e.clockIn!=="00:00" ? "present" : "pending";
+const getStatus    = (e: EmployeeTimeEntry): ShiftStatus => e.absent ? "absent" : e.clockIn!==NO_TIME ? "present" : "pending";
 const badgeColor   = (s: ShiftStatus) => s==="present"?"success":s==="absent"?"error":"warning";
 const badgeLabel   = (s: ShiftStatus) => s==="present"?t("Present"):s==="absent"?t("Absent"):t("Pending");
 function recordToEntry(r: WorktimeRecord): EmployeeTimeEntry {
   return {
-    clockIn:       r.clock_in       ?? "00:00",
-    clockOut:      r.clock_out      ?? "00:00",
+    clockIn:       r.clock_in       ?? NO_TIME,
+    clockOut:      r.clock_out      ?? NO_TIME,
     absent:        r.absent         ?? false,
     absentComment: r.absent_comment ?? "",
     consomation:   r.consomation    ?? 0,
@@ -102,8 +104,8 @@ function entryToPayload(
     emp_id:           empNum,
     shift_id:         shiftId as any,
     work_date:        date,
-    clock_in:         entry.clockIn  !== "00:00" ? entry.clockIn  : undefined,
-    clock_out:        entry.clockOut !== "00:00" ? entry.clockOut : undefined,
+    clock_in:         entry.clockIn  !== NO_TIME ? entry.clockIn  : undefined,
+    clock_out:        entry.clockOut !== NO_TIME ? entry.clockOut : undefined,
     late_minutes:     String(late),
     overtime_minutes: String(ot),
     work_hours:       hours,
@@ -123,7 +125,8 @@ const employeeRecordToEmployee = (
 });
 
 // ─── localStorage persistence ─────────────────────────────────────────────────
-const LS_KEY = (date: string) => `worktime_${date}`;
+// v2: older drafts used "00:00" for "no time"
+const LS_KEY = (date: string) => `worktime_v2_${date}`;
 // This page keeps one record per employee AND shift: a save must never land on another shift's record
 const PER_SHIFT = { perShift: true };
 function saveEntriesToStorage(date: string, entries: Record<string, EmployeeTimeEntry>) {
@@ -349,7 +352,7 @@ useEffect(() => {
   const entryKey = (empNum: number, shiftId = currentTab) => `${empNum}-${shiftId}`;
   const getEntry = (empNum: number): EmployeeTimeEntry =>
     entries[entryKey(empNum)] ?? {
-      clockIn: "00:00", clockOut: "00:00",
+      clockIn: NO_TIME, clockOut: NO_TIME,
       absent: false, absentComment: "",
       consomation: 0, penalty: 0, workTimeId: null,
   };
@@ -501,8 +504,8 @@ useEffect(() => {
     if (backups.length === 0) {
       updateEntry(emp.num, {
         absent: true,
-        clockIn: "00:00",
-        clockOut: "00:00",
+        clockIn: NO_TIME,
+        clockOut: NO_TIME,
       });
       return;
     }
@@ -533,8 +536,8 @@ useEffect(() => {
   const updatedEntry: EmployeeTimeEntry = {
     ...previousEntry,
     absent: true,
-    clockIn: "00:00",
-    clockOut: "00:00",
+    clockIn: NO_TIME,
+    clockOut: NO_TIME,
     _dirty: false,
     _saving: false,
   };
@@ -556,8 +559,8 @@ useEffect(() => {
       {
         ...payload,
         absent: true,
-        clock_in: "00:00",
-        clock_out: "00:00",
+        clock_in: null,
+        clock_out: null,
         backup_emp_id: backup.empNumber,
       },
       previousEntry.workTimeId,
@@ -611,7 +614,7 @@ useEffect(() => {
     const date = selectedDate;
     const reset: Record<string, EmployeeTimeEntry> = {};
     Object.keys(entries).forEach((k) => {
-      reset[k] = { ...entries[k], clockIn: "00:00", clockOut: "00:00", absent: false, absentComment: "", consomation: 0, penalty: 0, _dirty: false, _saving: !!entries[k].workTimeId };
+      reset[k] = { ...entries[k], clockIn: NO_TIME, clockOut: NO_TIME, absent: false, absentComment: "", consomation: 0, penalty: 0, _dirty: false, _saving: !!entries[k].workTimeId };
     });
     setEntries(reset);
     saveEntriesToStorage(date, reset);
@@ -626,8 +629,8 @@ useEffect(() => {
         const { start, end } = effectiveTimes(empNum, shiftId);
         try {
           const saved = await upsertWorktime(
-            // "00:00" explicitly: a missing time would leave the server's time as it is
-            { ...entryToPayload(reset[k], empNum, shiftId, date, start, end), clock_in: "00:00", clock_out: "00:00" },
+            // null explicitly: a missing time would leave the server's time as it is
+            { ...entryToPayload(reset[k], empNum, shiftId, date, start, end), clock_in: null, clock_out: null },
             reset[k].workTimeId,
             "edit",
             PER_SHIFT
@@ -1160,8 +1163,8 @@ const getAttendanceRows = (
                       {!entry.absent ? (
                         <div className="flex flex-col gap-1">
                           <button onClick={() => handleClockIn(emp.num)}
-                            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${entry.clockIn !== "00:00" ? "bg-green-600 text-white hover:bg-green-700" : "border border-gray-200 dark:border-white/[0.1] text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/[0.05]"}`}>
-                            <ClockInIcon />{entry.clockIn !== "00:00" ? entry.clockIn : t("Clock In")}
+                            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${entry.clockIn !== NO_TIME ? "bg-green-600 text-white hover:bg-green-700" : "border border-gray-200 dark:border-white/[0.1] text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/[0.05]"}`}>
+                            <ClockInIcon />{entry.clockIn !== NO_TIME ? entry.clockIn : t("Clock In")}
                           </button>
                           <button onClick={() => openManualInput(emp.num, "clockIn")}
                             className="flex items-center gap-1 rounded px-2 py-1 text-xs text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors">
@@ -1174,8 +1177,8 @@ const getAttendanceRows = (
                       {!entry.absent ? (
                         <div className="flex flex-col gap-1">
                           <button onClick={() => handleClockOut(emp.num)}
-                            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${entry.clockOut !== "00:00" ? "bg-red-500 text-white hover:bg-red-600" : "border border-gray-200 dark:border-white/[0.1] text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/[0.05]"}`}>
-                            <ClockInIcon />{entry.clockOut !== "00:00" ? entry.clockOut : t("Clock Out")}
+                            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${entry.clockOut !== NO_TIME ? "bg-red-500 text-white hover:bg-red-600" : "border border-gray-200 dark:border-white/[0.1] text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/[0.05]"}`}>
+                            <ClockInIcon />{entry.clockOut !== NO_TIME ? entry.clockOut : t("Clock Out")}
                           </button>
                           <button onClick={() => openManualInput(emp.num, "clockOut")}
                             className="flex items-center gap-1 rounded px-2 py-1 text-xs text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors">
