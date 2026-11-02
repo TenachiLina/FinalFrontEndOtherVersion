@@ -818,7 +818,7 @@ if (Number.isNaN(timestamp.getTime())) {
     const clockIn = formatTime(clockInLog.timestamp);
     const clockOut = clockOutLog
       ? formatTime(clockOutLog.timestamp)
-      : "00:00";
+      : null;
 
     console.log("Manual punch worktime:", {
       employeeNumber,
@@ -997,7 +997,7 @@ if (shift && clockIn !== "—") {
   
 let overtimeMinutes = 0;
 
-if (shift && clockOut !== "00:00" && clockOut !== "—") {
+if (shift && clockOut && clockOut !== "—") {
   const [outH, outM] = clockOut
     .slice(0, 5)
     .split(":")
@@ -1100,7 +1100,7 @@ if (shift && clockOut !== "00:00" && clockOut !== "—") {
     await loadLogs();
 
     toast.success(
-      clockOut !== "00:00"
+      clockOut
         ? "Clock-in added. Worked hours updated with the clock-in and clock-out."
         : "Clock-in added. Worked hours will be calculated after the clock-out."
     );
@@ -1219,7 +1219,7 @@ if (
     const clockOut =
       employeeLogs.length > 1
         ? formatTime(employeeLogs[employeeLogs.length - 1].timestamp)
-        : "00:00";
+        : null;
 
     // 4. Fetch the employee.
     const employeesResponse = await fetch(`${API_BASE_URL}/employees`, {
@@ -1341,7 +1341,7 @@ if (shift && clockIn !== "—") {
     // 9. Recalculate overtime.
    let overtimeMinutes = 0;
 
-if (shift && clockOut !== "00:00" && clockOut !== "—") {
+if (shift && clockOut && clockOut !== "—") {
   const [outH, outM] = clockOut
     .slice(0, 5)
     .split(":")

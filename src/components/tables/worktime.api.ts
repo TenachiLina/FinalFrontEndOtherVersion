@@ -11,8 +11,9 @@ export interface WorktimePayload {
   emp_id: number;
 shift_id?: string | null;  work_date: string;
 
-  clock_in?: string;
-  clock_out?: string;
+  // null clears the time; "00:00" is a real midnight
+  clock_in?: string | null;
+  clock_out?: string | null;
 
   late_minutes?: string;
   overtime_minutes?: string;

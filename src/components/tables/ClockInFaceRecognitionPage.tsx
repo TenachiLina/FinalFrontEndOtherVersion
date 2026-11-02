@@ -1160,7 +1160,7 @@ const badgeLabel = (
 function recordToEntry(
   r: WorktimeRecord
 ): EmployeeTimeEntry {
-  // Absences are saved elsewhere with "00:00" times: they have no punch.
+  // Absences have no punch, whatever time an older record holds.
   const absent = r.absent ?? false;
 
   return {
@@ -1284,7 +1284,7 @@ function entryToPayload(
 const LS_KEY = (
   date: string
 ) =>
-  `worktime_${date}`;
+  `worktime_v2_${date}`;
 
 function saveEntriesToStorage(
   date: string,

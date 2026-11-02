@@ -520,7 +520,7 @@ describe("records already saved", () => {
 
   it("brings back changes kept in the browser for the day", async () => {
     localStorage.setItem(
-      `worktime_${DAY}`,
+      `worktime_v2_${DAY}`,
       JSON.stringify({ "102-s1": { clockIn: "09:00", clockOut: "00:00", periods: [], workHours: "00:00", absent: false, absentComment: "", consomation: 0, penalty: 75, workTimeId: null } })
     );
     await renderPage();
@@ -531,7 +531,7 @@ describe("records already saved", () => {
 
   it("keeps an unsaved change from the browser over the database record", async () => {
     localStorage.setItem(
-      `worktime_${DAY}`,
+      `worktime_v2_${DAY}`,
       JSON.stringify({ "101-s1": { clockIn: "08:00", clockOut: "00:00", periods: [], workHours: "00:00", absent: false, absentComment: "", consomation: 0, penalty: 500, workTimeId: "w1", _dirty: true } })
     );
     await renderPage({ worktimes: [record({ penalty: 100 })] });
@@ -540,7 +540,7 @@ describe("records already saved", () => {
   });
 
   it("ignores a damaged browser copy", async () => {
-    localStorage.setItem(`worktime_${DAY}`, "{not json");
+    localStorage.setItem(`worktime_v2_${DAY}`, "{not json");
     await renderPage({ worktimes: [record({ clock_in: "08:00" })] });
     expect(row("Ali Ben").clockIn).toBe("08:00");
   });
@@ -588,7 +588,7 @@ describe("saving machine punches", () => {
         backup_emp_id: null,
       },
     });
-    expect(JSON.parse(localStorage.getItem(`worktime_${DAY}`) ?? "{}")["101-s1"]).toMatchObject({ workTimeId: "new-101" });
+    expect(JSON.parse(localStorage.getItem(`worktime_v2_${DAY}`) ?? "{}")["101-s1"]).toMatchObject({ workTimeId: "new-101" });
   });
 
   it("updates the record the employee already has for the day", async () => {
@@ -677,7 +677,7 @@ describe("editing a row", () => {
       audit: null,
       body: { emp_id: 101, penalty: 250, clock_in: "08:00", clock_out: "17:00", work_hours: "00:00" },
     });
-    expect(JSON.parse(localStorage.getItem(`worktime_${DAY}`) ?? "{}")["101-s1"]).toMatchObject({ penalty: "250" });
+    expect(JSON.parse(localStorage.getItem(`worktime_v2_${DAY}`) ?? "{}")["101-s1"]).toMatchObject({ penalty: "250" });
   });
 
   it("shows that a change is being saved", async () => {
@@ -865,7 +865,7 @@ describe("resetting the day", () => {
     expect(row("Ali Ben")).toMatchObject({ status: "Pending", clockIn: "No punch", clockOut: "No punch" });
     expect(row("Ali Ben").penalty).toHaveValue(null);
     expect(screen.getByText("Machine punches: 0")).toBeInTheDocument();
-    expect(JSON.parse(localStorage.getItem(`worktime_${DAY}`) ?? "{}")["101-s1"]).toMatchObject({ clockIn: "", penalty: 0 });
+    expect(JSON.parse(localStorage.getItem(`worktime_v2_${DAY}`) ?? "{}")["101-s1"]).toMatchObject({ clockIn: "", penalty: 0 });
     expect(api.saves()).toHaveLength(1);
   });
 });
