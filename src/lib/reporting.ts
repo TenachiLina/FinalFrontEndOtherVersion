@@ -228,7 +228,7 @@ export function getCalendarMonthRange(year: number, monthIndex: number): DateRan
 
 // For a manager, the API also lists the other managers (planning and clock-in
 // need them) but flags them `otherManager`: salary pages leave them out.
-async function fetchEmployeesRaw(): Promise<EmployeeRaw[]> {
+export async function fetchEmployeesRaw(): Promise<EmployeeRaw[]> {
   const res = await fetch(`${API_BASE_URL}/employees`);
   await ensureOk(res);
   return (await res.json()) as EmployeeRaw[];
