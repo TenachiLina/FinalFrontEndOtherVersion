@@ -121,6 +121,22 @@ export default function CompanySettingsForm() {
         </p>
       </section>
 
+      <section className="space-y-4">
+        <h4 className="font-semibold text-gray-800 dark:text-white/90">{t("Payslip")}</h4>
+        <div>
+          <label className={labelClass} htmlFor="payslip-activity">{t("Company activity")}</label>
+          <input id="payslip-activity" className={inputClass} value={settings.payslipActivity ?? ""} onChange={(e) => set("payslipActivity", e.target.value)} />
+        </div>
+        <div>
+          <label className={labelClass} htmlFor="payslip-address">{t("Company address")}</label>
+          <textarea id="payslip-address" rows={2} className={`${inputClass} h-auto`} value={settings.payslipAddress ?? ""} onChange={(e) => set("payslipAddress", e.target.value)} />
+        </div>
+        <div>
+          <label className={labelClass} htmlFor="payslip-contributor">{t("Contributor number")}</label>
+          <input id="payslip-contributor" className={inputClass} value={settings.payslipContributorNumber ?? ""} onChange={(e) => set("payslipContributorNumber", e.target.value)} />
+        </div>
+      </section>
+
       {message && (
         <p role="status" className={`text-sm ${message.ok ? "text-success-600" : "text-error-500"}`}>
           {message.text}

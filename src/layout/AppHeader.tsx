@@ -25,6 +25,7 @@ const AppHeader: React.FC = () => {
     "/reporting/overview": "Overview",
     "/reporting/weekly-advances": "Weekly Advances",
     "/reporting/monthly-payroll": "Monthly Payroll",
+    "/reporting/payslips": "Payslips",
     "/reporting/attendance": "Attendance",
     "/reporting/advances": "Advances",
     "/reporting/bonuses/give": "Give Bonuses",
