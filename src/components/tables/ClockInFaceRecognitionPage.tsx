@@ -100,18 +100,44 @@ function timeToMinutes(time: string): number {
   return parts[0] * 60 + parts[1];
 }
 
+/** Algerian wall-clock parts ("2026-11-08T15:07:00") of a real instant. */
+const algiersParts = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Africa/Algiers",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hourCycle: "h23",
+});
+
+function toAlgiersWallClock(timestamp: string): string {
+  const d = new Date(timestamp);
+  if (Number.isNaN(d.getTime())) return timestamp;
+  const p = Object.fromEntries(
+    algiersParts.formatToParts(d).map((part) => [part.type, part.value])
+  );
+  return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}:${p.second}`;
+}
+
 /**
- * Treat the timestamp coming from the attendance machine
- * as machine/local attendance time.
+ * The punch's date and time in Algeria. The API sends real UTC instants
+ * ("…T14:07:00.000Z" for 15:07 in Algeria), like the history page reads them;
+ * a time without a zone is already Algerian time and is kept as it is.
  */
 function deviceDateTime(
-  timestamp: string
+  rawTimestamp: string
 ): {
   date: string;
   minutes: number;
   time: string;
 } | null {
-  if (!timestamp) return null;
+  if (!rawTimestamp) return null;
+
+  const timestamp = /(Z|[+-]\d{2}:?\d{2})$/.test(rawTimestamp)
+    ? toAlgiersWallClock(rawTimestamp)
+    : rawTimestamp;
 
   const match = timestamp.match(
     /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?/
