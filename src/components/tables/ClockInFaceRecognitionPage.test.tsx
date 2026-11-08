@@ -355,6 +355,29 @@ describe("turning machine punches into times", () => {
     expect(row("Ali Ben")).toMatchObject({ status: "Pending", clockIn: "08:00", clockOut: "No punch", hours: "04:00" });
   });
 
+  it("shows UTC times from the API in Algerian time (UTC+1)", async () => {
+    await renderPage({
+      logs: {
+        [DAY]: [
+          { deviceUserId: "101", timestamp: `${DAY}T07:00:00.000Z` },
+          { deviceUserId: "101", timestamp: `${DAY}T16:30:00.000Z` },
+        ],
+      },
+    });
+    expect(row("Ali Ben")).toMatchObject({ clockIn: "08:00", clockOut: "17:30", hours: "09:30" });
+  });
+
+  it("puts a punch at 00:30 in Algeria on its Algerian day, not the UTC one", async () => {
+    // 23:30Z the day before is 00:30 on DAY in Algeria
+    const before = new Date(`${DAY}T00:00:00Z`);
+    before.setUTCDate(before.getUTCDate() - 1);
+    const prevDay = before.toISOString().slice(0, 10);
+    await renderPage({
+      logs: { [DAY]: [{ deviceUserId: "101", timestamp: `${prevDay}T23:30:00.000Z` }] },
+    });
+    expect(row("Ali Ben")).toMatchObject({ clockIn: "00:30" });
+  });
+
   it("matches device ids with stray spaces and control characters", async () => {
     await renderPage({ logs: { [DAY]: [punch(" 101\u0000", "08:00"), punch("101\r\n", "16:00")] } });
     expect(row("Ali Ben")).toMatchObject({ clockIn: "08:00", clockOut: "16:00", hours: "08:00" });
