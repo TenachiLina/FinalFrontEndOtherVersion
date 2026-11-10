@@ -70,7 +70,8 @@ const NIGHT_SHIFT = shift("s3", "16:00", "02:00");
 interface Backend {
   employees?: EmployeeRecord[];
   shifts?: ShiftRecord[];
-  planning?: PlanningRecord[] | "error";
+  /** A function answers per planDate (YYYY-MM-DD). */
+  planning?: PlanningRecord[] | "error" | ((date: string) => PlanningRecord[]);
   /** Machine logs by date; a function lets a test change them later. */
   logs?: Record<string, unknown> | ((date: string) => unknown);
   logsStatus?: number;
@@ -92,6 +93,7 @@ interface Call {
 function backend(b: Backend = {}) {
   const calls: Call[] = [];
   const logRequests: string[] = [];
+  const logQueries: Record<string, string>[] = [];
   const remember = async (request: Request) => {
     const url = new URL(request.url);
     const text = request.method === "GET" ? "" : await request.text();
@@ -117,14 +119,20 @@ function backend(b: Backend = {}) {
         : HttpResponse.json(b.employees ?? [ALI, SARA])
     ),
     http.get(`${API}/shifts`, () => HttpResponse.json(b.shifts ?? [DAY_SHIFT])),
-    http.get(`${API}/planning`, () =>
+    http.get(`${API}/planning`, ({ request }) =>
       b.planning === "error"
         ? new HttpResponse(null, { status: 500 })
-        : HttpResponse.json(b.planning ?? [plan(ALI, DAY_SHIFT), plan(SARA, DAY_SHIFT)])
+        : HttpResponse.json(
+            typeof b.planning === "function"
+              ? b.planning(new URL(request.url).searchParams.get("planDate") ?? "")
+              : (b.planning ?? [plan(ALI, DAY_SHIFT), plan(SARA, DAY_SHIFT)])
+          )
     ),
     http.get(`${API}/attendance/device-logs`, ({ request }) => {
-      const date = new URL(request.url).searchParams.get("date") ?? "";
+      const query = new URL(request.url).searchParams;
+      const date = query.get("date") ?? "";
       logRequests.push(date);
+      logQueries.push(Object.fromEntries(query));
       if (b.logsStatus) return new HttpResponse(null, { status: b.logsStatus });
       const body = typeof b.logs === "function" ? b.logs(date) : b.logs?.[date];
       return HttpResponse.json((body ?? []) as never);
@@ -155,6 +163,7 @@ function backend(b: Backend = {}) {
   return {
     calls,
     logRequests,
+    logQueries,
     saves: () => calls.filter((c) => c.method !== "GET"),
     searches: () => calls.filter((c) => c.method === "GET" && c.query.emp_id),
   };
@@ -283,9 +292,10 @@ describe("loading the day", () => {
     expect(await screen.findByText("No employees found in the database.")).toBeInTheDocument();
   });
 
-  it("asks for the day's records and the machine logs of the day", async () => {
+  it("asks for the day's records and the machine logs around the day", async () => {
     const { api } = await renderPage();
-    expect(api.logRequests).toEqual([DAY]);
+    // The day before and after too: sessions can cross midnight
+    expect([...api.logRequests].sort()).toEqual(["2026-03-09", DAY, NEXT_DAY]);
     expect(api.calls[0]).toMatchObject({ method: "GET", path: "/worktime", query: { work_date: DAY } });
   });
 
@@ -432,7 +442,7 @@ describe("turning machine punches into times", () => {
         [NEXT_DAY]: [punch(101, "01:30", NEXT_DAY), punch(102, "02:00", NEXT_DAY), punch(102, "09:00", NEXT_DAY)],
       },
     });
-    expect([...api.logRequests].sort()).toEqual([DAY, NEXT_DAY]);
+    expect([...api.logRequests].sort()).toEqual(["2026-03-09", DAY, NEXT_DAY]);
     expect(screen.getByText("Machine punches: 4")).toBeInTheDocument();
     expect(row("Ali Ben")).toMatchObject({ status: "Present", clockIn: "16:00", clockOut: "01:30", hours: "09:30" });
     // 09:00 the next morning is a new operation day
@@ -460,6 +470,70 @@ describe("turning machine punches into times", () => {
       },
     });
     expect(row("Ali Ben")).toMatchObject({ status: "Present", clockIn: "16:00", clockOut: "01:45", hours: "09:45" });
+  });
+
+  // An early shift's clock-in before 05:00 was taken as someone else's night-shift clock-out
+  it("keeps an early shift's clock-in on its own day when the employee didn't work last night", async () => {
+    const EARLY_SHIFT = shift("s4", "02:00", "10:00");
+    await renderPage({
+      shifts: [EARLY_SHIFT, NIGHT_SHIFT],
+      planning: [plan(ALI, EARLY_SHIFT), plan(SARA, NIGHT_SHIFT)],
+      logs: { [DAY]: [punch(101, "01:56"), punch(101, "06:54")] },
+    });
+    expect(row("Ali Ben")).toMatchObject({ status: "Present", clockIn: "01:56", clockOut: "06:54", hours: "04:58" });
+  });
+
+  it("still gives last night's clock-out to the night before when the employee worked a night shift", async () => {
+    const PREVIOUS_DAY = "2026-03-09";
+    await renderPage({
+      shifts: [DAY_SHIFT, NIGHT_SHIFT],
+      // Night shift on March 9, day shift on March 10
+      planning: (date) =>
+        date === PREVIOUS_DAY ? [plan(ALI, NIGHT_SHIFT, { planDate: PREVIOUS_DAY })] : [plan(ALI, DAY_SHIFT)],
+      logs: { [DAY]: [punch(101, "01:30"), punch(101, "08:00"), punch(101, "17:00")] },
+    });
+    expect(row("Ali Ben")).toMatchObject({ status: "Present", clockIn: "08:00", clockOut: "17:00", hours: "09:00" });
+  });
+
+  it("shows a night shift's lone after-midnight punch as its clock-out, with the clock-in missing", async () => {
+    // The clock-in of the night of March 9 was never recorded
+    const { api } = await renderPage(
+      {
+        shifts: [NIGHT_SHIFT],
+        planning: [plan(ALI, NIGHT_SHIFT)],
+        logs: { [DAY]: [punch(101, "00:34"), punch(101, "16:33")], [NEXT_DAY]: [punch(101, "00:40", NEXT_DAY)] },
+      },
+      { currentDate: "2026-03-09" }
+    );
+    const ali = row("Ali Ben");
+    expect(ali.clockOut).toBe("00:34");
+    expect(ali.clockIn).not.toContain("00:34");
+    expect(ali.hours).toBe("00:00");
+    // and the next day keeps its own clock-in and clock-out
+    expect(api.logRequests).toContain(DAY);
+  });
+
+  it("pairs the next night correctly after a missing clock-in", async () => {
+    await renderPage({
+      shifts: [NIGHT_SHIFT],
+      planning: [plan(ALI, NIGHT_SHIFT)],
+      logs: { [DAY]: [punch(101, "00:34"), punch(101, "16:33")], [NEXT_DAY]: [punch(101, "00:40", NEXT_DAY)] },
+    });
+    expect(row("Ali Ben")).toMatchObject({ clockIn: "16:33", clockOut: "00:40", hours: "08:07" });
+  });
+
+  it("keeps the real clock-out of a night where the clock-in was made twice", async () => {
+    await renderPage({
+      shifts: [NIGHT_SHIFT],
+      planning: [plan(ALI, NIGHT_SHIFT)],
+      logs: { [DAY]: [punch(101, "16:18"), punch(101, "17:39")], [NEXT_DAY]: [punch(101, "00:11", NEXT_DAY)] },
+    });
+    expect(row("Ali Ben")).toMatchObject({ clockIn: "16:18", clockOut: "00:11", hours: "07:53" });
+  });
+
+  it("asks the API for the shown day's punches only", async () => {
+    const { api } = await renderPage({ logs: { [DAY]: [punch(101, "08:00")] } });
+    expect(api.logQueries).toContainEqual({ date: DAY, from: DAY, to: DAY });
   });
 
   // BUG-102: a clock-out after an overnight shift's end time is dropped

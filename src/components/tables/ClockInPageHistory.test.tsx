@@ -104,8 +104,16 @@ function installBackend() {
     http.get(`${API}/employees`, () => HttpResponse.json(db.employees)),
     http.get(`${API}/shifts`, () => HttpResponse.json(db.shifts)),
     http.get(`${API}/planning`, ({ request }) => {
-      const date = new URL(request.url).searchParams.get("date");
-      return HttpResponse.json(db.planning.filter((p) => (p as { planDate: string }).planDate === date));
+      const q = new URL(request.url).searchParams;
+      const date = q.get("planDate");
+      const from = q.get("from");
+      const to = q.get("to");
+      return HttpResponse.json(
+        db.planning.filter((p) => {
+          const day = (p as { planDate: string }).planDate;
+          return date ? day === date : !!from && !!to && day >= from && day <= to;
+        })
+      );
     }),
     http.get(`${API}/worktime`, async ({ request }) => {
       await remember(request);
@@ -211,7 +219,7 @@ describe("ClockInPageHistory – listing", () => {
     expect(requests[0].url).toBe("/attendance/device-logs?from=2026-01-19&to=2026-03-10");
     expect(dateInputs().map((i) => i.value)).toEqual(["2026-01-19", "2026-03-10"]);
     expect(table()).toEqual([
-      "102 | Amrani | Sara | 09/03/2026 | 09:00 | — | Not validated",
+      "102 | Amrani | Sara | 09/03/2026 | 09:00 | — | Missing clock-out",
       "101 | Zerrouki | Ali | 09/03/2026 | 08:00 | 16:30 | Validated",
     ]);
   });
@@ -338,7 +346,7 @@ describe("ClockInPageHistory – employee search", () => {
 
     await user.type(box, "amr");
     expect(screen.getAllByRole("listitem").map((li) => li.textContent)).toEqual(["102 — Amrani Sara"]);
-    expect(table()).toEqual(["102 | Amrani | Sara | 09/03/2026 | 09:00 | — | Not validated"]);
+    expect(table()).toEqual(["102 | Amrani | Sara | 09/03/2026 | 09:00 | — | Missing clock-out"]);
 
     await user.type(box, "zzz");
     expect(screen.getByText("No employee found")).toBeInTheDocument();
@@ -963,4 +971,88 @@ it("pairs a punch just after midnight with the same morning's clock-out", async 
   db.logs = [punch(ali, "2026-03-09 00:30"), punch(ali, "2026-03-09 08:00")];
   await renderHistory();
   expect(table()).toEqual(["101 | Zerrouki | Ali | 09/03/2026 | 00:30 | 08:00 | Validated"]);
+});
+
+// ─── Clock-ins and clock-outs from the planning ───────────────────────────────
+
+describe("ClockInPageHistory – sessions on the planned shifts", () => {
+  const nightShift = { _id: "s3", startTime: "16:00", endTime: "02:00" };
+  const nightPlan = (emp: Emp, date: string) => ({
+    _id: `n${emp.empNumber}-${date}`,
+    empId: { _id: emp._id, empNumber: emp.empNumber },
+    shiftId: nightShift,
+    planDate: date,
+  });
+
+  beforeEach(() => {
+    db.shifts = [nightShift];
+    db.planning = ["2026-03-07", "2026-03-08", "2026-03-09"].map((d) => nightPlan(ali, d));
+    // The clock-in of the night of March 7 was never recorded
+    db.logs = [
+      punch(ali, "2026-03-08 00:34"),
+      punch(ali, "2026-03-08 16:33"),
+      punch(ali, "2026-03-09 00:40"),
+      punch(ali, "2026-03-09 16:05"),
+      punch(ali, "2026-03-10 00:20"),
+    ];
+  });
+
+  it("reports the missing clock-in instead of shifting every later punch", async () => {
+    await renderHistory();
+    expect(table()).toEqual([
+      "101 | Zerrouki | Ali | 09/03/2026 | 16:05 | 00:20 | Validated",
+      "101 | Zerrouki | Ali | 08/03/2026 | 16:33 | 00:40 | Validated",
+      "101 | Zerrouki | Ali | 07/03/2026 | — | 00:34 | Missing clock-in",
+    ]);
+    expect(requests.some((r) => r.url.startsWith("/attendance/device-logs"))).toBe(true);
+  });
+
+  it("adds the missing clock-in on the evening before and saves the night", async () => {
+    const { user } = await renderHistory();
+    await user.click(screen.getByRole("button", { name: "Tap to add a clock-in" }));
+    const row = rowWith("07/03/2026");
+    await pickTime(user, row, "16:00");
+    await user.click(within(row).getByRole("button", { name: "✓" }));
+
+    expect(await screen.findByText("Clock-in added")).toBeInTheDocument();
+    expect(writes("/attendance")).toEqual([
+      expect.objectContaining({ method: "POST", body: { deviceUserId: "101", timestamp: at("2026-03-07 16:00"), processed: false } }),
+    ]);
+    expect(worktimeWrite().body).toMatchObject({
+      emp_id: 101,
+      shift_id: "s3",
+      work_date: "2026-03-07",
+      clock_in: "16:00",
+      clock_out: "00:34",
+      work_hours: "08:34",
+      late_minutes: "0",
+    });
+  });
+
+  it("shows a clock-in made twice as an extra punch and keeps the real clock-out", async () => {
+    db.logs = [punch(ali, "2026-03-08 16:18"), punch(ali, "2026-03-08 17:39"), punch(ali, "2026-03-09 00:11")];
+    await renderHistory();
+    expect(table()).toEqual([
+      "101 | Zerrouki | Ali | 08/03/2026 | 17:39 | — | Extra punch",
+      "101 | Zerrouki | Ali | 08/03/2026 | 16:18 | 00:11 | Validated",
+    ]);
+  });
+
+  it("recalculates the night without the extra punch once it is deleted", async () => {
+    db.logs = [punch(ali, "2026-03-08 16:18"), punch(ali, "2026-03-08 17:39"), punch(ali, "2026-03-09 00:11")];
+    const { user } = await renderHistory();
+    await user.click(within(rowWith("Extra punch")).getByRole("checkbox"));
+    await user.click(screen.getByRole("button", { name: /Delete/ }));
+    await answerConfirmDialog(true);
+    await waitFor(() => expect(table()).toEqual(["101 | Zerrouki | Ali | 08/03/2026 | 16:18 | 00:11 | Validated"]));
+  });
+
+  it("saves a lone clock-out without inventing a clock-in", async () => {
+    db.logs = [];
+    const { user } = await renderHistory();
+    await addPunch(user, "101", "2026-03-08", "00:34");
+    await user.click(screen.getByRole("button", { name: "Add" }));
+    await waitFor(() => expect(writes("/worktime")).toHaveLength(1));
+    expect(worktimeWrite().body).toMatchObject({ work_date: "2026-03-07", clock_in: null, clock_out: "00:34", shift_id: "s3" });
+  });
 });
