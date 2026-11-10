@@ -11,6 +11,13 @@ import {
 import { t } from "@/lib/i18n";
 import DateInput from "@/components/form/DateInput";
 import TimeSelect from "@/components/form/TimeSelect";
+import {
+  groupPunchesIntoSessions,
+  plannedShiftsByEmployee,
+  sessionMinutes,
+  type PlanningLike,
+  type PunchSession,
+} from "@/lib/punchSessions";
 
 interface AttendanceLog {
   _id?: string;
@@ -30,10 +37,19 @@ interface GroupedAttendance {
   employeeNumber: string | number;
   firstName?: string;
   lastName?: string;
+  /** Work day (YYYY-MM-DD): a night shift's clock-out after midnight counts for the day before. */
   date: string;
-  clockIn: string;
+  /** null: the clock-in is missing. */
+  clockIn: string | null;
   clockOut: string | null;
+  /** The row's punches (clock-in and/or clock-out). */
   logs: AttendanceLog[];
+  inLog: AttendanceLog | null;
+  outLog: AttendanceLog | null;
+  /** The punch this row lacks, once it can't come anymore. */
+  missing: "clockIn" | "clockOut" | null;
+  /** A punch left out of the clock-ins and clock-outs (double scan, clock-in made twice). */
+  extra?: boolean;
 }
 
 const PAGE_SIZE = 15;
@@ -150,65 +166,60 @@ function addDays(date: string, days: number) {
   return d.toISOString().substring(0, 10);
 }
 
-// A day that ends with an open clock-in is closed by the next punch when it
-// comes within this time: a clock-out after midnight belongs to the day of
-// its clock-in (overnight shifts), as on the kiosk.
-const MAX_OVERNIGHT_GAP_MS = 12 * 60 * 60 * 1000;
-
 /**
- * Splits one employee's punches into work days (Algerian dates), each
- * sorted by time.
+ * The planning of a range of days (both included). Without it punches are
+ * still grouped, by the time between them, so a failure isn't fatal.
  */
-function splitIntoWorkDays(punches: AttendanceLog[]) {
-  const sorted = [...punches].sort(
-    (a, b) =>
-      new Date(a.timestamp).getTime() -
-      new Date(b.timestamp).getTime()
-  );
-
-  const days = new Map<string, AttendanceLog[]>();
-  let current: { date: string; punches: AttendanceLog[] } | null = null;
-
-  for (const punch of sorted) {
-    const date = algiersDate(punch.timestamp);
-    const lastPunch = current?.punches[current.punches.length - 1];
-
-    const closesOvernightPeriod =
-      current !== null &&
-      lastPunch !== undefined &&
-      current.date < date &&
-      current.punches.length % 2 === 1 &&
-      new Date(punch.timestamp).getTime() -
-        new Date(lastPunch.timestamp).getTime() <=
-        MAX_OVERNIGHT_GAP_MS;
-
-    if (!closesOvernightPeriod) {
-      if (!days.has(date)) {
-        days.set(date, []);
-      }
-      current = { date, punches: days.get(date)! };
-    }
-
-    current!.punches.push(punch);
+async function loadPlanningRange(from: string, to: string): Promise<PlanningLike[]> {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/planning?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+      { cache: "no-store" }
+    );
+    if (!response.ok) return [];
+    const data = await response.json();
+    return Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
+  } catch (err) {
+    console.warn("Planning fetch failed:", err);
+    return [];
   }
-
-  return days;
 }
 
 /**
- * One employee's punches for a work day. The API filters by UTC date, so the
- * days around it are loaded too (punches after midnight, overnight periods).
+ * One employee's punches grouped into work sessions on their planned shifts
+ * (see groupPunchesIntoSessions): a missing punch spoils one session instead
+ * of turning every later clock-in into a clock-out.
  */
-async function loadWorkDayPunches(
-  employeeNumber: string,
-  workDate: string
+function employeeSessions(
+  punches: AttendanceLog[],
+  planning: PlanningLike[],
+  employeeNumber: string
 ) {
-  const response = await fetch(
-    `${API_BASE_URL}/attendance/device-logs` +
-      `?from=${encodeURIComponent(addDays(workDate, -1))}` +
-      `&to=${encodeURIComponent(addDays(workDate, 1))}`,
-    { cache: "no-store" }
+  return groupPunchesIntoSessions(
+    punches,
+    plannedShiftsByEmployee(planning).get(employeeNumber) ?? []
   );
+}
+
+/**
+ * The session the punch at `timestamp` belongs to, read again from the
+ * server (punches and planning around it).
+ */
+async function loadSessionOf(
+  employeeNumber: string,
+  timestamp: string
+): Promise<PunchSession<AttendanceLog> | null> {
+  const date = algiersDate(timestamp);
+
+  const [response, planning] = await Promise.all([
+    fetch(
+      `${API_BASE_URL}/attendance/device-logs` +
+        `?from=${encodeURIComponent(addDays(date, -1))}` +
+        `&to=${encodeURIComponent(addDays(date, 1))}`,
+      { cache: "no-store" }
+    ),
+    loadPlanningRange(addDays(date, -2), addDays(date, 1)),
+  ]);
 
   await ensureOk(response);
 
@@ -220,35 +231,29 @@ async function loadWorkDayPunches(
     ? data.data
     : [];
 
+  const at = new Date(timestamp).getTime();
+
   return (
-    splitIntoWorkDays(
+    employeeSessions(
       logs.filter(
         (log) => normalizeDeviceId(log.deviceUserId) === employeeNumber
-      )
-    ).get(workDate) ?? []
+      ),
+      planning,
+      employeeNumber
+    ).find((s) =>
+      s.punches.some((p) => new Date(p.timestamp).getTime() === at)
+    ) ?? null
   );
 }
 
-/**
- * Minutes worked: the sum of the periods (1st → 2nd punch, 3rd → 4th, …),
- * so breaks between periods aren't counted. A last punch without its
- * clock-out isn't counted yet.
- */
-function workedMinutes(sortedPunches: AttendanceLog[]) {
-  let minutes = 0;
-
-  for (let i = 0; i + 1 < sortedPunches.length; i += 2) {
-    minutes += Math.max(
-      0,
-      Math.round(
-        (new Date(sortedPunches[i + 1].timestamp).getTime() -
-          new Date(sortedPunches[i].timestamp).getTime()) /
-          60000
-      )
-    );
+/** "DD/MM/YYYY" of a work day; the raw text of an unreadable punch. */
+function formatWorkDay(row: GroupedAttendance) {
+  const punch = row.inLog ?? row.outLog;
+  if (punch && Number.isNaN(new Date(punch.timestamp).getTime())) {
+    return punch.timestamp;
   }
-
-  return minutes;
+  const [year, month, day] = row.date.split("-");
+  return year && month && day ? `${day}/${month}/${year}` : row.date;
 }
 
 /**
@@ -287,6 +292,9 @@ const addPunchInFlight = useRef(false);
 
   const [logs, setLogs] = useState<AttendanceLog[]>([]);
 
+  // Planning of the period: tells clock-ins from clock-outs
+  const [planning, setPlanning] = useState<PlanningLike[]>([]);
+
   const [loading, setLoading] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
@@ -319,8 +327,10 @@ const [loadingEmployees, setLoadingEmployees] = useState(false);
   const [editingPunch, setEditingPunch] = useState<{
   logId: string | null;
   value: string;
-  mode: "edit" | "add-clock-out";
+  mode: "edit" | "add-clock-out" | "add-clock-in";
   clockInLogId?: string;
+  /** For a missing clock-in: the clock-out it goes with. */
+  clockOutLogId?: string;
   deviceUserId?: string;
   workDate?: string;
 } | null>(null);
@@ -343,9 +353,13 @@ const searchBoxRef = useRef<HTMLDivElement>(null);
         `?from=${encodeURIComponent(fromDate)}` +
         `&to=${encodeURIComponent(toDate)}`;
 
-      const response = await fetch(url, {
-        cache: "no-store",
-      });
+      const [response, receivedPlanning] = await Promise.all([
+        fetch(url, {
+          cache: "no-store",
+        }),
+        // A day on each side: night shifts cross midnight
+        loadPlanningRange(addDays(fromDate, -1), addDays(toDate, 1)),
+      ]);
 
       await ensureOk(response);
 
@@ -357,6 +371,7 @@ const searchBoxRef = useRef<HTMLDivElement>(null);
         ? data.data
         : [];
 
+      setPlanning(receivedPlanning);
       setLogs(receivedLogs);
       setPage(1);
       setSelectedLogs(new Set());
@@ -403,68 +418,81 @@ const groupedLogs = useMemo(() => {
   // ---------------------------------------------------------
   // CREATE INTERVALS
   //
-  // Punches are paired chronologically:
+  // Each employee's punches are grouped into work sessions on
+  // their planned shifts (see employeeSessions). Inside a session
+  // they are paired chronologically:
   //
-  // 08:00 → 08:07
-  // 08:07 → 12:00
-  // 12:00 → 12:10
+  // 08:00 → 12:00
   // 12:10 → 16:00
   //
-  // Each pair becomes its own table row.
+  // Each pair becomes its own table row. A session missing its
+  // clock-in or clock-out gets a row that says so.
   // ---------------------------------------------------------
 
-  // Then by work day: the Algerian date the table shows (not the UTC
-  // date), with a clock-out after midnight kept on its clock-in's day.
-  Object.values(groups).forEach((employeeLogs) => {
-    splitIntoWorkDays(employeeLogs).forEach((sorted, date) => {
-    for (let i = 0; i < sorted.length; i += 2) {
-      const clockInLog = sorted[i];
+  Object.entries(groups).forEach(([deviceId, employeeLogs]) => {
+    employeeSessions(employeeLogs, planning, deviceId).forEach((session) => {
+      session.periods.forEach((period, i) => {
+        const anchor = (period.clockIn ?? period.clockOut)!;
+        const isLast = i === session.periods.length - 1;
 
-      if (!clockInLog) {
-        continue;
-      }
+        result.push({
+          id:
+            anchor._id ??
+            `${anchor.deviceUserId}-${anchor.timestamp}-${i}`,
 
-      const clockOutLog = sorted[i + 1] ?? null;
+          employeeNumber: anchor.employeeNumber ?? deviceId,
 
-      result.push({
-        id:
-          clockInLog._id ??
-          `${clockInLog.deviceUserId}-${clockInLog.timestamp}-${i}`,
+          firstName: anchor.firstName,
+          lastName: anchor.lastName,
 
-        employeeNumber:
-          clockInLog.employeeNumber ??
-          normalizeDeviceId(clockInLog.deviceUserId),
+          date: session.workDate,
 
-        firstName: clockInLog.firstName,
-        lastName: clockInLog.lastName,
+          clockIn: period.clockIn?.timestamp ?? null,
+          clockOut: period.clockOut?.timestamp ?? null,
 
-        date,
+          // Only these machine logs belong to this interval
+          logs: [period.clockIn, period.clockOut].filter(
+            (log): log is AttendanceLog => log !== null
+          ),
+          inLog: period.clockIn,
+          outLog: period.clockOut,
 
-        // First punch of this interval
-        clockIn: clockInLog.timestamp,
-
-        // Second punch of this interval
-        // If there is no second punch, the interval is not validated.
-        clockOut: clockOutLog
-          ? clockOutLog.timestamp
-          : null,
-
-        // Only these two machine logs belong to this interval
-        logs: clockOutLog
-          ? [clockInLog, clockOutLog]
-          : [clockInLog],
+          missing: !period.clockIn
+            ? "clockIn"
+            : !period.clockOut && isLast
+            ? session.missing
+            : null,
+        });
       });
-    }
+
+      // Punches left out: a row each, so a manager can check and delete them
+      session.extra.forEach((punch, i) => {
+        result.push({
+          id:
+            punch._id ??
+            `${punch.deviceUserId}-${punch.timestamp}-extra${i}`,
+          employeeNumber: punch.employeeNumber ?? deviceId,
+          firstName: punch.firstName,
+          lastName: punch.lastName,
+          date: session.workDate,
+          clockIn: punch.timestamp,
+          clockOut: null,
+          logs: [punch],
+          inLog: punch,
+          outLog: null,
+          missing: null,
+          extra: true,
+        });
+      });
     });
   });
 
+  const rowTime = (row: GroupedAttendance) =>
+    new Date((row.clockIn ?? row.clockOut)!).getTime();
+
   // Newest intervals first
-  return result.sort(
-    (a, b) =>
-      new Date(b.clockIn).getTime() -
-      new Date(a.clockIn).getTime()
-  );
-}, [logs]);
+  return result.sort((a, b) => rowTime(b) - rowTime(a));
+}, [logs, planning]);
 
 
 useEffect(() => {
@@ -750,8 +778,6 @@ const addPunch = async () => {
   try {
     const employeeNumber = normalizeDeviceId(newPunch.deviceUserId);
 
-const workDate = newPunch.timestamp.substring(0, 10);
-
 // The form holds "YYYY-MM-DDTHH:MM" in Algerian time (the time the table
 // shows). The conversion to ISO gives a UTC timestamp ending in Z.
 const timestamp = new Date(`${newPunch.timestamp}:00${ALGIERS_OFFSET}`);
@@ -795,29 +821,27 @@ if (Number.isNaN(timestamp.getTime())) {
     // 2-3. RELOAD ALL PUNCHES FOR THIS EMPLOYEE + WORK DAY
     // ---------------------------------------------------------
 
-    const employeeLogs = await loadWorkDayPunches(
+    // The work session the new punch belongs to (on the planned shift): a
+    // punch after midnight can close the night shift of the day before.
+    const session = await loadSessionOf(
       employeeNumber,
-      workDate
+      timestamp.toISOString()
     );
 
-    if (employeeLogs.length === 0) {
+    if (!session) {
       throw new Error(
         "The clock-in was saved, but no records were found for this employee."
       );
     }
 
-    // First punch = clock in
-    // Last punch = clock out
-    const clockInLog = employeeLogs[0];
+    const workDate = session.workDate;
 
-    const clockOutLog =
-      employeeLogs.length > 1
-        ? employeeLogs[employeeLogs.length - 1]
-        : null;
-
-    const clockIn = formatTime(clockInLog.timestamp);
-    const clockOut = clockOutLog
-      ? formatTime(clockOutLog.timestamp)
+    // A missing clock-in stays empty: it isn't replaced by the clock-out
+    const clockIn = session.clockIn
+      ? formatTime(session.clockIn.timestamp)
+      : null;
+    const clockOut = session.clockOut
+      ? formatTime(session.clockOut.timestamp)
       : null;
 
     console.log("Manual punch worktime:", {
@@ -886,7 +910,7 @@ if (Number.isNaN(timestamp.getTime())) {
     // ---------------------------------------------------------
 
     const planningResponse = await fetch(
-      `${API_BASE_URL}/planning?date=${encodeURIComponent(
+      `${API_BASE_URL}/planning?planDate=${encodeURIComponent(
         workDate
       )}`,
       {
@@ -958,7 +982,7 @@ const shiftEnd = shift ? shiftTime(shift, "end") : "00:00";
     // 8. CALCULATE WORK HOURS
     // ---------------------------------------------------------
 
-    const workMinutes = workedMinutes(employeeLogs);
+    const workMinutes = sessionMinutes(session);
 
     const workHours =
       `${String(Math.floor(workMinutes / 60)).padStart(
@@ -973,7 +997,7 @@ const shiftEnd = shift ? shiftTime(shift, "end") : "00:00";
    
 let lateMinutes = 0;
 
-if (shift && clockIn !== "—") {
+if (shift && clockIn) {
   const [inH, inM] = clockIn
     .slice(0, 5)
     .split(":")
@@ -1132,12 +1156,17 @@ const saveEditedPunch = async () => {
   }
 
   // For an existing punch, use its own log.
-  // For a missing clock-out, use the existing clock-in log.
+  // For a missing clock-out, use the existing clock-in log,
+  // and for a missing clock-in, the existing clock-out log.
   const rawLog =
     mode === "edit"
       ? logs.find((item) => item._id === logId)
       : logs.find(
-          (item) => item._id === editingPunch.clockInLogId
+          (item) =>
+            item._id ===
+            (mode === "add-clock-in"
+              ? editingPunch.clockOutLogId
+              : editingPunch.clockInLogId)
         );
 
   if (!rawLog?._id) {
@@ -1147,7 +1176,7 @@ const saveEditedPunch = async () => {
 
   // The work day of the row (a clock-out after midnight belongs to the day
   // of its clock-in)
-  const workDate =
+  const rowDate =
     editingPunch.workDate ?? algiersDate(rawLog.timestamp);
 
   const employeeNumber = normalizeDeviceId(
@@ -1160,13 +1189,21 @@ const saveEditedPunch = async () => {
 let timestamp =
   mode === "edit"
     ? algiersTimestamp(algiersDate(rawLog.timestamp), value)
-    : algiersTimestamp(workDate, value);
+    : algiersTimestamp(rowDate, value);
 
 if (
   mode === "add-clock-out" &&
   new Date(timestamp).getTime() < new Date(rawLog.timestamp).getTime()
 ) {
-  timestamp = algiersTimestamp(addDays(workDate, 1), value);
+  timestamp = algiersTimestamp(addDays(rowDate, 1), value);
+}
+
+// A missing clock-in later than its clock-out was the day before
+if (
+  mode === "add-clock-in" &&
+  new Date(timestamp).getTime() > new Date(rawLog.timestamp).getTime()
+) {
+  timestamp = algiersTimestamp(addDays(rowDate, -1), value);
 }
   try {
     setSavingPunch(true);
@@ -1199,27 +1236,29 @@ if (
         result?.message ||
           (mode === "edit"
             ? "The clock-in couldn't be changed"
+            : mode === "add-clock-in"
+            ? "The clock-in couldn't be added"
             : "The clock-out couldn't be added")
       );
     }
 
-    // 2. Reload raw logs for the employee and work day.
-    const employeeLogs = await loadWorkDayPunches(
-      employeeNumber,
-      workDate
-    );
+    // 2. Reload the work session of the saved punch (its planned shift).
+    const session = await loadSessionOf(employeeNumber, timestamp);
 
-    if (employeeLogs.length === 0) {
+    if (!session) {
       throw new Error("No records were found to recalculate the worked hours.");
     }
 
-    // 3. Calculate the day's first Clock In and last Clock Out.
-    const clockIn = formatTime(employeeLogs[0].timestamp);
+    const workDate = session.workDate;
 
-    const clockOut =
-      employeeLogs.length > 1
-        ? formatTime(employeeLogs[employeeLogs.length - 1].timestamp)
-        : null;
+    // 3. The session's first Clock In and last Clock Out; a missing one stays empty.
+    const clockIn = session.clockIn
+      ? formatTime(session.clockIn.timestamp)
+      : null;
+
+    const clockOut = session.clockOut
+      ? formatTime(session.clockOut.timestamp)
+      : null;
 
     // 4. Fetch the employee.
     const employeesResponse = await fetch(`${API_BASE_URL}/employees`, {
@@ -1262,7 +1301,7 @@ if (
 
     // 6. Fetch the employee's planning.
     const planningResponse = await fetch(
-      `${API_BASE_URL}/planning?date=${encodeURIComponent(workDate)}`,
+      `${API_BASE_URL}/planning?planDate=${encodeURIComponent(workDate)}`,
       { cache: "no-store" }
     );
 
@@ -1314,7 +1353,7 @@ if (
     const shiftEnd = shift ? shiftTime(shift, "end") : "00:00";
 
     // 7. Recalculate work hours (the periods, without the breaks between them).
-    const workMinutes = workedMinutes(employeeLogs);
+    const workMinutes = sessionMinutes(session);
 
     const workHours =
       `${String(Math.floor(workMinutes / 60)).padStart(2, "0")}:` +
@@ -1323,7 +1362,7 @@ if (
     // 8. Recalculate delay.
     let lateMinutes = 0;
 
-if (shift && clockIn !== "—") {
+if (shift && clockIn) {
   const [inH, inM] = clockIn
     .slice(0, 5)
     .split(":")
@@ -1414,7 +1453,11 @@ shift_id: shiftId,
     toast.success(
       t("Worked {hours}, late {late} min, overtime {overtime} min.", { hours: workHours, late: lateMinutes, overtime: overtimeMinutes }) +
         (!employeePlanning ? " " + t("This employee wasn't in the planning.") : ""),
-      mode === "edit" ? t("Clock-in updated") : t("Clock-out added")
+      mode === "edit"
+        ? t("Clock-in updated")
+        : mode === "add-clock-in"
+        ? t("Clock-in added")
+        : t("Clock-out added")
     );
   } catch (err) {
     console.error("Error updating punch and worktime:", err);
@@ -1716,12 +1759,64 @@ onClick={() => {
 
                       {/* DATE */}
                       <td className="border-b border-gray-100 px-4 py-2 text-sm text-gray-700">
-                        {formatDate(log.clockIn)}
+                        {formatWorkDay(log)}
                       </td>
 
                       {/* CLOCK IN */}
                      <td className="border-b border-gray-100 px-4 py-2 text-sm font-medium text-gray-700">
-  {editingPunch !== null && editingPunch.logId === log.logs[0]?._id ? (
+  {editingPunch?.mode === "add-clock-in" &&
+  log.outLog &&
+  editingPunch.clockOutLogId === log.outLog._id ? (
+    <div className="flex items-center gap-1">
+      <TimeSelect
+        value={editingPunch.value}
+        disabled={savingPunch}
+        onChange={(v) =>
+          setEditingPunch((prev) => (prev ? { ...prev, value: v } : prev))
+        }
+        className="px-1 py-1 text-xs"
+      />
+
+      <button
+        onClick={saveEditedPunch}
+        disabled={savingPunch}
+        className="text-xs text-green-700 hover:underline"
+      >
+        {savingPunch ? "..." : "✓"}
+      </button>
+
+      <button
+        onClick={() => setEditingPunch(null)}
+        disabled={savingPunch}
+        className="text-xs text-red-600 hover:underline"
+      >
+        ✕
+      </button>
+    </div>
+  ) : !log.inLog ? (
+    // The clock-in is missing: the machine only has the clock-out
+    <button
+      type="button"
+      onClick={() => {
+        const clockOutLog = log.outLog;
+        if (!clockOutLog?._id) return;
+
+        setEditingPunch({
+          logId: null,
+          value: "",
+          mode: "add-clock-in",
+          clockOutLogId: clockOutLog._id,
+          deviceUserId: normalizeDeviceId(clockOutLog.deviceUserId),
+          workDate: log.date,
+        });
+      }}
+      title={t("Tap to add a clock-in")}
+      aria-label={t("Tap to add a clock-in")}
+      className="inline-flex cursor-pointer rounded-md border border-dashed border-red-300 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 hover:ring-2 hover:ring-red-200"
+    >
+      —
+    </button>
+  ) : editingPunch?.mode === "edit" && editingPunch.logId === log.inLog._id ? (
     <div className="flex items-center gap-1">
       
 <TimeSelect
@@ -1754,7 +1849,7 @@ onClick={() => {
     <button
       type="button"
       onClick={() => {
-        const rawLog = log.logs[0];
+        const rawLog = log.inLog;
 
         if (!rawLog?._id) return;
 
@@ -1769,7 +1864,7 @@ onClick={() => {
       title={t("Tap to edit")}
       className="inline-flex cursor-pointer rounded-md bg-green-100 px-2 py-1 text-xs font-medium text-green-700 hover:ring-2 hover:ring-green-300"
     >
-      {formatTime(log.clockIn)}
+      {formatTime(log.inLog.timestamp)}
     </button>
   )}
 </td>
@@ -1778,7 +1873,8 @@ onClick={() => {
                      
 <td className="border-b border-gray-100 px-4 py-2 text-sm font-medium text-gray-700">
   {editingPunch?.mode === "add-clock-out" &&
-  editingPunch.clockInLogId === log.logs[0]?._id ? (
+  log.inLog &&
+  editingPunch.clockInLogId === log.inLog._id ? (
     <div className="flex items-center gap-1">
       <TimeSelect
         value={editingPunch.value}
@@ -1805,9 +1901,9 @@ onClick={() => {
         ✕
       </button>
     </div>
-  ) : log.clockOut && log.logs[1] ? (
+  ) : log.outLog ? (
     editingPunch?.mode === "edit" &&
-    editingPunch.logId === log.logs[1]._id ? (
+    editingPunch.logId === log.outLog._id ? (
       <div className="flex items-center gap-1">
         <TimeSelect
           value={editingPunch.value}
@@ -1838,7 +1934,7 @@ onClick={() => {
       <button
         type="button"
         onClick={() => {
-          const rawLog = log.logs[1];
+          const rawLog = log.outLog;
           if (!rawLog?._id) return;
 
           // Start from the Algerian time shown in the table, not the UTC time
@@ -1852,14 +1948,17 @@ onClick={() => {
         title={t("Tap to edit")}
         className="inline-flex cursor-pointer rounded-md bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700 hover:ring-2 hover:ring-blue-300"
       >
-        {formatTime(log.clockOut)}
+        {formatTime(log.outLog.timestamp)}
       </button>
     )
+  ) : log.extra ? (
+    // An extra punch has no clock-out: it is deleted, not completed
+    <span className="text-xs text-gray-400">—</span>
   ) : (
     <button
       type="button"
       onClick={() => {
-        const clockInLog = log.logs[0];
+        const clockInLog = log.inLog;
         if (!clockInLog?._id) return;
 
         setEditingPunch({
@@ -1882,7 +1981,22 @@ onClick={() => {
 
  {/* STATUS */}
 <td className="border-b border-gray-100 px-4 py-2">
-  {!log.clockOut ? (
+  {log.extra ? (
+    // Left out of the clock-ins and clock-outs: probably a mistake to delete
+    <span
+      title={t("Not counted: delete it if it was a mistake")}
+      className="inline-flex rounded-md bg-amber-100 px-2 py-1 text-xs font-medium text-amber-800"
+    >
+      {t("Extra punch")}
+    </span>
+  ) : log.missing ? (
+    // A punch that should be there isn't: the manager can add it
+    <span className="inline-flex rounded-md bg-red-100 px-2 py-1 text-xs font-medium text-red-700">
+      {log.missing === "clockIn"
+        ? t("Missing clock-in")
+        : t("Missing clock-out")}
+    </span>
+  ) : !log.clockOut || !log.clockIn ? (
     <span
       className="
         inline-flex
