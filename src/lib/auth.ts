@@ -30,6 +30,10 @@ export interface CompanySettings {
   hoursPerDay: number;
   workingDaysPerMonth: number;
   weeklyAdvanceRatio: number;
+  /** Payslip header */
+  payslipActivity?: string;
+  payslipAddress?: string;
+  payslipContributorNumber?: string;
 }
 
 export interface CompanyInfo {

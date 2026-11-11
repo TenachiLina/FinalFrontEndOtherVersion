@@ -26,6 +26,13 @@ export interface EmployeeRaw {
   baseSalary?: number;
   address?: string;
   phoneNumber?: string;
+  jobTitle?: string;
+  familyStatus?: string;
+  birthDate?: string; // "YYYY-MM-DD"
+  hireDate?: string; // "YYYY-MM-DD"
+  socialSecurityNumber?: string; // also the insurance number
+  insured?: boolean;
+  declaredSalary?: number | null;
   __v?: number;
   [key: string]: unknown;
 }

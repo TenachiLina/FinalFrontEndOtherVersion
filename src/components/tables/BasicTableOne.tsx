@@ -19,9 +19,17 @@ interface Employee {
   address?: string;
   phoneNumber?: string;
   personalImage?: string;
+  jobTitle?: string;
+  familyStatus?: string;
+  birthDate?: string;
+  hireDate?: string;
+  socialSecurityNumber?: string;
   // Set by the API, for a manager, on other managers' records.
   otherManager?: boolean;
 }
+
+// Only used on the payslip
+const PAYSLIP_FIELDS = ["jobTitle", "familyStatus", "birthDate", "hireDate", "socialSecurityNumber"] as const;
 
 type SortKey = "empNumber" | "firstName" | "lastName" | "baseSalary" | "address" | "phoneNumber";
 type SortDir = "asc" | "desc";
@@ -58,6 +66,7 @@ const SortIcon = ({ active, dir }: { active: boolean; dir: SortDir }) => (
 const emptyForm = () => ({
   empNumber: "", firstName: "", lastName: "",
   baseSalary: "", address: "", phoneNumber: "", personalImage: "",
+  jobTitle: "", familyStatus: "", birthDate: "", hireDate: "", socialSecurityNumber: "",
 });
 
 // ── Field helper ──────────────────────────────────────────────────────────
@@ -142,7 +151,7 @@ export default function BasicTableOne() {
   };
 
   // ── Form handlers ─────────────────────────────────────────────────────────
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
   };
@@ -165,6 +174,11 @@ export default function BasicTableOne() {
       address: emp.address ?? "",
       phoneNumber: emp.phoneNumber ?? "",
       personalImage: emp.personalImage ?? "",
+      jobTitle: emp.jobTitle ?? "",
+      familyStatus: emp.familyStatus ?? "",
+      birthDate: emp.birthDate ?? "",
+      hireDate: emp.hireDate ?? "",
+      socialSecurityNumber: emp.socialSecurityNumber ?? "",
     });
     setIsEditing(true);
     setEditingId(emp._id);
@@ -184,7 +198,13 @@ export default function BasicTableOne() {
     setSaving(true);
     setSaveError(null);
     try {
+      // Sent when filled in, or emptied on purpose, so a saved value can be cleared
+      const previous = data.find((e) => e._id === editingId);
+      const payslipDetails = Object.fromEntries(
+        PAYSLIP_FIELDS.filter((key) => form[key] || previous?.[key]).map((key) => [key, form[key]])
+      );
       const payload = {
+        ...payslipDetails,
         empNumber: Number(form.empNumber),
         firstName: form.firstName,
         lastName: form.lastName,
@@ -252,6 +272,23 @@ export default function BasicTableOne() {
               <Field label="Base Salary" name="baseSalary" type="number" value={form.baseSalary} onChange={handleChange} />
               <Field label="Address" name="address" value={form.address} onChange={handleChange} />
               <Field label="Phone" name="phoneNumber" value={form.phoneNumber} onChange={handleChange} />
+              <Field label="Job title" name="jobTitle" value={form.jobTitle} onChange={handleChange} />
+              <div className="flex flex-col gap-1">
+                <label htmlFor="employee-familyStatus" className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">{t("Family status")}</label>
+                <select id="employee-familyStatus" name="familyStatus" value={form.familyStatus} onChange={handleChange}
+                  className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 dark:border-white/[0.1] dark:bg-gray-900 dark:text-gray-200 transition">
+                  <option value="">—</option>
+                  <option value="C">{t("Single")} (C)</option>
+                  <option value="M">{t("Married")} (M)</option>
+                  <option value="D">{t("Divorced")} (D)</option>
+                  <option value="V">{t("Widowed")} (V)</option>
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Date of birth" name="birthDate" type="date" value={form.birthDate} onChange={handleChange} />
+                <Field label="Hire date" name="hireDate" type="date" value={form.hireDate} onChange={handleChange} />
+              </div>
+              <Field label="Insurance number" name="socialSecurityNumber" value={form.socialSecurityNumber} onChange={handleChange} />
             </div>
             <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 dark:border-white/[0.07]">
               <button onClick={closeForm} className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:border-white/[0.1] dark:text-gray-300 dark:hover:bg-white/[0.05] transition-colors">{t("Cancel")}</button>

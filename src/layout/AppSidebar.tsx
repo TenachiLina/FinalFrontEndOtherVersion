@@ -49,6 +49,7 @@ const navItems: NavItem[] = [
       { name: "Overview", path: "/reporting/overview", pro: false },
       { name: "Weekly Advances", path: "/reporting/weekly-advances", pro: false },
       { name: "Monthly Payroll", path: "/reporting/monthly-payroll", pro: false },
+      { name: "Payslips", path: "/reporting/payslips", pro: false },
       { name: "Attendance", path: "/reporting/attendance", pro: false },
       { name: "Advances", path: "/reporting/advances", pro: false },
       {
@@ -117,6 +118,7 @@ const navItems: NavItem[] = [
     subItems: [
       { name: "Add Employee", path: "/addEmployeeForm", pro: false },
       { name: "View Employees", path: "/basic-tables", pro: false },
+      { name: "Insured Employees", path: "/insured-employees", pro: false },
 
     ],
   },
