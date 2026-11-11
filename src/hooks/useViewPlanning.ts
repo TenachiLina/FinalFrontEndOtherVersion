@@ -7,6 +7,9 @@ import { friendlyError } from "@/lib/errors";
 import { toast } from "@/lib/notify";
 import { downloadFile } from "@/lib/auth";
 import { sortShifts } from "@/lib/sortShifts";
+import { confirmDialog} from "@/lib/notify";   // you already import toast
+import { ensureOk} from "@/lib/errors"; // add ensureOk
+import { t } from "@/lib/i18n";
 
 const apiFetch = <T,>(path: string): Promise<T> =>
   fetch(`${API_BASE_URL}${path}`).then((r) => {
@@ -63,6 +66,11 @@ export const useViewPlanning = () => {
   const [showExportDayMenu, setShowExportDayMenu] = useState(false);
   const [showWeeklyExportMenu, setShowWeeklyExportMenu] = useState(false);
   const [showWeeklyExportManagerMenu, setShowWeeklyExportManagerMenu] = useState(false);
+
+  //Delete planning:
+  const [deletingWeekday, setDeletingWeekday] = useState(false);
+  const weekdayName = currentDate.toLocaleDateString("en-US", { weekday: "long" });
+  const monthLabel  = currentDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
   const toggleExportMenu = () => {
     setShowExportDayMenu((prev) => !prev);
@@ -169,7 +177,38 @@ export const useViewPlanning = () => {
     }
   }, [currentDate]);
 
-  // ── Re-fetch planning when date changes or meta is ready ─────────
+  //Delete planning for the selected day
+  const deleteWeekdayOfMonth = useCallback(async () => {
+    const ok = await confirmDialog({
+      title: t("Delete every {day} of {month}?", { day: weekdayName, month: monthLabel }),
+      message: "This removes the planning of all these days. This can't be undone.",
+      confirmLabel: t("Delete"),
+      danger: true,
+    });
+    if (!ok) return;
+
+    // Local calendar date (not toISOString) so the weekday is the one the manager sees
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth() + 1;
+    const weekday = currentDate.getDay();
+
+    setDeletingWeekday(true);
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/planning/weekday?year=${year}&month=${month}&weekday=${weekday}`,
+        { method: "DELETE" }
+      );
+      await ensureOk(res);
+      const { deletedCount = 0 } = await res.json().catch(() => ({}));
+      toast.success(`${deletedCount} planning entries deleted.`);
+      await fetchPlanning(tasks, shifts);   // refresh the grid of the selected day
+    } catch (err) {
+      toast.error(friendlyError(err, "Couldn't delete the planning"));
+    } finally {
+      setDeletingWeekday(false);
+    }
+  }, [currentDate, weekdayName, monthLabel, fetchPlanning, tasks, shifts]);  // ── Re-fetch planning when date changes or meta is ready ─────────
+  
   useEffect(() => {
     if (!metaReady) return;
     fetchPlanning(tasks, shifts);
@@ -255,6 +294,7 @@ export const useViewPlanning = () => {
     toggleWeeklyExportMenu,
     toggleWeeklyExportManagerMenu,
     closeMenus,
+    monthLabel, weekdayName, deletingWeekday, deleteWeekdayOfMonth,
   };
   
 };

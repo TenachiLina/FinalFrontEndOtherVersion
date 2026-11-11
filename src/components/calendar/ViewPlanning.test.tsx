@@ -4,6 +4,7 @@ import { API, server } from "@/test/server";
 import { renderWithProviders, screen, waitFor, within } from "@/test/render";
 import type { EmployeeRecord, PlanningRecord, ShiftRecord, TaskRecord } from "./types";
 import ViewPlanning from "./ViewPlanning";
+import { answerConfirmDialog } from "@/test/render";
 
 // ── Factories ──────────────────────────────────────────────────────────────
 
@@ -371,5 +372,46 @@ describe("ViewPlanning", () => {
       expect(await screen.findByText("Couldn't export the planning. No planning for this day")).toBeInTheDocument();
       expect(downloads).toEqual([]);
     });
+  });
+});
+
+
+
+
+
+describe("delete a weekday of the month", () => {
+  it("shows the weekday of the selected day on the button", async () => {
+    backend();
+    await renderView();
+    expect(screen.getByRole("button", { name: "Delete all Saturdays" })).toBeInTheDocument();
+  });
+
+  it("deletes after confirming and reloads the planning", async () => {
+    backend();
+    const calls: URL[] = [];
+    server.use(
+      http.delete(`${API}/planning/weekday`, ({ request }) => {
+        calls.push(new URL(request.url));
+        return HttpResponse.json({ deletedCount: 4 });
+      })
+    );
+    const { user } = await renderView();
+    await user.click(screen.getByRole("button", { name: "Delete all Saturdays" }));
+    expect(await screen.findByRole("alertdialog")).toHaveTextContent("Saturday");
+    expect(screen.getByRole("alertdialog")).toHaveTextContent("October 2026");
+    await answerConfirmDialog(true);
+    await waitFor(() => expect(calls).toHaveLength(1));
+    expect(calls[0].searchParams.get("weekday")).toBe("6");
+    await waitFor(() => expect(planningCalls).toBe(2));
+  });
+
+  it("does nothing when the manager cancels", async () => {
+    backend();
+    const calls: URL[] = [];
+    server.use(http.delete(`${API}/planning/weekday`, ({ request }) => { calls.push(new URL(request.url)); return HttpResponse.json({}); }));
+    const { user } = await renderView();
+    await user.click(screen.getByRole("button", { name: "Delete all Saturdays" }));
+    await answerConfirmDialog(false);
+    expect(calls).toHaveLength(0);
   });
 });

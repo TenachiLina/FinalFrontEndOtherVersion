@@ -9,6 +9,7 @@ import LoadError from "@/components/ui/feedback/LoadError";
 import { t } from "@/lib/i18n";
 import type { Cell } from "./types";
 
+
 // Backups saved by the planning editor (backupEmpIds); the legacy backupEmpId only when there are none
 const backupLabel = (emp: Cell): string | null =>
   emp.backups?.length ? emp.backups.map((b) => b.title).join(", ") : emp.backupTitle ?? null;
@@ -39,6 +40,7 @@ const ViewCalender: React.FC = () => {
     toggleWeeklyExportMenu,
     toggleWeeklyExportManagerMenu,
     closeMenus,  
+    monthLabel, weekdayName, deletingWeekday, deleteWeekdayOfMonth,
   } = useViewPlanning();
 
   const getCalendarDays = (date: Date) => {
@@ -300,6 +302,18 @@ const ViewCalender: React.FC = () => {
                             {t("Employees Export")}
                           </Button>
                         </Tooltip>
+                        {/* Delete this weekday for the whole month */}
+                        <Tooltip text="Delete the planning of every same weekday in the displayed month.">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={deleteWeekdayOfMonth}
+                            disabled={deletingWeekday}
+                            className="h-10 whitespace-nowrap px-2 text-sm text-error-500"
+                          >
+                            {t("Delete all {day}s", { day: weekdayName })}
+                          </Button>
+                        </Tooltip>
 
                         {showWeeklyExportMenu && (
                           <div className="absolute end-0 z-50 mt-2 w-48 rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
@@ -324,6 +338,7 @@ const ViewCalender: React.FC = () => {
                           </div>
                         )}
                       </div>
+
 
                     </div>
 
