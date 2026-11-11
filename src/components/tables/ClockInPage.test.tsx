@@ -800,3 +800,27 @@ describe("ClockInPage – reset, dates and local copies", () => {
     expect(screen.getByPlaceholderText("YYYY-MM-DD")).toHaveValue("2026-03-02");
   });
 });
+
+// ─── Missing punches ──────────────────────────────────────────────────────────
+
+describe("ClockInPage – missing punches", () => {
+  it("flags a clock-out saved without its clock-in", async () => {
+    db.worktimes = [makeWorktime({ clock_in: null, clock_out: "16:05" })];
+    await renderPage();
+    expect(cell("Ali Zerrouki", "Status")).toHaveTextContent("Missing clock-in");
+  });
+
+  it("flags a missing clock-out once the shift is well over, not during it", async () => {
+    db.worktimes = [makeWorktime({ clock_in: "08:00" })];
+    await renderPage();
+    // 08:05: the shift has just started
+    expect(cell("Ali Zerrouki", "Status")).toHaveTextContent("Present");
+  });
+
+  it("flags a missing clock-out on a past day", async () => {
+    db.worktimes = [makeWorktime({ clock_in: "08:00", work_date: "2026-03-01" })];
+    db.planning = [makePlan(ali, morning, { planDate: "2026-03-01" })];
+    await renderPage({ currentDate: "2026-03-01" });
+    expect(cell("Ali Zerrouki", "Status")).toHaveTextContent("Missing clock-out");
+  });
+});
