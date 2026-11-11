@@ -38,6 +38,8 @@ const AppHeader: React.FC = () => {
     "/clockinpagehistory": "Clock In/Out History",
     "/addEmployeeForm": "Add Employee",
     "/basic-tables": "View Employees",
+    "/insured-employees": "Insured Employees",
+    "/insured-employees/new": "Add Insured Employee",
     "/users": "Users",
     "/company-settings": "Company settings",
     "/companies": "Companies",

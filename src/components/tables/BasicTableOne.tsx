@@ -288,7 +288,7 @@ export default function BasicTableOne() {
                 <Field label="Date of birth" name="birthDate" type="date" value={form.birthDate} onChange={handleChange} />
                 <Field label="Hire date" name="hireDate" type="date" value={form.hireDate} onChange={handleChange} />
               </div>
-              <Field label="Social security number" name="socialSecurityNumber" value={form.socialSecurityNumber} onChange={handleChange} />
+              <Field label="Insurance number" name="socialSecurityNumber" value={form.socialSecurityNumber} onChange={handleChange} />
             </div>
             <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 dark:border-white/[0.07]">
               <button onClick={closeForm} className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:border-white/[0.1] dark:text-gray-300 dark:hover:bg-white/[0.05] transition-colors">{t("Cancel")}</button>

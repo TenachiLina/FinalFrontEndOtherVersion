@@ -11,10 +11,21 @@ export interface EmployeePayload {
   address?: string;
   phoneNumber?: string;
   personalImage?: string;
+  jobTitle?: string;
+  familyStatus?: string;
+  birthDate?: string;
+  hireDate?: string;
+  /** Also the insurance number */
+  socialSecurityNumber?: string;
+  insured?: boolean;
+  /** null clears it */
+  declaredSalary?: number | null;
 }
 
 export interface EmployeeRecord extends EmployeePayload {
   _id: string;
+  // Set by the API, for a manager, on other managers' records
+  otherManager?: boolean;
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {

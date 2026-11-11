@@ -187,7 +187,7 @@ const PayslipSheet: React.FC<{
           </span>
           <span>N° SS:</span>
           <span className={`${boxed} min-h-5`}>
-            <PayslipValue field="socialSecurityNumber" label="Social security number" value={p.socialSecurityNumber} onSave={onSave} />
+            <PayslipValue field="socialSecurityNumber" label="Insurance number" value={p.socialSecurityNumber} onSave={onSave} />
           </span>
         </div>
       </div>

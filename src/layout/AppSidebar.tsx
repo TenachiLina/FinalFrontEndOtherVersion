@@ -118,6 +118,7 @@ const navItems: NavItem[] = [
     subItems: [
       { name: "Add Employee", path: "/addEmployeeForm", pro: false },
       { name: "View Employees", path: "/basic-tables", pro: false },
+      { name: "Insured Employees", path: "/insured-employees", pro: false },
 
     ],
   },
