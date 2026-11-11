@@ -8,13 +8,13 @@ import LoadError from "@/components/ui/feedback/LoadError";
 import { useAuth } from "@/context/AuthContext";
 import { API_BASE_URL } from "@/lib/config";
 import { ensureOk, friendlyError } from "@/lib/errors";
-import { t } from "@/lib/i18n";
+import { locale, t } from "@/lib/i18n";
+import { currency } from "@/lib/payrollConfig";
 import { toast } from "@/lib/notify";
 import {
   buildPayslip,
   COMPANY_PAYSLIP_FIELDS,
   missingPayslipFields,
-  PAYSLIP_BASE_DAYS,
   Payslip,
   PayslipField,
 } from "@/lib/payslip";
@@ -46,8 +46,6 @@ const PayslipsView: React.FC = () => {
   const [month, setMonth] = useState(thisMonth);
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState("");
-  // N/BASE as typed, per employee; a new month starts again from 30
-  const [days, setDays] = useState<Record<string, string>>({});
   const [exporting, setExporting] = useState(false);
   const [printAll, setPrintAll] = useState(false);
   const [printRequest, setPrintRequest] = useState(0);
@@ -76,14 +74,8 @@ const PayslipsView: React.FC = () => {
     if (printRequest) window.print();
   }, [printRequest]);
 
-  const daysFor = (e: EmployeeRaw) => {
-    const typed = days[String(e._id)];
-    const value = Number(typed);
-    return typed === undefined || typed === "" || !Number.isFinite(value) ? PAYSLIP_BASE_DAYS : value;
-  };
-
   const payslipFor = (e: EmployeeRaw): Payslip =>
-    buildPayslip(e, company ?? { name: "" }, month, daysFor(e));
+    buildPayslip(e, company ?? { name: "" }, month);
 
   const shown = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -124,7 +116,6 @@ const PayslipsView: React.FC = () => {
   const handleMonth = (value: string) => {
     if (!value) return;
     setMonth(value);
-    setDays({});
   };
 
   const exportExcel = async (all: boolean) => {
@@ -154,7 +145,7 @@ const PayslipsView: React.FC = () => {
       <div>
         <h1 className="text-2xl font-bold text-gray-800 dark:text-white">{t("Payslips")}</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          {t("One payslip per employee: salary ÷ 30 × days, minus 9% social security. This net doesn't use hours, advances or penalties, so it can differ from Monthly Payroll.")}
+          {t("One payslip per employee: the declared salary (or the base salary when none is declared), minus 9% social security. This net doesn't use hours, advances or penalties, so it can differ from Monthly Payroll.")}
         </p>
       </div>
 
@@ -200,7 +191,7 @@ const PayslipsView: React.FC = () => {
             <thead className="bg-[#2563a0]">
               <tr>
                 <th className="p-3 text-start text-xs font-bold uppercase tracking-wide text-white">{t("Employee")}</th>
-                <th className="w-24 p-3 text-center text-xs font-bold uppercase tracking-wide text-white">N/BASE</th>
+                <th className="p-3 text-end text-xs font-bold uppercase tracking-wide text-white">{t("Payslip salary")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -219,17 +210,11 @@ const PayslipsView: React.FC = () => {
                         {name}
                       </button>
                     </td>
-                    <td className="p-2">
-                      <input
-                        type="number"
-                        min={0}
-                        max={31}
-                        step="0.5"
-                        value={days[id] ?? PAYSLIP_BASE_DAYS}
-                        aria-label={t("Days for {name}", { name })}
-                        onChange={(ev) => setDays((prev) => ({ ...prev, [id]: ev.target.value }))}
-                        className="w-full rounded-lg border border-gray-300 bg-white px-2 py-1 text-center text-sm text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
-                      />
+                    <td className="p-3 text-end text-sm text-gray-600 dark:text-gray-400">
+                      {payslipFor(e).baseSalary.toLocaleString(locale())} {currency()}
+                      {e.declaredSalary != null && (
+                        <span className="block text-xs text-brand-600 dark:text-brand-400">{t("Declared")}</span>
+                      )}
                     </td>
                   </tr>
                 );

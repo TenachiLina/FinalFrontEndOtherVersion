@@ -31,6 +31,12 @@ import type {
   EmployeeRecord,
 } from "./../calendar/types";
 import { friendlyError } from "@/lib/errors";
+import {
+  groupPunchesIntoSessions,
+  plannedShiftsByEmployee,
+  sessionMinutes,
+  type PlannedShift,
+} from "@/lib/punchSessions";
 import { t } from "@/lib/i18n";
 import TimeSelect from "@/components/form/TimeSelect";
 
@@ -285,66 +291,49 @@ function getLatestOvernightEnd(
 }
 
 /**
- * How long after an overnight shift ends a punch
- * still counts as its (late) clock-out.
+ * Planning the day before, of and after the shown day.
+ * null: that day's planning couldn't be read.
  */
-const OVERNIGHT_CLOCK_OUT_GRACE = 4 * 60;
-
-/**
- * Early arrivals for the next shift must not be
- * taken as last night's clock-out.
- */
-const EARLY_ARRIVAL_MARGIN = 60;
-
-/**
- * Minute of the morning up to which punches still
- * belong to the previous night's shift.
- *
- * Example:
- *
- * Shifts 16:00 -> 02:00 and 08:00 -> 17:00
- *
- * returns 360 (06:00): 4 hours after 02:00,
- * which is before 07:00 (one hour before 08:00).
- */
-function getOvernightCutoff(
-  shifts: Shift[]
-): number | null {
-  const overnightEnd =
-    getLatestOvernightEnd(
-      shifts
-    );
-
-  if (overnightEnd === null) {
-    return null;
-  }
-
-  const laterStarts = shifts
-    .map((shift) =>
-      timeToMinutes(
-        shift.start_time
-      )
-    )
-    .filter(
-      (start) =>
-        start > overnightEnd
-    );
-
-  const nextStart =
-    laterStarts.length
-      ? Math.min(...laterStarts)
-      : Infinity;
-
-  return Math.max(
-    overnightEnd,
-    Math.min(
-      overnightEnd +
-        OVERNIGHT_CLOCK_OUT_GRACE,
-      nextStart -
-        EARLY_ARRIVAL_MARGIN
-    )
-  );
+interface PlanningAround {
+  previous: PlanningRecord[] | null;
+  current: PlanningRecord[] | null;
+  next: PlanningRecord[] | null;
 }
+
+/** Each employee's planned shifts around the shown day, by employee number. */
+function plannedAround(
+  operationDate: string,
+  around: PlanningAround
+): Map<string, PlannedShift[]> {
+  const result = new Map<string, PlannedShift[]>();
+
+  (
+    [
+      [-1, around.previous],
+      [0, around.current],
+      [1, around.next],
+    ] as const
+  ).forEach(([days, records]) => {
+    // The API was asked for that one date: its records are that date's
+    const date = addDays(operationDate, days);
+
+    plannedShiftsByEmployee(records, () => date).forEach(
+      (shifts, empNumber) => {
+        result.set(empNumber, [
+          ...(result.get(empNumber) ?? []),
+          ...shifts,
+        ]);
+      }
+    );
+  });
+
+  return result;
+}
+
+/** An employee's planned shifts around the shown day. */
+type PlannedFor = (
+  empNumber: string
+) => PlannedShift[];
 
 /**
  * Determine the current operational attendance date.
@@ -396,92 +385,113 @@ function getOperationalDate(
   return calendarDate;
 }
 
-/**
- * Determine whether a machine punch belongs to
- * the specified operational date.
- *
- * For a normal shift:
- *
- * Aug 28 -> only Aug 28.
- *
- * For an overnight shift 16:00 -> 02:00:
- *
- * Aug 28 16:00
- * Aug 28 23:00
- * Aug 29 01:30
- *
- * all belong to Aug 28 operation.
- *
- * Aug 28 01:30 belongs to the Aug 27 operation
- * (it closes the previous night's shift).
- */
-function isPunchInsideOperationalDay(
-  timestamp: string,
-  operationDate: string,
-  shifts: Shift[]
-): boolean {
-  const parsed =
-    deviceDateTime(timestamp);
-
-  if (!parsed) {
-    return false;
-  }
-
-  const cutoff =
-    getOvernightCutoff(
-      shifts
-    );
-
-  if (cutoff === null) {
-    return (
-      parsed.date ===
-      operationDate
-    );
-  }
-
-  const nextDate =
-    addDays(
-      operationDate,
-      1
-    );
-
-  /*
-   * Early-morning punches up to the cutoff
-   * belong to the previous operation day, the same
-   * window that is kept on the next date below.
-   */
-  if (
-    parsed.date ===
-    operationDate
-  ) {
-    return (
-      parsed.minutes >
-      cutoff
-    );
-  }
-
-  if (
-    parsed.date ===
-    nextDate
-  ) {
-    return (
-      parsed.minutes <=
-      cutoff
-    );
-  }
-
-  return false;
-}
-
 /* ============================================================================
    DEVICE LOG -> EMPLOYEE ENTRY
 ============================================================================ */
-function deviceLogsToEntries(
+/**
+ * The shown day's machine attendance: each employee's
+ * sessions for that work day (see groupPunchesIntoSessions),
+ * so a missing punch can't turn later clock-ins into
+ * clock-outs. Also returns the punches counted.
+ */
+function machineDay(
   logs: DeviceAttendanceLog[],
-  employees: Employee[],
   operationDate: string,
-  shifts: Shift[]
-): Record<
+  plannedFor: PlannedFor
+): {
+  entries: MachineEntries;
+  logs: DeviceAttendanceLog[];
+} {
+  const byEmployee = new Map<
+    string,
+    DeviceAttendanceLog[]
+  >();
+
+  for (const log of logs) {
+    const id = normalizeDeviceId(
+      log.deviceUserId
+    );
+    byEmployee.set(id, [
+      ...(byEmployee.get(id) ?? []),
+      log,
+    ]);
+  }
+
+  const entries: MachineEntries = {};
+  const dayLogs: DeviceAttendanceLog[] = [];
+
+  byEmployee.forEach(
+    (employeeLogs, employeeId) => {
+      const sessions =
+        groupPunchesIntoSessions(
+          employeeLogs,
+          plannedFor(employeeId)
+        ).filter(
+          (s) =>
+            s.workDate === operationDate
+        );
+
+      if (!sessions.length) {
+        return;
+      }
+
+      const periods: WorkPeriod[] =
+        sessions.flatMap((s) =>
+          s.periods.map((q) => ({
+            clockIn: q.clockIn
+              ? deviceTime(
+                  q.clockIn.timestamp
+                )
+              : NO_PUNCH,
+            clockOut: q.clockOut
+              ? deviceTime(
+                  q.clockOut.timestamp
+                )
+              : NO_PUNCH,
+          }))
+        );
+
+      const first = sessions[0];
+      const last =
+        sessions[sessions.length - 1];
+
+      entries[employeeId] = {
+        // A missing clock-in stays empty: it isn't
+        // replaced by the clock-out
+        clockIn: first.clockIn
+          ? deviceTime(
+              first.clockIn.timestamp
+            )
+          : NO_PUNCH,
+
+        clockOut: last.clockOut
+          ? deviceTime(
+              last.clockOut.timestamp
+            )
+          : NO_PUNCH,
+
+        periods,
+
+        workHours: formatMin(
+          sessions.reduce(
+            (total, s) =>
+              total + sessionMinutes(s),
+            0
+          )
+        ),
+      };
+
+      sessions.forEach((s) =>
+        dayLogs.push(...s.punches)
+      );
+    }
+  );
+
+  return { entries, logs: dayLogs };
+}
+
+/** Each employee's machine times for the shown day, by employee number. */
+type MachineEntries = Record<
   string,
   {
     clockIn: string;
@@ -489,161 +499,7 @@ function deviceLogsToEntries(
     periods: WorkPeriod[];
     workHours: string;
   }
-> {
-  const result: Record<
-    string,
-    {
-      clockIn: string;
-      clockOut: string;
-      periods: WorkPeriod[];
-      workHours: string;
-    }
-  > = {};
-
-  for (const employee of employees) {
-    const employeeId = String(employee.empNumber);
-
-    const employeeLogs = logs
-      .filter((log) => {
-        const deviceId = normalizeDeviceId(
-          log.deviceUserId
-        );
-
-        if (deviceId !== employeeId) {
-          return false;
-        }
-
-        return isPunchInsideOperationalDay(
-          log.timestamp,
-          operationDate,
-          shifts
-        );
-      })
-      .sort(
-        (a, b) =>
-          new Date(a.timestamp).getTime() -
-          new Date(b.timestamp).getTime()
-      );
-
-    if (!employeeLogs.length) {
-      continue;
-    }
-
-    /*
-     * Punch sequence:
-     *
-     * 0 = IN
-     * 1 = OUT
-     * 2 = IN
-     * 3 = OUT
-     * ...
-     */
-
-    const periods: WorkPeriod[] = [];
-
-    for (
-      let i = 0;
-      i + 1 < employeeLogs.length;
-      i += 2
-    ) {
-      periods.push({
-        clockIn: deviceTime(
-          employeeLogs[i].timestamp
-        ),
-
-        clockOut: deviceTime(
-          employeeLogs[i + 1].timestamp
-        ),
-      });
-    }
-
-    /*
-     * If there is an odd number of punches,
-     * the employee is currently working.
-     *
-     * Example:
-     *
-     * 08:00 IN
-     * 12:00 OUT
-     * 12:30 IN
-     *
-     * The last period is still open.
-     */
-
-    if (employeeLogs.length % 2 === 1) {
-      periods.push({
-        clockIn: deviceTime(
-          employeeLogs[
-            employeeLogs.length - 1
-          ].timestamp
-        ),
-
-        clockOut: NO_PUNCH,
-      });
-    }
-
-    /*
-     * Calculate ONLY completed work periods.
-     *
-     * Therefore pauses are NOT counted.
-     */
-
-    let totalMinutes = 0;
-
-    for (const period of periods) {
-      if (
-        period.clockIn === NO_PUNCH ||
-        period.clockOut === NO_PUNCH
-      ) {
-        continue;
-      }
-
-      let minutes =
-        toMinutes(period.clockOut) -
-        toMinutes(period.clockIn);
-
-      /*
-       * Overnight period.
-       */
-      if (minutes < 0) {
-        minutes += 1440;
-      }
-
-      totalMinutes += minutes;
-    }
-
-    result[employeeId] = {
-      /*
-       * First punch of the day.
-       */
-      clockIn: deviceTime(
-        employeeLogs[0].timestamp
-      ),
-
-      /*
-       * Last punch ONLY if it is an OUT.
-       *
-       * If the employee is currently working,
-       * clockOut stays empty.
-       */
-      clockOut:
-        employeeLogs.length % 2 === 0
-          ? deviceTime(
-              employeeLogs[
-                employeeLogs.length - 1
-              ].timestamp
-            )
-          : NO_PUNCH,
-
-      periods,
-
-      workHours:
-        formatMin(totalMinutes),
-    };
-  }
-
-  return result;
-}
+>;
 /**
  * Copy the machine times into the day's entries
  * (machine is authoritative for clockIn/clockOut),
@@ -655,9 +511,7 @@ function applyMachineEntries(
     string,
     EmployeeTimeEntry
   >,
-  machineEntries: ReturnType<
-    typeof deviceLogsToEntries
-  >,
+  machineEntries: MachineEntries,
   employees: Employee[],
   assignedShifts: Record<
     number,
@@ -737,28 +591,17 @@ const MACHINE_REFRESH_MS = 60 * 1000;
 ============================================================================ */
 
 async function getDeviceAttendanceForOperationalDate(
-  operationDate: string,
-  shifts: Shift[]
+  operationDate: string
 ): Promise<DeviceAttendanceLog[]> {
-  const datesToFetch = [
-    operationDate,
-  ];
-
-  const hasOvernightShift =
-    shifts.some(
-      isOvernightShift
-    );
-
-  if (
-    hasOvernightShift
-  ) {
-    datesToFetch.push(
-      addDays(
-        operationDate,
-        1
-      )
-    );
-  }
+  /*
+   * The day before (a session started then may end
+   * on the shown day) and after (a night shift's
+   * clock-out after midnight).
+   */
+  const datesToFetch = [-1, 0, 1].map(
+    (days) =>
+      addDays(operationDate, days)
+  );
 
   const responses =
     await Promise.all(
@@ -766,9 +609,13 @@ async function getDeviceAttendanceForOperationalDate(
         async (date) => {
           const response =
             await fetch(
+              // The API filters on from/to (Algerian days); without
+              // them it sends every punch ever recorded.
               `${DEVICE_ATTENDANCE_API}?date=${encodeURIComponent(
                 date
-              )}`,
+              )}&from=${encodeURIComponent(
+                date
+              )}&to=${encodeURIComponent(date)}`,
               {
                 cache:
                   "no-store",
@@ -808,9 +655,6 @@ async function getDeviceAttendanceForOperationalDate(
       )
     );
 
-  const combined =
-    responses.flat();
-
   /*
    * Remove duplicate machine logs.
    */
@@ -821,7 +665,7 @@ async function getDeviceAttendanceForOperationalDate(
     >();
 
   for (
-    const log of combined
+    const log of responses.flat()
   ) {
     const key =
       log._id ??
@@ -836,13 +680,6 @@ async function getDeviceAttendanceForOperationalDate(
 
   return Array.from(
     unique.values()
-  ).filter(
-    (log) =>
-      isPunchInsideOperationalDay(
-        log.timestamp,
-        operationDate,
-        shifts
-      )
   );
 }
 
@@ -1418,6 +1255,17 @@ export default function AttendancePage({
     >
   >({});
 
+  // Planning the day before, of and after the shown day: tells
+  // whose early-morning punches close a night shift.
+  const [
+    planningAround,
+    setPlanningAround,
+  ] = useState<PlanningAround>({
+    previous: null,
+    current: null,
+    next: null,
+  });
+
   const [
     currentTab,
     setCurrentTab,
@@ -1711,33 +1559,52 @@ const [deviceEntries, setDeviceEntries] =
     setLoadFailed(false);
     setApiError(null);
 
-    Promise.all([
-      getEmployees(),
-
-      getShifts(),
-
+    /** Planning `days` away from the shown day; null if it can't be read. */
+    const planningOn = (days: number) =>
       getPlanningByDate(
-        operationalDate
-      ).catch((e) => {
+        addDays(operationalDate, days)
+      ).catch((e): PlanningRecord[] | null => {
         console.warn(
           "Planning fetch failed:",
           e
         );
 
-        return [] as PlanningRecord[];
-      }),
+        return null;
+      });
+
+    Promise.all([
+      getEmployees(),
+
+      getShifts(),
+
+      planningOn(-1),
+
+      planningOn(0),
+
+      planningOn(1),
     ])
       .then(
         ([
           empRecords,
           shiftRecords,
-          planningRecords,
+          previousPlanning,
+          currentPlanning,
+          nextPlanning,
         ]) => {
           if (cancelled) {
             return;
           }
 
+          const planningRecords =
+            currentPlanning ?? [];
+
           setDailyPlanning(planningRecords);
+
+          setPlanningAround({
+            previous: previousPlanning,
+            current: currentPlanning,
+            next: nextPlanning,
+          });
 
           /* ---------------------------------------------------------------
              EMPLOYEES
@@ -1948,6 +1815,24 @@ const [deviceEntries, setDeviceEntries] =
     loadAttempt,
   ]);
 
+  /*
+   * Each employee's planned shifts around the shown day:
+   * they tell which punches are clock-ins and clock-outs.
+   */
+  const plannedFor =
+    useMemo<PlannedFor>(() => {
+      const planned = plannedAround(
+        operationalDate,
+        planningAround
+      );
+
+      return (empNumber) =>
+        planned.get(empNumber) ?? [];
+    }, [
+      operationalDate,
+      planningAround,
+    ]);
+
   /* --------------------------------------------------------------------------
      LOAD WORKTIME + MACHINE ATTENDANCE
   -------------------------------------------------------------------------- */
@@ -1991,36 +1876,29 @@ const [deviceEntries, setDeviceEntries] =
               ),
 
               getDeviceAttendanceForOperationalDate(
-                operationalDate,
-                shifts
+                operationalDate
               ),
-              
+
             ]);
 
           if (cancelled) {
             return;
           }
 
-
-
-
-
-
           /* ---------------------------------------------------------------
              MACHINE ENTRIES
           --------------------------------------------------------------- */
 
+          const machine = machineDay(
+            logs,
+            operationalDate,
+            plannedFor
+          );
           const machineEntries =
-            deviceLogsToEntries(
-              logs,
-              employees,
-              operationalDate,
-              shifts
-            );
-
+            machine.entries;
 
           setDeviceLogs(
-            logs
+            machine.logs
           );
 
           setDeviceEntries(
@@ -2120,6 +1998,7 @@ const [deviceEntries, setDeviceEntries] =
     employees,
     shifts,
     assignedShifts,
+    plannedFor,
   ]);
 
   /* --------------------------------------------------------------------------
@@ -2148,21 +2027,20 @@ const [deviceEntries, setDeviceEntries] =
         try {
           const logs =
             await getDeviceAttendanceForOperationalDate(
-              operationalDate,
-              shifts
+              operationalDate
             );
 
           if (cancelled) {
             return;
           }
 
+          const machine = machineDay(
+            logs,
+            operationalDate,
+            plannedFor
+          );
           const machineEntries =
-            deviceLogsToEntries(
-              logs,
-              employees,
-              operationalDate,
-              shifts
-            );
+            machine.entries;
 
           const snapshot =
             JSON.stringify(
@@ -2180,7 +2058,7 @@ const [deviceEntries, setDeviceEntries] =
             snapshot;
 
           setDeviceLogs(
-            logs
+            machine.logs
           );
 
           setDeviceEntries(
@@ -2234,6 +2112,7 @@ const [deviceEntries, setDeviceEntries] =
     employees,
     shifts,
     assignedShifts,
+    plannedFor,
   ]);
 
   /* --------------------------------------------------------------------------

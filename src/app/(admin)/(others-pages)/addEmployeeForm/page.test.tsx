@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { http, HttpResponse } from "msw";
 import EmployeeDataForm from "./page";
 import AddEmployeePage from "../add-employee/page";
+import InsuredForm from "./EmployeeDataForm";
 import { API, server } from "@/test/server";
 import { router } from "@/test/navigation";
 import { fireEvent, renderWithProviders, screen, waitFor } from "@/test/render";
@@ -168,5 +169,55 @@ describe("Add employee form", () => {
   it("is also served at /add-employee", () => {
     renderWithProviders(<AddEmployeePage />);
     expect(screen.getByRole("heading", { name: "Add Employee" })).toBeInTheDocument();
+  });
+});
+
+describe("optional payslip details", () => {
+  it("sends the job title and the dates when they are filled in", async () => {
+    const bodies = serveCreate();
+    const { user } = renderWithProviders(<EmployeeDataForm />);
+    await fillRequired(user);
+    await user.type(screen.getByLabelText("Job title (optional):"), "Agent de cuisine");
+    fireEvent.change(screen.getByLabelText("Date of birth (optional):"), { target: { value: "2004-03-14" } });
+    fireEvent.change(screen.getByLabelText("Hire date (optional):"), { target: { value: "2025-11-04" } });
+    await save(user);
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0]).toEqual({
+      empNumber: 101, firstName: "Amina", lastName: "Bouzenada", baseSalary: 50000,
+      jobTitle: "Agent de cuisine", birthDate: "2004-03-14", hireDate: "2025-11-04",
+    });
+  });
+
+  it("doesn't ask for insurance details on the normal form", () => {
+    renderWithProviders(<EmployeeDataForm />);
+    expect(screen.queryByLabelText("Declared salary: *")).not.toBeInTheDocument();
+  });
+});
+
+describe("Add insured employee form", () => {
+  it("requires the declared salary", async () => {
+    const bodies = serveCreate();
+    const { user } = renderWithProviders(<InsuredForm insured />);
+    expect(screen.getByRole("heading", { name: "Add Insured Employee" })).toBeInTheDocument();
+    await fillRequired(user);
+    await save(user);
+    expect(screen.getByText("Enter the declared salary.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Declared salary: *")).toHaveFocus();
+    expect(bodies).toHaveLength(0);
+  });
+
+  it("adds the employee as insured, then goes back to the list", async () => {
+    const bodies = serveCreate();
+    const { user } = renderWithProviders(<InsuredForm insured />);
+    await fillRequired(user);
+    await user.type(screen.getByLabelText("Declared salary: *"), "24000");
+    await user.type(screen.getByLabelText("Insurance number (N° SS):"), "111111111111");
+    await save(user);
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0]).toEqual({
+      empNumber: 101, firstName: "Amina", lastName: "Bouzenada", baseSalary: 50000,
+      insured: true, declaredSalary: 24000, socialSecurityNumber: "111111111111",
+    });
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith("/insured-employees"));
   });
 });

@@ -31,23 +31,27 @@ describe("buildPayslip", () => {
     expect(p.employeeName).toBe("ZERROUKI ALI");
   });
 
-  it("pays the salary pro rata when the days are changed", () => {
-    expect(buildPayslip(employee, company, "2026-05", 15)).toMatchObject({
-      postSalary: 12000,
-      socialSecurity: 1080,
-      net: 10920,
+  it("uses the declared salary when one is set", () => {
+    expect(buildPayslip({ ...employee, declaredSalary: 20000 }, company, "2026-05")).toMatchObject({
+      days: 30,
+      baseSalary: 20000,
+      postSalary: 20000,
+      socialSecurity: 1800,
+      net: 18200,
     });
+    // Removed from insured employees: back to the base salary
+    expect(buildPayslip({ ...employee, declaredSalary: null }, company, "2026-05").baseSalary).toBe(24000);
   });
 
   it("rounds to the cent", () => {
-    const p = buildPayslip({ ...employee, baseSalary: 25000 }, company, "2026-05", 7);
-    expect(p).toMatchObject({ postSalary: 5833.33, socialSecurity: 525, net: 5308.33 });
+    const p = buildPayslip({ ...employee, baseSalary: 25000.55 }, company, "2026-05");
+    expect(p).toMatchObject({ postSalary: 25000.55, socialSecurity: 2250.05, net: 22750.5 });
   });
 
   it("lists what is still missing", () => {
     const p = buildPayslip({ empNumber: 1, firstName: "A", lastName: "B", baseSalary: 1 }, { name: "X" }, "2026-05");
     expect(missingPayslipFields(p)).toEqual([
-      "Family status", "Job title", "Date of birth", "Hire date", "Social security number",
+      "Family status", "Job title", "Date of birth", "Hire date", "Insurance number",
       "Company activity", "Company address", "Contributor number",
     ]);
     expect(missingPayslipFields(buildPayslip(employee, company, "2026-05"))).toEqual([]);
@@ -67,8 +71,8 @@ describe("period and dates", () => {
 });
 
 describe("buildPayslipWorkbook", () => {
-  const reread = async (days = 28) => {
-    const p = buildPayslip(employee, company, "2026-05", days);
+  const reread = async () => {
+    const p = buildPayslip(employee, company, "2026-05");
     const file = await buildPayslipWorkbook([p, { ...p, empNumber: 102 }]).xlsx.writeBuffer();
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(file);
@@ -89,13 +93,13 @@ describe("buildPayslipWorkbook", () => {
     expect(s.getCell("C12").value).toBe("AGENT DE CUISINE");
     expect(s.getCell("G11").value).toEqual(new Date(Date.UTC(2004, 2, 14)));
     expect(s.getCell("G13").value).toBe("000000000000");
-    expect(s.getCell("E21").value).toBe(28);
+    expect(s.getCell("E21").value).toBe(30);
     expect(s.getCell("G21").value).toBe(24000);
-    expect(s.getCell("G23").value).toMatchObject({ formula: "+G21/30*E21", result: 22400 });
-    expect(s.getCell("H25").value).toMatchObject({ formula: "+G23*0.09", result: 2016 });
-    expect(s.getCell("G41").value).toMatchObject({ formula: "SUM(G23:G40)", result: 22400 });
-    expect(s.getCell("H41").value).toMatchObject({ formula: "SUM(H21:H40)", result: 2016 });
-    expect(s.getCell("G44").value).toMatchObject({ formula: "G41-H41", result: 20384 });
+    expect(s.getCell("G23").value).toMatchObject({ formula: "+G21/30*E21", result: 24000 });
+    expect(s.getCell("H25").value).toMatchObject({ formula: "+G23*0.09", result: 2160 });
+    expect(s.getCell("G41").value).toMatchObject({ formula: "SUM(G23:G40)", result: 24000 });
+    expect(s.getCell("H41").value).toMatchObject({ formula: "SUM(H21:H40)", result: 2160 });
+    expect(s.getCell("G44").value).toMatchObject({ formula: "G41-H41", result: 21840 });
   });
 
   it("leaves the primes empty", async () => {
