@@ -23,6 +23,7 @@ import type {
 } from "./../calendar/types";
 import { friendlyError } from "@/lib/errors";
 import { t } from "@/lib/i18n";
+import { LATE_DEPARTURE_MS, shiftBounds } from "@/lib/punchSessions";
 import DateInput from "@/components/form/DateInput";
 // ─── Types ────────────────────────────────────────────────────────────────────
 type ShiftStatus = "present" | "absent" | "pending";
@@ -78,6 +79,19 @@ const todayLocal   = () => { const d=new Date(); return `${d.getFullYear()}-${(d
 const getStatus    = (e: EmployeeTimeEntry): ShiftStatus => e.absent ? "absent" : e.clockIn!==NO_TIME ? "present" : "pending";
 const badgeColor   = (s: ShiftStatus) => s==="present"?"success":s==="absent"?"error":"warning";
 const badgeLabel   = (s: ShiftStatus) => s==="present"?t("Present"):s==="absent"?t("Absent"):t("Pending");
+/**
+ * The punch a day lacks: a clock-out without its clock-in, or a clock-in
+ * whose shift ended more than LATE_DEPARTURE_MS ago without a clock-out.
+ */
+function missingPunch(e: EmployeeTimeEntry, date: string, start: string, end: string, now = Date.now()): "clockIn" | "clockOut" | null {
+  if (e.absent) return null;
+  if (e.clockIn === NO_TIME && e.clockOut !== NO_TIME) return "clockIn";
+  if (e.clockIn !== NO_TIME && e.clockOut === NO_TIME && start && end && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    const { end: shiftEnd } = shiftBounds({ workDate: date, start, end });
+    if (now > shiftEnd + LATE_DEPARTURE_MS) return "clockOut";
+  }
+  return null;
+}
 function recordToEntry(r: WorktimeRecord): EmployeeTimeEntry {
   return {
     clockIn:       r.clock_in       ?? NO_TIME,
@@ -1125,6 +1139,7 @@ const getAttendanceRows = (
                     const { start: effectiveStart, end: effectiveEnd } =
                       effectiveTimes(emp.num, currentTab);
 
+                    const missing = missingPunch(entry, selectedDate, effectiveStart, effectiveEnd);
                     const lateMin = calcLate(entry.clockIn, effectiveStart, effectiveEnd);
                     const otMin = calcOvertime(entry.clockOut, effectiveStart, effectiveEnd);
                     const hours = calcHours(entry.clockIn, entry.clockOut);
@@ -1157,7 +1172,11 @@ const getAttendanceRows = (
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <Badge size="sm" color={badgeColor(status)}>{badgeLabel(status)}</Badge>
+                      {missing ? (
+                        <Badge size="sm" color="error">{missing === "clockIn" ? t("Missing clock-in") : t("Missing clock-out")}</Badge>
+                      ) : (
+                        <Badge size="sm" color={badgeColor(status)}>{badgeLabel(status)}</Badge>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       {!entry.absent ? (
