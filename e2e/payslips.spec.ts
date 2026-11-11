@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import ExcelJS from "exceljs";
 import { mockApi, signInAs } from "./mock-api";
 
-test("payslips: changing the days updates the slip and the Excel export", async ({ page }, testInfo) => {
+test("payslips: the slip and its Excel export use 30 days", async ({ page }, testInfo) => {
   await mockApi(page);
   await signInAs(page, "admin@roma.dz");
   await expect(page).toHaveURL(/\/home$/);
@@ -14,9 +14,8 @@ test("payslips: changing the days updates the slip and the Excel export", async 
   await expect(page.getByText("37 856,00").first()).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("page.png"), fullPage: true });
 
-  // 15 days → half the salary
-  await page.getByRole("spinbutton", { name: "Days for Karim Benali" }).fill("15");
-  await expect(page.getByText("18 928,00").first()).toBeVisible();
+  // N/BASE is always 30: nothing to type
+  await expect(page.getByRole("spinbutton")).toHaveCount(0);
 
   const [download] = await Promise.all([
     page.waitForEvent("download"),
@@ -30,8 +29,8 @@ test("payslips: changing the days updates the slip and the Excel export", async 
   await workbook.xlsx.readFile(file);
   const sheet = workbook.worksheets[0];
   expect(sheet.getCell("E7").value).toBe("BENALI KARIM");
-  expect(sheet.getCell("E21").value).toBe(15);
-  expect(sheet.getCell("G44").value).toMatchObject({ formula: "G41-H41", result: 18928 });
+  expect(sheet.getCell("E21").value).toBe(30);
+  expect(sheet.getCell("G44").value).toMatchObject({ formula: "G41-H41", result: 37856 });
 
   // Printing shows the payslips only, one per page
   await page.evaluate(() => { window.print = () => {}; });
