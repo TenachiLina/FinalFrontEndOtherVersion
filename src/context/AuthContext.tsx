@@ -49,6 +49,9 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+export const STAFF_ACCOUNT_MESSAGE =
+  "This account is for the employee mobile app. Sign in there instead.";
+
 async function readError(res: Response, fallback: string): Promise<string> {
   try {
     const body = await res.json();
@@ -126,6 +129,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user: AuthUser;
         company: CompanyInfo | null;
       };
+      if (data.user.role === "staff") {
+        // A mobile app employee account: end the session it just opened.
+        await fetch(`${API_BASE_URL}/auth/logout`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${data.accessToken}` },
+        }).catch(() => undefined);
+        throw new Error(STAFF_ACCOUNT_MESSAGE);
+      }
       saveSession(data.accessToken, data.user, data.company, data.refreshToken);
       setIdentity(data.user, data.company);
       return { user: data.user, company: data.company };

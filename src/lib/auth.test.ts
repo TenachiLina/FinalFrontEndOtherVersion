@@ -82,6 +82,12 @@ describe("canOpen", () => {
     expect(auth.canOpen("/kiosk", as("employee"), null)).toBe(false);
   });
 
+  it("mobile app employee accounts open no page", () => {
+    for (const path of ["/home", "/kiosk", "/account", "/calendar/ViewPlanning"]) {
+      expect(auth.canOpen(path, as("staff"), company)).toBe(false);
+    }
+  });
+
   it("without a company, only the company-free pages open", () => {
     const sa = as("superadmin");
     for (const path of ["/account", "/help", "/activity-log", "/login-sessions"]) {

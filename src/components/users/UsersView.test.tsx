@@ -64,6 +64,16 @@ describe("UsersView list", () => {
     expect(within(rowOf("Kiosk")).getByRole("button", { name: "Enable" })).toBeInTheDocument();
   });
 
+  it("shows a mobile app employee with the employee it belongs to", async () => {
+    serveUsers([me, makeUserRow({ _id: "u4", name: "Ali App", role: "staff", employeeId: "e1" })]);
+    renderWithProviders(<UsersView />);
+    expect(await screen.findByLabelText("Role for Ali App")).toHaveValue("staff");
+    const link = screen.getByLabelText("Employee record of Ali App");
+    expect(link).toHaveValue("e1");
+    // Always linked: no "Not linked" choice
+    expect(within(link).queryByRole("option", { name: "Not linked" })).not.toBeInTheDocument();
+  });
+
   it("sorts the employees by name in the link list", async () => {
     serveUsers([makeUserRow()]);
     renderWithProviders(<UsersView />);
@@ -96,7 +106,7 @@ describe("UsersView list", () => {
     serveUsers([makeUserRow()]);
     renderWithProviders(<UsersView />);
     const select = await screen.findByLabelText("Role for Mia Manager");
-    expect(within(select).getAllByRole("option").map((o) => o.getAttribute("value"))).toEqual(["admin", "manager", "employee"]);
+    expect(within(select).getAllByRole("option").map((o) => o.getAttribute("value"))).toEqual(["admin", "manager", "employee", "staff"]);
   });
 
   it("still lists users when the employee list can't be loaded", async () => {
@@ -142,6 +152,35 @@ describe("UsersView create", () => {
     expect(await screen.findByText("Nina")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Create user" })).not.toBeInTheDocument();
     expect(bodies).toEqual([{ name: "Nina", email: "nina@test.dz", password: "password1", role: "manager", employeeId: "e2" }]);
+  });
+
+  it("creates a mobile app employee account linked to an employee", async () => {
+    serveUsers([], [makeUserRow({ _id: "u5", name: "Zoe", role: "staff", employeeId: "e2" })]);
+    const bodies = capture("post", "/users");
+    const { user } = renderWithProviders(<UsersView />);
+    await waitFor(() => expect(screen.queryByText("Loading…")).not.toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "Add user" }));
+    await user.type(screen.getByLabelText("Name"), "Zoe");
+    await user.type(screen.getByLabelText("Email"), "zoe@test.dz");
+    await user.type(screen.getByLabelText(/Temporary password/), "password1");
+    await user.selectOptions(screen.getByLabelText("Role"), "staff");
+    expect(screen.queryByLabelText("This manager is the employee")).not.toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText("This account is for the employee"), "e2");
+    await user.click(screen.getByRole("button", { name: "Create user" }));
+    expect(await screen.findByText("Zoe")).toBeInTheDocument();
+    expect(bodies).toEqual([{ name: "Zoe", email: "zoe@test.dz", password: "password1", role: "staff", employeeId: "e2" }]);
+  });
+
+  it("asks for the employee before creating a mobile app employee account", async () => {
+    serveUsers([]);
+    const bodies = capture("post", "/users");
+    const { user } = renderWithProviders(<UsersView />);
+    await user.click(screen.getByRole("button", { name: "Add user" }));
+    await user.selectOptions(screen.getByLabelText("Role"), "staff");
+    await user.click(screen.getByRole("button", { name: "Create user" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Choose the employee this account belongs to");
+    expect(bodies).toEqual([]);
+    expect(screen.getByRole("button", { name: "Create user" })).toBeEnabled();
   });
 
   it("doesn't link an employee to an admin account", async () => {

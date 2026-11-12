@@ -3,7 +3,9 @@ import { getLang } from "@/lib/i18n";
 import { t } from "@/lib/i18n";
 
 // employee: a shared clock-in kiosk account that only sees /kiosk
-export type Role = "superadmin" | "admin" | "manager" | "employee";
+// staff: one employee's own account for the employee mobile app; it can't
+//   use this website (refused at sign-in, see AuthContext)
+export type Role = "superadmin" | "admin" | "manager" | "employee" | "staff";
 
 export type Feature =
   | "planning"
@@ -119,6 +121,8 @@ export function canOpen(
   company: CompanyInfo | null
 ): boolean {
   if (isSuperAdminOnlyPath(pathname)) return user.role === "superadmin";
+  // Mobile app employee accounts have no page here.
+  if (user.role === "staff") return false;
   // Kiosk accounts only get the clock-in kiosk.
   if (user.role === "employee") {
     return matches(pathname, "/kiosk") && !!company?.features.includes("clockin");

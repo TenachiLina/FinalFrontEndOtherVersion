@@ -889,6 +889,12 @@ const fr: Record<string, string> = {
   "{count} changes, click to see them": "{count} modifications, cliquez pour les voir",
 
   // Users: manager ↔ employee link
+  "Mobile app employee": "Employé (application mobile)",
+  "Choose the employee this account belongs to": "Choisissez l'employé à qui appartient ce compte",
+  "This account is for the employee": "Ce compte est celui de l'employé",
+  "Give them this email and password: they sign in to the employee mobile app and only see their own information.": "Donnez-lui cet e-mail et ce mot de passe : il se connecte à l'application mobile employé et ne voit que ses propres informations.",
+  "A mobile app employee signs in to the employee mobile app and only sees their own planning, profile, worked hours, advances and bonuses. They can't clock in or out from the app, and can't sign in to this website.": "Un employé (application mobile) se connecte à l'application mobile employé et ne voit que son propre planning, son profil, ses heures travaillées, ses avances et ses primes. Il ne peut pas pointer depuis l'application, ni se connecter à ce site.",
+  "This account is for the employee mobile app. Sign in there instead.": "Ce compte est destiné à l'application mobile employé. Connectez-vous plutôt depuis l'application.",
   "Not linked": "Non lié",
   "Employee record of {name}": "Fiche employé de {name}",
   "This manager is the employee": "Ce responsable est l'employé",

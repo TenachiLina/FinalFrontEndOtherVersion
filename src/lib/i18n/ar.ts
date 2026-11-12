@@ -889,6 +889,12 @@ const ar: Record<string, string> = {
   "{count} changes, click to see them": "{count} تغييرات، انقر لرؤيتها",
 
   // Users: manager ↔ employee link
+  "Mobile app employee": "موظف (تطبيق الهاتف)",
+  "Choose the employee this account belongs to": "اختر الموظف الذي ينتمي إليه هذا الحساب",
+  "This account is for the employee": "هذا الحساب خاص بالموظف",
+  "Give them this email and password: they sign in to the employee mobile app and only see their own information.": "أعطه هذا البريد الإلكتروني وكلمة المرور: يسجّل الدخول إلى تطبيق الموظف على الهاتف ولا يرى إلا معلوماته الخاصة.",
+  "A mobile app employee signs in to the employee mobile app and only sees their own planning, profile, worked hours, advances and bonuses. They can't clock in or out from the app, and can't sign in to this website.": "يسجّل الموظف (تطبيق الهاتف) الدخول إلى تطبيق الموظف على الهاتف ولا يرى إلا جدوله وملفه الشخصي وساعات عمله وسُلفه ومكافآته. لا يمكنه تسجيل الحضور أو الانصراف من التطبيق، ولا تسجيل الدخول إلى هذا الموقع.",
+  "This account is for the employee mobile app. Sign in there instead.": "هذا الحساب مخصص لتطبيق الموظف على الهاتف. سجّل الدخول من التطبيق.",
   "Not linked": "غير مرتبط",
   "Employee record of {name}": "ملف الموظف الخاص بـ {name}",
   "This manager is the employee": "هذا المسؤول هو الموظف",

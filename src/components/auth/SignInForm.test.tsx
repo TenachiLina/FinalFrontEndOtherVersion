@@ -89,6 +89,26 @@ describe("SignInForm", () => {
     await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/kiosk"));
   });
 
+  it("refuses a mobile app employee account and ends its session", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    serveLogin(makeUser({ role: "staff" }));
+    const logouts: (string | null)[] = [];
+    server.use(
+      http.post(`${API}/auth/logout`, ({ request }) => {
+        logouts.push(request.headers.get("Authorization"));
+        return new HttpResponse(null, { status: 204 });
+      })
+    );
+    const { user } = renderSignIn();
+    await signInWith(user, "ali@test.dz", "secret");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "This account is for the employee mobile app. Sign in there instead."
+    );
+    expect(logouts).toEqual(["Bearer access"]);
+    expect(router.replace).not.toHaveBeenCalled();
+    expect(localStorage.getItem("auth_token")).toBeNull();
+  });
+
   it("goes back to the page in ?next= when the user may open it", async () => {
     serveLogin();
     const { user } = renderSignIn("/signin?next=%2Freporting%2Foverview%3Fstart%3D2026-03-01");

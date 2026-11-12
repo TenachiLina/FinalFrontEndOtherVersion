@@ -15,8 +15,13 @@ interface UserRow extends Omit<AuthUser, "id"> {
   active: boolean;
   createdAt?: string;
   // For a manager: the employee record that is this person.
+  // For a mobile app employee: required, whose data the account sees.
   employeeId?: string | null;
 }
+
+// Roles linked to an employee record: optional for a manager, required for a
+// mobile app employee (role "staff").
+const linksEmployee = (role: Role) => role === "manager" || role === "staff";
 
 interface EmployeeOption {
   _id: string;
@@ -98,6 +103,10 @@ export default function UsersView() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (form.role === "staff" && !form.employeeId) {
+      setFormError(t("Choose the employee this account belongs to"));
+      return;
+    }
     setSaving(true);
     setFormError(null);
     try {
@@ -105,7 +114,7 @@ export default function UsersView() {
         method: "POST",
         body: JSON.stringify({
           ...form,
-          employeeId: form.role === "manager" && form.employeeId ? form.employeeId : null,
+          employeeId: linksEmployee(form.role) && form.employeeId ? form.employeeId : null,
         }),
       });
       setCreateOpen(false);
@@ -162,9 +171,14 @@ export default function UsersView() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          {t("Admins have full access. Managers can use every feature, but not Users, Company settings or the Activity log, so they can't see other users' details. A clock-in kiosk account only sees the kiosk, where staff pick their name and clock in or out.")}
-        </p>
+        <div className="space-y-1 text-sm text-gray-500 dark:text-gray-400">
+          <p>
+            {t("Admins have full access. Managers can use every feature, but not Users, Company settings or the Activity log, so they can't see other users' details. A clock-in kiosk account only sees the kiosk, where staff pick their name and clock in or out.")}
+          </p>
+          <p>
+            {t("A mobile app employee signs in to the employee mobile app and only sees their own planning, profile, worked hours, advances and bonuses. They can't clock in or out from the app, and can't sign in to this website.")}
+          </p>
+        </div>
         <Button size="sm" className="shrink-0 whitespace-nowrap" onClick={() => setCreateOpen(true)}>
           {t("Add user")}
         </Button>
@@ -215,10 +229,11 @@ export default function UsersView() {
                       <option value="admin">{t("Admin")}</option>
                       <option value="manager">{t("Manager")}</option>
                       <option value="employee">{t("Clock-in kiosk")}</option>
+                      <option value="staff">{t("Mobile app employee")}</option>
                     </select>
                   </td>
                   <td className="px-4 py-3">
-                    {u.role === "manager" ? (
+                    {linksEmployee(u.role) ? (
                       <select
                         aria-label={t("Employee record of {name}", { name: u.name })}
                         className="max-w-[220px] rounded-lg border border-gray-300 bg-transparent px-2 py-1 dark:border-gray-700 dark:bg-gray-900"
@@ -232,7 +247,11 @@ export default function UsersView() {
                           )
                         }
                       >
-                        <option value="">{t("Not linked")}</option>
+                        {u.role === "manager" ? (
+                          <option value="">{t("Not linked")}</option>
+                        ) : (
+                          !u.employeeId && <option value="">{t("Choose an employee")}</option>
+                        )}
                         {employeeOptions(u._id)}
                       </select>
                     ) : (
@@ -309,9 +328,22 @@ export default function UsersView() {
             <select id="new-role" className={inputClass} value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as Role })}>
               <option value="manager">{t("Manager")}</option>
               <option value="employee">{t("Clock-in kiosk")}</option>
+              <option value="staff">{t("Mobile app employee")}</option>
               <option value="admin">{t("Admin")}</option>
             </select>
           </div>
+          {form.role === "staff" && (
+            <div>
+              <label className={labelClass} htmlFor="new-staff-employee">{t("This account is for the employee")}</label>
+              <select id="new-staff-employee" className={inputClass} value={form.employeeId} onChange={(e) => setForm({ ...form, employeeId: e.target.value })}>
+                <option value="" disabled>{t("Choose an employee")}</option>
+                {employeeOptions()}
+              </select>
+              <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                {t("Give them this email and password: they sign in to the employee mobile app and only see their own information.")}
+              </p>
+            </div>
+          )}
           {form.role === "manager" && (
             <div>
               <label className={labelClass} htmlFor="new-employee">{t("This manager is the employee")}</label>
