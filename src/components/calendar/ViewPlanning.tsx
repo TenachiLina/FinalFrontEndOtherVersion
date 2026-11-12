@@ -179,9 +179,8 @@ const ViewCalender: React.FC = () => {
 
         {/* ── Grid ───────────────────────────────────────────────────────── */}
           <div className="flex-1 rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] overflow-hidden">
-            <div className="overflow-x-auto">
               {!showTableOnly && (
-                <div className="flex items-center gap-3 p-4 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex flex-wrap items-center gap-3 p-4 border-b border-gray-200 dark:border-gray-700">
                   <button onClick={goToToday} type="button" className="rounded-full border border-gray-300 dark:border-gray-600 px-4 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
                     {t("Today")}
                   </button>
@@ -193,16 +192,13 @@ const ViewCalender: React.FC = () => {
                       <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
                     </button>
                   </div>
-                  <div className="ms-auto flex min-w-0 flex-1 items-center justify-end gap-1">
-                    {/* Date - LEFT */}
-                    <div className="shrink-0">
-                      <span className="text-sm font-medium text-gray-800 dark:text-white whitespace-nowrap">
-                        {formattedDate}
-                      </span>
-                    </div>
-                   
-                    {/* Export Buttons - RIGHT */}
-                    <div className="ms-auto flex shrink-0 items-center gap-2">
+                  {/* Date */}
+                  <span className="text-sm font-medium text-gray-800 dark:text-white whitespace-nowrap">
+                    {formattedDate}
+                  </span>
+
+                  {/* Export / delete buttons — wrap onto a new line when space runs out */}
+                  <div className="ms-auto flex flex-wrap items-center justify-end gap-2">
 
                       {/* Export Day */}
                       <div className="relative shrink-0">
@@ -302,18 +298,6 @@ const ViewCalender: React.FC = () => {
                             {t("Employees Export")}
                           </Button>
                         </Tooltip>
-                        {/* Delete this weekday for the whole month */}
-                        <Tooltip text="Delete the planning of every same weekday in the displayed month.">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={deleteWeekdayOfMonth}
-                            disabled={deletingWeekday}
-                            className="h-10 whitespace-nowrap px-2 text-sm text-error-500"
-                          >
-                            {t("Delete all {day}s", { day: weekdayName })}
-                          </Button>
-                        </Tooltip>
 
                         {showWeeklyExportMenu && (
                           <div className="absolute end-0 z-50 mt-2 w-48 rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
@@ -339,12 +323,22 @@ const ViewCalender: React.FC = () => {
                         )}
                       </div>
 
-
-                    </div>
-
+                      {/* Delete this weekday for the whole month */}
+                      <Tooltip text="Delete the planning of every same weekday in the displayed month.">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={deleteWeekdayOfMonth}
+                          disabled={deletingWeekday}
+                          className="h-10 whitespace-nowrap px-2 text-sm text-error-500"
+                        >
+                          {t("Delete all {day}s", { day: weekdayName })}
+                        </Button>
+                      </Tooltip>
                   </div>
                 </div>
               )}
+            <div className="overflow-x-auto">
               {!showTableOnly && (
                 <table className="w-full border-collapse">
                   <thead>
