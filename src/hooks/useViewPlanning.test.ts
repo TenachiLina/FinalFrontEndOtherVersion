@@ -3,8 +3,10 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { delay, http, HttpResponse } from "msw";
 import { API, server } from "@/test/server";
 import { toast } from "@/lib/notify";
+import { answerConfirm, getConfirm } from "@/lib/notify";
 import type { EmployeeRecord, PlanningRecord, ShiftRecord, TaskRecord } from "@/components/calendar/types";
 import { useViewPlanning } from "./useViewPlanning";
+import {getToasts} from "@/lib/notify";
 
 // ── Factories ──────────────────────────────────────────────────────────────
 
@@ -398,5 +400,121 @@ describe("exports", () => {
       expect(toastError).toHaveBeenCalledWith("Couldn't export the planning. No planning for this day")
     );
     expect(downloads).toEqual([]);
+  });
+});
+
+
+
+
+
+
+
+// ── Delete a weekday for the whole month ──────────────────────────────────
+
+async function answerConfirmation(ok: boolean) {
+  await waitFor(() => expect(getConfirm()).toBeTruthy());
+  answerConfirm(getConfirm()!.id, ok);
+}
+
+function captureWeekdayDelete(respond: () => Response = () => HttpResponse.json({ deletedCount: 4 })) {
+  const calls: URL[] = [];
+  server.use(
+    http.delete(`${API}/planning/weekday`, ({ request }) => {
+      calls.push(new URL(request.url));
+      return respond();
+    })
+  );
+  return calls;
+}
+
+describe("delete a weekday for the whole month", () => {
+  it("exposes the weekday and month of the selected day", async () => {
+    backend();
+    const { result } = await renderReady();
+    expect(result.current.weekdayName).toBe("Saturday");
+    expect(result.current.monthLabel).toBe("October 2026");
+  });
+
+  it("asks for confirmation and sends nothing when the manager cancels", async () => {
+    backend();
+    const calls = captureWeekdayDelete();
+    const { result } = await renderReady();
+    let done!: Promise<void>;
+    act(() => { done = result.current.deleteWeekdayOfMonth(); });
+    await answerConfirmation(false);
+    await act(() => done);
+    expect(calls).toHaveLength(0);
+    expect(planningCalls).toBe(1); // no refresh
+  });
+
+  it("deletes with the year, month and weekday of the selected day, then reloads the planning", async () => {
+    backend();
+    const calls = captureWeekdayDelete();
+    const { result } = await renderReady();
+    let done!: Promise<void>;
+    act(() => { done = result.current.deleteWeekdayOfMonth(); });
+    await answerConfirmation(true);
+    await act(() => done);
+    expect(calls).toHaveLength(1);
+    expect(Object.fromEntries(calls[0].searchParams)).toEqual({ year: "2026", month: "10", weekday: "6" });
+    expect(planningCalls).toBe(2);
+    expect(result.current.deletingWeekday).toBe(false);
+  });
+
+  it("uses the local date: day 1 of a month sends that month, not the previous one", async () => {
+    process.env.TZ = "Europe/Paris";
+    vi.setSystemTime(new Date("2026-12-03T10:00:00+01:00")); // Thursday
+    backend();
+    const calls = captureWeekdayDelete();
+    const { result } = await renderReady();
+    act(() => result.current.setCurrentDate(new Date(2026, 11, 1))); // Tuesday 1 Dec, local midnight
+    await waitFor(() => expect(result.current.weekdayName).toBe("Tuesday"));
+    let done!: Promise<void>;
+    act(() => { done = result.current.deleteWeekdayOfMonth(); });
+    await answerConfirmation(true);
+    await act(() => done);
+    expect(Object.fromEntries(calls[0].searchParams)).toEqual({ year: "2026", month: "12", weekday: "2" });
+  });
+
+  it("removes the deleted entries from the grid", async () => {
+    let remaining = [makePlanning()];
+    server.use(
+      http.get(`${API}/tasks`, () => HttpResponse.json([makeTask()])),
+      http.get(`${API}/shifts`, () => HttpResponse.json([morning])),
+      http.get(`${API}/employees`, () => HttpResponse.json([ali, sara])),
+      http.get(`${API}/planning`, () => { planningCalls++; return HttpResponse.json(remaining); }),
+      http.delete(`${API}/planning/weekday`, () => { remaining = []; return HttpResponse.json({ deletedCount: 1 }); })
+    );
+    const { result } = await renderReady();
+    expect(result.current.grid[1].s1).toHaveLength(1);
+    let done!: Promise<void>;
+    act(() => { done = result.current.deleteWeekdayOfMonth(); });
+    await answerConfirmation(true);
+    await act(() => done);
+    await waitFor(() => expect(result.current.grid[1].s1).toEqual([]));
+  });
+
+  it("shows a success toast with the number of deleted entries", async () => {
+    backend();
+    captureWeekdayDelete(() => HttpResponse.json({ deletedCount: 4 }));
+    const { result } = await renderReady();
+    let done!: Promise<void>;
+    act(() => { done = result.current.deleteWeekdayOfMonth(); });
+    await answerConfirmation(true);
+    await act(() => done);
+    expect(getToasts().map((x) => x.message)).toContain("4 planning entries deleted.");
+  });
+
+  it("shows an error toast and does not reload when the server fails", async () => {
+    backend();
+    captureWeekdayDelete(() => new HttpResponse(null, { status: 500 }));
+    const { result } = await renderReady();
+    let done!: Promise<void>;
+    act(() => { done = result.current.deleteWeekdayOfMonth(); });
+    await answerConfirmation(true);
+    await act(() => done);
+    expect(getToasts().some((x) => x.kind === "error")).toBe(true);
+    expect(planningCalls).toBe(1);
+    expect(result.current.deletingWeekday).toBe(false);
   });
 });

@@ -4,6 +4,7 @@ import { API, server } from "@/test/server";
 import { renderWithProviders, screen, waitFor, within } from "@/test/render";
 import type { EmployeeRecord, PlanningRecord, ShiftRecord, TaskRecord } from "./types";
 import ViewPlanning from "./ViewPlanning";
+import { answerConfirmDialog } from "@/test/render";
 
 // ── Factories ──────────────────────────────────────────────────────────────
 
@@ -100,6 +101,28 @@ describe("ViewPlanning", () => {
       const headers = screen.getAllByRole("columnheader").map((h) => h.textContent);
       expect(headers).toEqual(["", "08:00 - 16:00", "16:00 - 01:00"]);
       expect(screen.getByText("Livreur")).toBeInTheDocument();
+    });
+
+    it("shows 'Loading planning data...' above the table while the planning loads, then hides it", async () => {
+      backend();
+      let release!: () => void;
+      const held = new Promise<void>((r) => (release = r));
+      server.use(
+        http.get(`${API}/planning`, async () => {
+          planningCalls++;
+          await held;
+          return HttpResponse.json([]);
+        })
+      );
+      renderWithProviders(<ViewPlanning />);
+
+      const status = await screen.findByRole("status");
+      expect(status).toHaveTextContent("Loading planning data...");
+      const table = screen.getByRole("table");
+      expect(status.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+      release();
+      await waitFor(() => expect(screen.queryByText("Loading planning data...")).not.toBeInTheDocument());
     });
 
     it("shows an error instead of the planning when posts, shifts or employees can't be loaded", async () => {
@@ -371,5 +394,176 @@ describe("ViewPlanning", () => {
       expect(await screen.findByText("Couldn't export the planning. No planning for this day")).toBeInTheDocument();
       expect(downloads).toEqual([]);
     });
+  });
+});
+
+
+
+
+
+describe("delete a weekday of the month", () => {
+  it("shows the weekday of the selected day on the button", async () => {
+    backend();
+    await renderView();
+    expect(screen.getByRole("button", { name: "Delete all Saturdays" })).toBeInTheDocument();
+  });
+
+  it("deletes after confirming and reloads the planning", async () => {
+    backend();
+    const calls: URL[] = [];
+    server.use(
+      http.delete(`${API}/planning/weekday`, ({ request }) => {
+        calls.push(new URL(request.url));
+        return HttpResponse.json({ deletedCount: 4 });
+      })
+    );
+    const { user } = await renderView();
+    await user.click(screen.getByRole("button", { name: "Delete all Saturdays" }));
+    expect(await screen.findByRole("alertdialog")).toHaveTextContent("Saturday");
+    expect(screen.getByRole("alertdialog")).toHaveTextContent("October 2026");
+    await answerConfirmDialog(true);
+    await waitFor(() => expect(calls).toHaveLength(1));
+    expect(calls[0].searchParams.get("weekday")).toBe("6");
+    await waitFor(() => expect(planningCalls).toBe(2));
+  });
+
+  it("does nothing when the manager cancels", async () => {
+    backend();
+    const calls: URL[] = [];
+    server.use(http.delete(`${API}/planning/weekday`, ({ request }) => { calls.push(new URL(request.url)); return HttpResponse.json({}); }));
+    const { user } = await renderView();
+    await user.click(screen.getByRole("button", { name: "Delete all Saturdays" }));
+    await answerConfirmDialog(false);
+    expect(calls).toHaveLength(0);
+  });
+});
+
+// "Today" is 24 October 2026 (see beforeEach): October is the current month.
+describe("delete a whole month", () => {
+  const monthButton = (label: string) => screen.getByRole("button", { name: `Delete ${label} planning` });
+
+  /** Records every DELETE /planning/month and answers with `reply`. */
+  function monthDeletes(reply: () => Response = () => HttpResponse.json({ deletedCount: 12 })) {
+    const calls: URL[] = [];
+    server.use(
+      http.delete(`${API}/planning/month`, ({ request }) => {
+        calls.push(new URL(request.url));
+        return reply();
+      })
+    );
+    return calls;
+  }
+
+  /** Selects 3 November 2026 in the mini calendar. */
+  async function goToNovember(user: Awaited<ReturnType<typeof renderView>>["user"]) {
+    await user.click(monthArrows("October 2026").next);
+    await user.click(screen.getAllByRole("button", { name: "3" })[0]);
+    await waitFor(() => expect(monthButton("November 2026")).toBeInTheDocument());
+  }
+
+  it("sits under the weekday delete, below the mini calendar, away from the exports", async () => {
+    backend();
+    await renderView();
+    const weekday = screen.getByRole("button", { name: "Delete all Saturdays" });
+    const month = monthButton("October 2026");
+    expect(weekday.compareDocumentPosition(month) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // Not in the grid's toolbar with the export buttons
+    const exportDay = screen.getByRole("button", { name: "Export Day" });
+    expect(exportDay.closest(".border-b")?.contains(month)).toBe(false);
+  });
+
+  it("can't be used on the current month, and sends nothing", async () => {
+    backend();
+    const calls = monthDeletes();
+    const { user } = await renderView();
+    expect(monthButton("October 2026")).toBeDisabled();
+    // The tooltip says why, and how to delete another month
+    await user.hover(monthButton("October 2026").parentElement!);
+    const tip = await screen.findByRole("tooltip");
+    expect(tip).toHaveTextContent("current month's planning is not allowed");
+    expect(tip).toHaveTextContent("select a day of that month in the calendar above");
+    await user.unhover(monthButton("October 2026").parentElement!);
+    await user.click(monthButton("October 2026"));
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(calls).toHaveLength(0);
+  });
+
+  it("deletes the month of the selected day after confirming, then reloads the planning", async () => {
+    backend();
+    const calls = monthDeletes();
+    const { user } = await renderView();
+    await goToNovember(user);
+    const before = planningCalls;
+
+    expect(monthButton("November 2026")).toBeEnabled();
+    await user.click(monthButton("November 2026"));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(dialog).toHaveTextContent("November 2026");
+    expect(dialog).toHaveTextContent("clock-ins or clock-outs");
+    await answerConfirmDialog(true);
+
+    await waitFor(() => expect(calls).toHaveLength(1));
+    expect(calls[0].searchParams.get("year")).toBe("2026");
+    expect(calls[0].searchParams.get("month")).toBe("11");
+    expect(await screen.findByText("12 planning entries deleted.")).toBeInTheDocument();
+    await waitFor(() => expect(planningCalls).toBeGreaterThan(before));
+  });
+
+  it("can delete a past month (the backend checks it has no clock-ins)", async () => {
+    backend();
+    const calls = monthDeletes();
+    const { user } = await renderView();
+    await user.click(monthArrows("October 2026").prev);
+    await user.click(screen.getAllByRole("button", { name: "15" })[0]);
+    await user.click(monthButton("September 2026"));
+    await answerConfirmDialog(true);
+    await waitFor(() => expect(calls).toHaveLength(1));
+    expect(calls[0].searchParams.get("month")).toBe("9");
+  });
+
+  it("does nothing when the manager cancels", async () => {
+    backend();
+    const calls = monthDeletes();
+    const { user } = await renderView();
+    await goToNovember(user);
+    await user.click(monthButton("November 2026"));
+    await answerConfirmDialog(false);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("shows why the backend refused, e.g. a month with clock-ins, and keeps the planning", async () => {
+    backend();
+    const message = "This month already has clock-ins or clock-outs: its planning cannot be deleted";
+    const calls = monthDeletes(() => HttpResponse.json({ message }, { status: 409 }));
+    const { user } = await renderView();
+    await goToNovember(user);
+    const before = planningCalls;
+
+    await user.click(monthButton("November 2026"));
+    await answerConfirmDialog(true);
+
+    expect(await screen.findByText(new RegExp(message))).toBeInTheDocument();
+    expect(calls).toHaveLength(1);
+    expect(planningCalls).toBe(before);
+    expect(monthButton("November 2026")).toBeEnabled(); // usable again
+  });
+
+  it("is disabled while the month is being deleted", async () => {
+    backend();
+    let release!: () => void;
+    const held = new Promise<void>((r) => (release = r));
+    server.use(
+      http.delete(`${API}/planning/month`, async () => {
+        await held;
+        return HttpResponse.json({ deletedCount: 0 });
+      })
+    );
+    const { user } = await renderView();
+    await goToNovember(user);
+    await user.click(monthButton("November 2026"));
+    await answerConfirmDialog(true);
+    await waitFor(() => expect(monthButton("November 2026")).toBeDisabled());
+    release();
+    await waitFor(() => expect(monthButton("November 2026")).toBeEnabled());
   });
 });

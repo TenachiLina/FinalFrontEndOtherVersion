@@ -4,10 +4,12 @@ import { Modal } from "@/components/ui/modal";
 import { useViewPlanning } from "@/hooks/useViewPlanning";
 import Button from "../ui/button/Button";
 import { ArrowDownTrayIcon, ArrowTopRightOnSquareIcon, ArrowUturnLeftIcon, TableCellsIcon } from "@heroicons/react/24/outline";
+import GridLoading from "./GridLoading";
 import Tooltip from "@/components/common/Tooltip";
 import LoadError from "@/components/ui/feedback/LoadError";
 import { t } from "@/lib/i18n";
 import type { Cell } from "./types";
+
 
 // Backups saved by the planning editor (backupEmpIds); the legacy backupEmpId only when there are none
 const backupLabel = (emp: Cell): string | null =>
@@ -39,6 +41,8 @@ const ViewCalender: React.FC = () => {
     toggleWeeklyExportMenu,
     toggleWeeklyExportManagerMenu,
     closeMenus,  
+    monthLabel, weekdayName, deletingWeekday, deleteWeekdayOfMonth,
+    isCurrentMonth, deletingMonth, deleteMonth,
   } = useViewPlanning();
 
   const getCalendarDays = (date: Date) => {
@@ -104,8 +108,9 @@ const ViewCalender: React.FC = () => {
       </div>
 
       <div className="flex gap-4 items-start" style={{ marginBottom: "20px" }}>
-        {/* ── Mini Calendar ──────────────────────────────────────────────── */}
+        {/* ── Mini Calendar + delete action ──────────────────────────────── */}
         {!showTableOnly && (
+          <div className="flex flex-col gap-3 min-w-[260px]">
           <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] p-4">
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm font-semibold text-gray-800 dark:text-white">
@@ -173,13 +178,45 @@ const ViewCalender: React.FC = () => {
               })}
             </div>
           </div>
+
+            {/* Delete this weekday for the whole month — kept away from the export buttons */}
+            <Tooltip text="Delete the planning of every same weekday in the displayed month.">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={deleteWeekdayOfMonth}
+                disabled={deletingWeekday}
+                className="w-full justify-center text-error-500"
+              >
+                {t("Delete all {day}s", { day: weekdayName })}
+              </Button>
+            </Tooltip>
+
+            {/* Delete the whole month — never the current one, nor one with clock-ins */}
+            <Tooltip
+              text={
+                isCurrentMonth
+                  ? "Deleting the current month's planning is not allowed. To delete another month, select a day of that month in the calendar above: this button will then be enabled."
+                  : "Delete the planning of every day of the displayed month. Not possible once the month has clock-ins or clock-outs."
+              }
+            >
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={deleteMonth}
+                disabled={isCurrentMonth || deletingMonth}
+                className="w-full justify-center text-error-500"
+              >
+                {t("Delete {month} planning", { month: monthLabel })}
+              </Button>
+            </Tooltip>
+          </div>
         )}
 
         {/* ── Grid ───────────────────────────────────────────────────────── */}
-          <div className="flex-1 rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] overflow-hidden">
-            <div className="overflow-x-auto">
+          <div className="min-w-0 flex-1 rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] overflow-hidden">
               {!showTableOnly && (
-                <div className="flex items-center gap-3 p-4 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex flex-wrap items-center gap-3 p-4 border-b border-gray-200 dark:border-gray-700">
                   <button onClick={goToToday} type="button" className="rounded-full border border-gray-300 dark:border-gray-600 px-4 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
                     {t("Today")}
                   </button>
@@ -191,16 +228,13 @@ const ViewCalender: React.FC = () => {
                       <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
                     </button>
                   </div>
-                  <div className="ms-auto flex min-w-0 flex-1 items-center justify-end gap-1">
-                    {/* Date - LEFT */}
-                    <div className="shrink-0">
-                      <span className="text-sm font-medium text-gray-800 dark:text-white whitespace-nowrap">
-                        {formattedDate}
-                      </span>
-                    </div>
-                   
-                    {/* Export Buttons - RIGHT */}
-                    <div className="ms-auto flex shrink-0 items-center gap-2">
+                  {/* Date */}
+                  <span className="text-sm font-medium text-gray-800 dark:text-white whitespace-nowrap">
+                    {formattedDate}
+                  </span>
+
+                  {/* Export buttons — always together on one line */}
+                  <div className="ms-auto flex shrink-0 items-center justify-end gap-2">
 
                       {/* Export Day */}
                       <div className="relative shrink-0">
@@ -324,12 +358,11 @@ const ViewCalender: React.FC = () => {
                           </div>
                         )}
                       </div>
-
-                    </div>
-
                   </div>
                 </div>
               )}
+            {loading && <GridLoading />}
+            <div className="overflow-x-auto">
               {!showTableOnly && (
                 <table className="w-full border-collapse">
                   <thead>
@@ -630,7 +663,6 @@ const ViewCalender: React.FC = () => {
             </Modal>
           </div>
       </div>
-      {loading && <div className="text-center text-gray-500 mt-4">{t("Loading planning data...")}</div>}
       {error && <LoadError className="mt-4" title="Couldn't load the planning" message={error} onRetry={() => window.location.reload()} />}
     </>
   );

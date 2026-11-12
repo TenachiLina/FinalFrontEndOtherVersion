@@ -1013,6 +1013,12 @@ const fr: Record<string, string> = {
   "Ended a user's session": "A fermé la session d'un utilisateur",
   "New password (min 8 characters, with letters and numbers)": "Nouveau mot de passe (8 caractères min., lettres et chiffres)",
   "Your password has been changed. Your other devices were signed out.": "Votre mot de passe a été modifié. Vos autres appareils ont été déconnectés.",
+  "Delete {month} planning": "Supprimer le planning de {month}",
+  "Delete the whole planning of {month}?": "Supprimer tout le planning de {month} ?",
+  "This removes the planning of every day of {month}. Months that already have clock-ins or clock-outs can't be deleted. This can't be undone.": "Le planning de tous les jours de {month} sera supprimé. Les mois qui ont déjà des pointages ne peuvent pas être supprimés. Cette action est irréversible.",
+  "{count} planning entries deleted.": "{count} entrées du planning supprimées.",
+  "Deleting the current month's planning is not allowed. To delete another month, select a day of that month in the calendar above: this button will then be enabled.": "La suppression du planning du mois en cours n'est pas autorisée. Pour supprimer un autre mois, sélectionnez un jour de ce mois dans le calendrier ci-dessus : ce bouton sera alors activé.",
+  "Delete the planning of every day of the displayed month. Not possible once the month has clock-ins or clock-outs.": "Supprime le planning de tous les jours du mois affiché. Impossible si le mois contient déjà des pointages.",
 };
 
 export default fr;
