@@ -11,6 +11,7 @@ import {
   ArrowUturnLeftIcon,
 } from "@heroicons/react/24/outline";
 import { useShiftGrid } from "@/hooks/useNewPlanning";
+import GridLoading from "./GridLoading";
 import Tooltip from "@/components/common/Tooltip";
 import { locale, t } from "@/lib/i18n";
 import DateInput from "@/components/form/DateInput";
@@ -428,6 +429,8 @@ const ShiftGrid: React.FC = () => {
                 </div>
               </div>
             )}
+
+            {loadingGrid && <GridLoading />}
 
             {/* Tables */}
             {!showTableOnly && (

@@ -4,6 +4,7 @@ import { Modal } from "@/components/ui/modal";
 import { useViewPlanning } from "@/hooks/useViewPlanning";
 import Button from "../ui/button/Button";
 import { ArrowDownTrayIcon, ArrowTopRightOnSquareIcon, ArrowUturnLeftIcon, TableCellsIcon } from "@heroicons/react/24/outline";
+import GridLoading from "./GridLoading";
 import Tooltip from "@/components/common/Tooltip";
 import LoadError from "@/components/ui/feedback/LoadError";
 import { t } from "@/lib/i18n";
@@ -360,6 +361,7 @@ const ViewCalender: React.FC = () => {
                   </div>
                 </div>
               )}
+            {loading && <GridLoading />}
             <div className="overflow-x-auto">
               {!showTableOnly && (
                 <table className="w-full border-collapse">
@@ -661,7 +663,6 @@ const ViewCalender: React.FC = () => {
             </Modal>
           </div>
       </div>
-      {loading && <div className="text-center text-gray-500 mt-4">{t("Loading planning data...")}</div>}
       {error && <LoadError className="mt-4" title="Couldn't load the planning" message={error} onRetry={() => window.location.reload()} />}
     </>
   );

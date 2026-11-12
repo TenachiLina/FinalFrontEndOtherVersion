@@ -59,6 +59,27 @@ describe("loading", () => {
     expect(screen.getAllByText("+ Add")).toHaveLength(4);
   });
 
+  it("shows 'Loading planning data...' above the table while the day loads, then hides it", async () => {
+    mockPlanningApi();
+    let release!: () => void;
+    const held = new Promise<void>((r) => (release = r));
+    server.use(
+      http.get(`${API}/planning/import/:date`, async () => {
+        await held;
+        return HttpResponse.json([]);
+      })
+    );
+    renderWithProviders(<NewPlanning />);
+
+    const status = await screen.findByRole("status");
+    expect(status).toHaveTextContent("Loading planning data...");
+    const table = screen.getByRole("table");
+    expect(status.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    release();
+    await waitFor(() => expect(screen.queryByText("Loading planning data...")).not.toBeInTheDocument());
+  });
+
   it("shows why the screen can't be used when the reference data fails", async () => {
     mockPlanningApi();
     server.use(http.get(`${API}/tasks`, () => HttpResponse.json({ message: "x" }, { status: 500 })));

@@ -103,6 +103,28 @@ describe("ViewPlanning", () => {
       expect(screen.getByText("Livreur")).toBeInTheDocument();
     });
 
+    it("shows 'Loading planning data...' above the table while the planning loads, then hides it", async () => {
+      backend();
+      let release!: () => void;
+      const held = new Promise<void>((r) => (release = r));
+      server.use(
+        http.get(`${API}/planning`, async () => {
+          planningCalls++;
+          await held;
+          return HttpResponse.json([]);
+        })
+      );
+      renderWithProviders(<ViewPlanning />);
+
+      const status = await screen.findByRole("status");
+      expect(status).toHaveTextContent("Loading planning data...");
+      const table = screen.getByRole("table");
+      expect(status.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+      release();
+      await waitFor(() => expect(screen.queryByText("Loading planning data...")).not.toBeInTheDocument());
+    });
+
     it("shows an error instead of the planning when posts, shifts or employees can't be loaded", async () => {
       backend();
       server.use(http.get(`${API}/tasks`, () => new HttpResponse(null, { status: 500 })));
