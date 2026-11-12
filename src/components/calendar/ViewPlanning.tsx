@@ -195,7 +195,7 @@ const ViewCalender: React.FC = () => {
             <Tooltip
               text={
                 isCurrentMonth
-                  ? "The current month's planning can't be deleted."
+                  ? "Deleting the current month's planning is not allowed. To delete another month, select a day of that month in the calendar above: this button will then be enabled."
                   : "Delete the planning of every day of the displayed month. Not possible once the month has clock-ins or clock-outs."
               }
             >

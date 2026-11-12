@@ -455,6 +455,12 @@ describe("delete a whole month", () => {
     const calls = monthDeletes();
     const { user } = await renderView();
     expect(monthButton("October 2026")).toBeDisabled();
+    // The tooltip says why, and how to delete another month
+    await user.hover(monthButton("October 2026").parentElement!);
+    const tip = await screen.findByRole("tooltip");
+    expect(tip).toHaveTextContent("current month's planning is not allowed");
+    expect(tip).toHaveTextContent("select a day of that month in the calendar above");
+    await user.unhover(monthButton("October 2026").parentElement!);
     await user.click(monthButton("October 2026"));
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     expect(calls).toHaveLength(0);

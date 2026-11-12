@@ -1017,7 +1017,7 @@ const ar: Record<string, string> = {
   "Delete the whole planning of {month}?": "حذف كل تخطيط {month}؟",
   "This removes the planning of every day of {month}. Months that already have clock-ins or clock-outs can't be deleted. This can't be undone.": "سيتم حذف تخطيط كل أيام {month}. لا يمكن حذف الأشهر التي تحتوي على تسجيلات دخول أو خروج. لا يمكن التراجع عن ذلك.",
   "{count} planning entries deleted.": "تم حذف {count} من إدخالات التخطيط.",
-  "The current month's planning can't be deleted.": "لا يمكن حذف تخطيط الشهر الحالي.",
+  "Deleting the current month's planning is not allowed. To delete another month, select a day of that month in the calendar above: this button will then be enabled.": "لا يُسمح بحذف تخطيط الشهر الحالي. لحذف شهر آخر، اختر يومًا من ذلك الشهر في التقويم أعلاه: سيتم عندها تفعيل هذا الزر.",
   "Delete the planning of every day of the displayed month. Not possible once the month has clock-ins or clock-outs.": "حذف تخطيط كل أيام الشهر المعروض. غير ممكن إذا كان الشهر يحتوي على تسجيلات دخول أو خروج.",
 };
 
