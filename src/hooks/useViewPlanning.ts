@@ -72,6 +72,13 @@ export const useViewPlanning = () => {
   const weekdayName = currentDate.toLocaleDateString("en-US", { weekday: "long" });
   const monthLabel  = currentDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
+  // Delete a whole month: never the current one (the backend refuses it too,
+  // along with any month that already has clock-ins or clock-outs)
+  const [deletingMonth, setDeletingMonth] = useState(false);
+  const now = new Date();
+  const isCurrentMonth =
+    currentDate.getFullYear() === now.getFullYear() && currentDate.getMonth() === now.getMonth();
+
   const toggleExportMenu = () => {
     setShowExportDayMenu((prev) => !prev);
     setShowWeeklyExportMenu(false);
@@ -207,8 +214,45 @@ export const useViewPlanning = () => {
     } finally {
       setDeletingWeekday(false);
     }
-  }, [currentDate, weekdayName, monthLabel, fetchPlanning, tasks, shifts]);  // ── Re-fetch planning when date changes or meta is ready ─────────
-  
+  }, [currentDate, weekdayName, monthLabel, fetchPlanning, tasks, shifts]);
+
+  // Delete the planning of the whole month of the selected day
+  const deleteMonth = useCallback(async () => {
+    if (isCurrentMonth) return;
+    const ok = await confirmDialog({
+      title: t("Delete the whole planning of {month}?", { month: monthLabel }),
+      message: t(
+        "This removes the planning of every day of {month}. Months that already have clock-ins or clock-outs can't be deleted. This can't be undone.",
+        { month: monthLabel }
+      ),
+      confirmLabel: t("Delete"),
+      danger: true,
+    });
+    if (!ok) return;
+
+    // Local calendar date, so the month is the one the manager sees
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth() + 1;
+
+    setDeletingMonth(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/planning/month?year=${year}&month=${month}`, {
+        method: "DELETE",
+      });
+      await ensureOk(res);
+      const { deletedCount = 0 } = await res.json().catch(() => ({}));
+      toast.success(t("{count} planning entries deleted.", { count: deletedCount }));
+      await fetchPlanning(tasks, shifts);
+    } catch (err) {
+      // e.g. "This month already has clock-ins or clock-outs: …" from the backend
+      toast.error(friendlyError(err, "Couldn't delete the planning"));
+    } finally {
+      setDeletingMonth(false);
+    }
+  }, [isCurrentMonth, currentDate, monthLabel, fetchPlanning, tasks, shifts]);
+
+  // ── Re-fetch planning when date changes or meta is ready ─────────
+
   useEffect(() => {
     if (!metaReady) return;
     fetchPlanning(tasks, shifts);
@@ -295,6 +339,7 @@ export const useViewPlanning = () => {
     toggleWeeklyExportManagerMenu,
     closeMenus,
     monthLabel, weekdayName, deletingWeekday, deleteWeekdayOfMonth,
+    isCurrentMonth, deletingMonth, deleteMonth,
   };
   
 };

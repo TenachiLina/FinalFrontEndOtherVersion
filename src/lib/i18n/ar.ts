@@ -1013,6 +1013,12 @@ const ar: Record<string, string> = {
   "Ended a user's session": "أنهى جلسة مستخدم",
   "New password (min 8 characters, with letters and numbers)": "كلمة المرور الجديدة (8 أحرف على الأقل، حروف وأرقام)",
   "Your password has been changed. Your other devices were signed out.": "تم تغيير كلمة المرور. تم تسجيل الخروج من أجهزتك الأخرى.",
+  "Delete {month} planning": "حذف تخطيط {month}",
+  "Delete the whole planning of {month}?": "حذف كل تخطيط {month}؟",
+  "This removes the planning of every day of {month}. Months that already have clock-ins or clock-outs can't be deleted. This can't be undone.": "سيتم حذف تخطيط كل أيام {month}. لا يمكن حذف الأشهر التي تحتوي على تسجيلات دخول أو خروج. لا يمكن التراجع عن ذلك.",
+  "{count} planning entries deleted.": "تم حذف {count} من إدخالات التخطيط.",
+  "The current month's planning can't be deleted.": "لا يمكن حذف تخطيط الشهر الحالي.",
+  "Delete the planning of every day of the displayed month. Not possible once the month has clock-ins or clock-outs.": "حذف تخطيط كل أيام الشهر المعروض. غير ممكن إذا كان الشهر يحتوي على تسجيلات دخول أو خروج.",
 };
 
 export default ar;

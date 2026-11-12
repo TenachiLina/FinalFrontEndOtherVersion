@@ -41,6 +41,7 @@ const ViewCalender: React.FC = () => {
     toggleWeeklyExportManagerMenu,
     closeMenus,  
     monthLabel, weekdayName, deletingWeekday, deleteWeekdayOfMonth,
+    isCurrentMonth, deletingMonth, deleteMonth,
   } = useViewPlanning();
 
   const getCalendarDays = (date: Date) => {
@@ -187,6 +188,25 @@ const ViewCalender: React.FC = () => {
                 className="w-full justify-center text-error-500"
               >
                 {t("Delete all {day}s", { day: weekdayName })}
+              </Button>
+            </Tooltip>
+
+            {/* Delete the whole month — never the current one, nor one with clock-ins */}
+            <Tooltip
+              text={
+                isCurrentMonth
+                  ? "The current month's planning can't be deleted."
+                  : "Delete the planning of every day of the displayed month. Not possible once the month has clock-ins or clock-outs."
+              }
+            >
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={deleteMonth}
+                disabled={isCurrentMonth || deletingMonth}
+                className="w-full justify-center text-error-500"
+              >
+                {t("Delete {month} planning", { month: monthLabel })}
               </Button>
             </Tooltip>
           </div>
