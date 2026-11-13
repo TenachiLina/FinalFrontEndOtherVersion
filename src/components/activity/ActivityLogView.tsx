@@ -94,6 +94,8 @@ const ACTION_LABELS: Record<string, string> = {
   "advance.delete": "Deleted an advance",
   "bonus.create": "Gave a bonus",
   "bonus.delete": "Deleted a bonus",
+  "correction.report": "Reported a mistake (mobile app)",
+  "correction.handle": "Answered a correction request",
   other: "Other change",
 };
 
@@ -111,6 +113,7 @@ const ACTION_GROUPS: [string, string][] = [
   ["attendance", "Clocking machine"],
   ["advance", "Advances"],
   ["bonus", "Bonuses"],
+  ["correction", "Correction requests"],
   ["companySettings", "Company settings"],
   ["company", "Companies"],
 ];
@@ -120,6 +123,7 @@ const ROLE_LABELS: Record<string, string> = {
   admin: "Admin",
   manager: "Manager",
   employee: "Clock-in kiosk",
+  staff: "Mobile app employee",
 };
 
 const PAGE_SIZE = 50;

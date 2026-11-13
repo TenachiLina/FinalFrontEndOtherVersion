@@ -10,6 +10,7 @@ import {
   AlertIcon,
   BoxCubeIcon,
   CalenderIcon,
+  ChatIcon,
   ChevronDownIcon,
   GridIcon,
   HorizontaLDots,
@@ -22,6 +23,33 @@ import {
   UserCircleIcon,
 } from "../icons/index";
 import { t } from "@/lib/i18n";
+import { CORRECTIONS_CHANGED, pendingCorrections } from "@/lib/corrections";
+
+const CORRECTIONS_PATH = "/corrections";
+// How often the badge asks the server for new requests
+const CORRECTIONS_POLL_MS = 60_000;
+
+/** Requests employees sent that wait for an answer (0 when not allowed). */
+function usePendingCorrections(enabled: boolean, pathname: string): number {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    if (!enabled) return;
+    let alive = true;
+    const refresh = () =>
+      pendingCorrections()
+        .then((n) => alive && setCount(n))
+        .catch(() => undefined); // the badge is a hint: never an error
+    refresh();
+    const timer = window.setInterval(refresh, CORRECTIONS_POLL_MS);
+    window.addEventListener(CORRECTIONS_CHANGED, refresh);
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+      window.removeEventListener(CORRECTIONS_CHANGED, refresh);
+    };
+  }, [enabled, pathname]);
+  return enabled ? count : 0;
+}
 
 
 type SubLink = { name: string; path: string; pro?: boolean; new?: boolean };
@@ -40,6 +68,11 @@ const navItems: NavItem[] = [
     icon: <GridIcon />,
     name: "Home",
     path: "/home",
+  },
+  {
+    icon: <ChatIcon />,
+    name: "Correction requests",
+    path: "/corrections",
   },
 
   {
@@ -227,6 +260,10 @@ const AppSidebar: React.FC = () => {
     () => visibleItems(navItems, user, company),
     [user, company]
   );
+  const pendingCount = usePendingCorrections(
+    visibleNavItems.some((item) => item.path === CORRECTIONS_PATH),
+    pathname
+  );
 
   const renderMenuItems = (
     navItems: NavItem[],
@@ -284,6 +321,14 @@ const AppSidebar: React.FC = () => {
                 </span>
                 {(isExpanded || isHovered || isMobileOpen) && (
                   <span className={`menu-item-text`}>{t(nav.name)}</span>
+                )}
+                {nav.path === CORRECTIONS_PATH && pendingCount > 0 && (
+                  <span
+                    aria-label={t("{n} waiting", { n: pendingCount })}
+                    className="ms-auto rounded-full bg-error-500 px-2 py-0.5 text-xs font-semibold text-white"
+                  >
+                    {pendingCount}
+                  </span>
                 )}
               </Link>
             )
