@@ -96,6 +96,8 @@ const ACTION_LABELS: Record<string, string> = {
   "bonus.delete": "Deleted a bonus",
   "correction.report": "Reported a mistake (mobile app)",
   "correction.handle": "Answered a correction request",
+  "payroll.closeMonth": "Closed a month",
+  "payroll.reopenMonth": "Reopened a month",
   other: "Other change",
 };
 

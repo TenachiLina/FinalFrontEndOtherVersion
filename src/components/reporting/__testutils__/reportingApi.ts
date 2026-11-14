@@ -79,7 +79,22 @@ export function plan(empNumber: number, day: string): PlanRaw {
 
 // ── MSW handlers ───────────────────────────────────────────────────────────
 
+/** A month's closing state as GET /payroll/closings/:month answers it. */
+export interface MonthStatusRaw {
+  month: string;
+  closed: boolean;
+  auto: boolean;
+  closedAt: string | null;
+  closedBy: string | null;
+  reopenedAt: string | null;
+  reopenedBy: string | null;
+  closesAt: string | null;
+  canClose: boolean;
+}
+
 export interface ReportingData {
+  /** Closing state by month ("YYYY-MM"); other months are open with nothing to show */
+  closings?: Record<string, Partial<MonthStatusRaw>>;
   /** The company's payroll settings (defaults: 8 h, 26 days, half as weekly advance) */
   settings?: { hoursPerDay?: number; workingDaysPerMonth?: number; weeklyAdvanceRatio?: number };
   employees?: EmployeeRaw[];
@@ -275,6 +290,21 @@ export function mockReportingApi(data: ReportingData = {}) {
     http.get(`${API}/payroll/payslips`, ({ request }) => {
       const url = log(request);
       return HttpResponse.json(serverPayslips(data, url.searchParams.get("month") ?? ""));
+    }),
+    http.get(`${API}/payroll/closings/:month`, ({ params }) => {
+      const month = String(params.month);
+      return HttpResponse.json({
+        month,
+        closed: false,
+        auto: false,
+        closedAt: null,
+        closedBy: null,
+        reopenedAt: null,
+        reopenedBy: null,
+        closesAt: null,
+        canClose: false,
+        ...(data.closings?.[month] ?? {}),
+      });
     })
   );
   return requests;

@@ -1058,6 +1058,32 @@ const fr: Record<string, string> = {
   "{count} planning entries deleted.": "{count} entrées du planning supprimées.",
   "Deleting the current month's planning is not allowed. To delete another month, select a day of that month in the calendar above: this button will then be enabled.": "La suppression du planning du mois en cours n'est pas autorisée. Pour supprimer un autre mois, sélectionnez un jour de ce mois dans le calendrier ci-dessus : ce bouton sera alors activé.",
   "Delete the planning of every day of the displayed month. Not possible once the month has clock-ins or clock-outs.": "Supprime le planning de tous les jours du mois affiché. Impossible si le mois contient déjà des pointages.",
+
+  // Month closing
+  "Close {month}?": "Clôturer {month} ?",
+  "Its hours, advances and bonuses can no longer be changed, and its payroll is kept as it is now. An admin can reopen it.": "Ses heures, avances et primes ne pourront plus être modifiées, et sa paie est conservée telle quelle. Un administrateur peut le rouvrir.",
+  "Close month": "Clôturer le mois",
+  "Reopen {month}?": "Rouvrir {month} ?",
+  "Its records can be changed again and its payroll is recalculated. It stays open until an admin closes it again.": "Ses données pourront de nouveau être modifiées et sa paie est recalculée. Il reste ouvert jusqu'à ce qu'un administrateur le clôture à nouveau.",
+  "Reopen month": "Rouvrir le mois",
+  "Month closed.": "Mois clôturé.",
+  "Month reopened.": "Mois rouvert.",
+  "Couldn't close the month": "Impossible de clôturer le mois",
+  "Couldn't reopen the month": "Impossible de rouvrir le mois",
+  "{month} is closed": "{month} est clôturé",
+  "{month} is open": "{month} est ouvert",
+  "Closed automatically on {date}.": "Clôturé automatiquement le {date}.",
+  "Closed on {date} by {name}.": "Clôturé le {date} par {name}.",
+  "Its hours, advances and bonuses can no longer be changed.": "Ses heures, avances et primes ne peuvent plus être modifiées.",
+  "Reopened on {date} by {name}. It stays open until an admin closes it again.": "Rouvert le {date} par {name}. Il reste ouvert jusqu'à ce qu'un administrateur le clôture à nouveau.",
+  "This month will close automatically on {date}.": "Ce mois sera clôturé automatiquement le {date}.",
+  "Month closing": "Clôture des mois",
+  "Close months automatically after (days)": "Clôturer les mois automatiquement après (jours)",
+  "Never": "Jamais",
+  "Days after the end of a month. Once closed, its hours, advances and bonuses can no longer be changed and its payroll is kept as it was. Leave empty to close months by hand only; an admin can always close a finished month earlier or reopen it.": "Nombre de jours après la fin d'un mois. Une fois clôturé, ses heures, avances et primes ne peuvent plus être modifiées et sa paie est conservée telle quelle. Laissez vide pour clôturer les mois uniquement à la main ; un administrateur peut toujours clôturer plus tôt un mois terminé ou le rouvrir.",
+  "Closed a month": "A clôturé un mois",
+  "Reopened a month": "A rouvert un mois",
+  "Couldn't load the payslip amounts": "Impossible de charger les montants des fiches de paie",
 };
 
 export default fr;

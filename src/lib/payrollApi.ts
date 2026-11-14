@@ -62,6 +62,8 @@ export interface PayrollTotals {
 export interface PayrollPeriod {
   start: string;
   end: string;
+  /** The period is a closed month: these are the numbers frozen when it closed */
+  closed: boolean;
   rows: PayrollRow[];
   totals: PayrollTotals;
 }
@@ -127,6 +129,7 @@ export async function fetchPayrollPeriod(
   return {
     start: data.start ?? range.start,
     end: data.end ?? range.end,
+    closed: data.closed === true,
     rows: Array.isArray(data.rows) ? data.rows : [],
     totals: { ...EMPTY_TOTALS, ...(data.totals ?? {}) },
   };
@@ -150,4 +153,49 @@ export async function fetchPayslipAmounts(month: string): Promise<Map<string, Pa
   const data = await res.json();
   const list: PayslipAmounts[] = Array.isArray(data.payslips) ? data.payslips : [];
   return new Map(list.map((p) => [String(p.empId), p]));
+}
+
+// ── Month closing ──────────────────────────────────────────────────────────
+
+/** Whether a month ("YYYY-MM") is closed: its hours and pay can then no longer change. */
+export interface MonthStatus {
+  month: string;
+  closed: boolean;
+  /** Closed by itself after the company's delay */
+  auto: boolean;
+  closedAt: string | null;
+  closedBy: string | null;
+  reopenedAt: string | null;
+  reopenedBy: string | null;
+  /** When the month will close by itself; null when it won't */
+  closesAt: string | null;
+  /** The month is over, so an admin may close it now */
+  canClose: boolean;
+}
+
+/** "YYYY-MM" when the range is exactly one calendar month, otherwise null. */
+export function wholeMonthOf(range: DateRange): string | null {
+  if (!/^\d{4}-\d{2}-01$/.test(range.start)) return null;
+  const month = range.start.slice(0, 7);
+  const [y, m] = month.split("-").map(Number);
+  const last = new Date(y, m, 0).getDate();
+  return range.end === `${month}-${String(last).padStart(2, "0")}` ? month : null;
+}
+
+export async function fetchMonthStatus(month: string): Promise<MonthStatus> {
+  const res = await fetch(`${API_BASE_URL}/payroll/closings/${month}`);
+  await ensureOk(res);
+  return (await res.json()) as MonthStatus;
+}
+
+export async function closeMonth(month: string): Promise<MonthStatus> {
+  const res = await fetch(`${API_BASE_URL}/payroll/closings/${month}/close`, { method: "POST" });
+  await ensureOk(res);
+  return (await res.json()) as MonthStatus;
+}
+
+export async function reopenMonth(month: string): Promise<MonthStatus> {
+  const res = await fetch(`${API_BASE_URL}/payroll/closings/${month}/reopen`, { method: "POST" });
+  await ensureOk(res);
+  return (await res.json()) as MonthStatus;
 }

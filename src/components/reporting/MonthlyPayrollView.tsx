@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Table, TableHeader, TableBody, TableRow, TableCell } from "../ui/table";
 import RangePicker from "./RangePicker";
+import MonthClosingBar from "./MonthClosingBar";
+import { wholeMonthOf } from "@/lib/payrollApi";
 import { useMonthlyPayrollList, MonthlyPayrollRow } from "@/hooks/useMonthlyPayrollList";
 import { readRange, rangeQuery } from "@/lib/rangeParams";
 
@@ -18,6 +20,8 @@ const MonthlyPayrollContent: React.FC = () => {
   // When coming back from an employee's details, reopen the same month
   const { range, setRange, payrollRows, totals, monthLabel, search, setSearch, loading, error } =
     useMonthlyPayrollList(readRange(params));
+
+  const closingMonth = wholeMonthOf(range);
 
   const headers = [
     "Employee",
@@ -55,6 +59,9 @@ const MonthlyPayrollContent: React.FC = () => {
       </div>
 
       <RangePicker mode="month" range={range} onApply={setRange} />
+
+      {/* Closed or open, and the admin's button to close or reopen (whole months only) */}
+      {closingMonth && <MonthClosingBar month={closingMonth} onChanged={() => setRange(range)} />}
 
       <div className="flex flex-wrap items-center gap-3">
         <input

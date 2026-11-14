@@ -242,6 +242,10 @@ export async function mockApi(page: Page, init: Partial<MockState> = {}): Promis
         },
       });
     }
+    // Months are open, with nothing to close, in the mock
+    if (path.startsWith("/payroll/closings/")) {
+      return json(route, { month: path.split("/").pop(), closed: false, auto: false, closesAt: null, canClose: false });
+    }
     if (path === "/payroll/payslips") {
       return json(route, {
         month: url.searchParams.get("month"),

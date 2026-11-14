@@ -1058,6 +1058,32 @@ const ar: Record<string, string> = {
   "{count} planning entries deleted.": "تم حذف {count} من إدخالات التخطيط.",
   "Deleting the current month's planning is not allowed. To delete another month, select a day of that month in the calendar above: this button will then be enabled.": "لا يُسمح بحذف تخطيط الشهر الحالي. لحذف شهر آخر، اختر يومًا من ذلك الشهر في التقويم أعلاه: سيتم عندها تفعيل هذا الزر.",
   "Delete the planning of every day of the displayed month. Not possible once the month has clock-ins or clock-outs.": "حذف تخطيط كل أيام الشهر المعروض. غير ممكن إذا كان الشهر يحتوي على تسجيلات دخول أو خروج.",
+
+  // Month closing
+  "Close {month}?": "إغلاق {month}؟",
+  "Its hours, advances and bonuses can no longer be changed, and its payroll is kept as it is now. An admin can reopen it.": "لن يمكن تعديل ساعاته وتسبيقاته ومكافآته بعد الآن، وتُحفظ رواتبه كما هي الآن. يمكن للمسؤول إعادة فتحه.",
+  "Close month": "إغلاق الشهر",
+  "Reopen {month}?": "إعادة فتح {month}؟",
+  "Its records can be changed again and its payroll is recalculated. It stays open until an admin closes it again.": "يمكن تعديل بياناته من جديد ويُعاد حساب رواتبه. يبقى مفتوحًا حتى يغلقه مسؤول مرة أخرى.",
+  "Reopen month": "إعادة فتح الشهر",
+  "Month closed.": "تم إغلاق الشهر.",
+  "Month reopened.": "تمت إعادة فتح الشهر.",
+  "Couldn't close the month": "تعذّر إغلاق الشهر",
+  "Couldn't reopen the month": "تعذّرت إعادة فتح الشهر",
+  "{month} is closed": "{month} مغلق",
+  "{month} is open": "{month} مفتوح",
+  "Closed automatically on {date}.": "أُغلق تلقائيًا في {date}.",
+  "Closed on {date} by {name}.": "أُغلق في {date} بواسطة {name}.",
+  "Its hours, advances and bonuses can no longer be changed.": "لا يمكن تعديل ساعاته وتسبيقاته ومكافآته بعد الآن.",
+  "Reopened on {date} by {name}. It stays open until an admin closes it again.": "أُعيد فتحه في {date} بواسطة {name}. يبقى مفتوحًا حتى يغلقه مسؤول مرة أخرى.",
+  "This month will close automatically on {date}.": "سيُغلق هذا الشهر تلقائيًا في {date}.",
+  "Month closing": "إغلاق الأشهر",
+  "Close months automatically after (days)": "إغلاق الأشهر تلقائيًا بعد (أيام)",
+  "Never": "أبدًا",
+  "Days after the end of a month. Once closed, its hours, advances and bonuses can no longer be changed and its payroll is kept as it was. Leave empty to close months by hand only; an admin can always close a finished month earlier or reopen it.": "عدد الأيام بعد نهاية الشهر. بعد إغلاقه لا يمكن تعديل ساعاته وتسبيقاته ومكافآته وتُحفظ رواتبه كما كانت. اتركه فارغًا لإغلاق الأشهر يدويًا فقط؛ يمكن للمسؤول دائمًا إغلاق شهر منتهٍ قبل ذلك أو إعادة فتحه.",
+  "Closed a month": "أغلق شهرًا",
+  "Reopened a month": "أعاد فتح شهر",
+  "Couldn't load the payslip amounts": "تعذّر تحميل مبالغ كشوف الرواتب",
 };
 
 export default ar;

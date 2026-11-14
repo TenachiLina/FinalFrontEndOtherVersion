@@ -32,6 +32,8 @@ export interface CompanySettings {
   hoursPerDay: number;
   workingDaysPerMonth: number;
   weeklyAdvanceRatio: number;
+  /** Days after the end of a month at which it closes by itself; null: closed by hand only */
+  monthCloseDelayDays?: number | null;
   /** Payslip header */
   payslipActivity?: string;
   payslipAddress?: string;
