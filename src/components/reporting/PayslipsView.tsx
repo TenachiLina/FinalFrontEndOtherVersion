@@ -19,6 +19,7 @@ import {
   PayslipField,
 } from "@/lib/payslip";
 import { fetchEmployeesRaw } from "@/lib/reporting";
+import { fetchPayslipAmounts, PayslipAmounts } from "@/lib/payrollApi";
 
 const thisMonth = () => {
   const now = new Date();
@@ -44,6 +45,8 @@ const PayslipsView: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [month, setMonth] = useState(thisMonth);
+  // Each payslip's amounts, calculated by the server, by employee number
+  const [amounts, setAmounts] = useState<Map<string, PayslipAmounts>>(new Map());
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState("");
   const [exporting, setExporting] = useState(false);
@@ -69,13 +72,29 @@ const PayslipsView: React.FC = () => {
     load();
   }, []);
 
+  useEffect(() => {
+    let current = true;
+    fetchPayslipAmounts(month)
+      .then((map) => {
+        if (current) setAmounts(map);
+      })
+      .catch((err) => {
+        if (!current) return;
+        setAmounts(new Map());
+        toast.error(friendlyError(err, "Couldn't load the payslip amounts"));
+      });
+    return () => {
+      current = false;
+    };
+  }, [month]);
+
   // Printing waits for the sheets to be on the page
   useEffect(() => {
     if (printRequest) window.print();
   }, [printRequest]);
 
   const payslipFor = (e: EmployeeRaw): Payslip =>
-    buildPayslip(e, company ?? { name: "" }, month);
+    buildPayslip(e, company ?? { name: "" }, month, amounts.get(String(e.empNumber)));
 
   const shown = useMemo(() => {
     const q = search.trim().toLowerCase();

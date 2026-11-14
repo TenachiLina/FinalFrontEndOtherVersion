@@ -94,7 +94,7 @@ describe("MonthlyPayrollView", () => {
     await user.selectOptions(screen.getAllByRole("combobox")[0], "1");
     await user.click(screen.getByRole("button", { name: "Apply" }));
     expect(await screen.findByRole("columnheader", { name: "Gross Salary February 2026" })).toBeInTheDocument();
-    expect(rangesRequested(requests, "/worktime").at(-1)).toBe("2026-02-01..2026-02-28");
+    expect(rangesRequested(requests, "/payroll/period").at(-1)).toBe("2026-02-01..2026-02-28");
     expect(tableBody()[0]).toContain("800.00 DA");
   });
 
@@ -103,7 +103,7 @@ describe("MonthlyPayrollView", () => {
     renderWithProviders(<MonthlyPayrollView />, { url: "/reporting/monthly-payroll?start=2026-02-01&end=2026-02-28" });
     expect(await screen.findByRole("columnheader", { name: "Net Salary February 2026" })).toBeInTheDocument();
     // The header shows the month straight away; the data request follows
-    await waitFor(() => expect(rangesRequested(requests, "/worktime")).toEqual(["2026-02-01..2026-02-28"]));
+    await waitFor(() => expect(rangesRequested(requests, "/payroll/period")).toEqual(["2026-02-01..2026-02-28"]));
   });
 
   it("says when nobody is found", async () => {
@@ -116,7 +116,7 @@ describe("MonthlyPayrollView", () => {
   it("shows the error and loads again on 'Try again'", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     mockReportingApi(MARCH);
-    failGet("/worktime", 500);
+    failGet("/payroll/period", 500);
     const { user } = renderWithProviders(<MonthlyPayrollView />, { url: "/reporting/monthly-payroll" });
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("Couldn't load the monthly payroll");
@@ -125,15 +125,11 @@ describe("MonthlyPayrollView", () => {
     expect(await screen.findByText("Amine Kaci")).toBeInTheDocument();
   });
 
-  it("warns that totals may be incomplete when the advances can't be loaded", async () => {
-    vi.spyOn(console, "error").mockImplementation(() => {});
-    mockReportingApi(MARCH);
-    failGet("/advances", 500);
-    renderWithProviders(<MonthlyPayrollView />, { url: "/reporting/monthly-payroll" });
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Advances couldn't be loaded, so the totals shown may be incomplete. Try refreshing."
-    );
-    await waitFor(() => expect(pill("Total Net Payout")).toBe("5450.00 DA"));
+  // The server calculates the pay: the page asks for it and for no records to add up itself
+  it("shows the server's numbers without loading the records behind them", async () => {
+    const { requests } = await renderView();
+    expect(pill("Total Net Payout")).toBe("3750.00 DA");
+    expect([...new Set(requests.map((u) => u.pathname))]).toEqual(["/payroll/period"]);
   });
 
   // BUG-509: the totals row adds rounded hours as floats and shows the binary noise

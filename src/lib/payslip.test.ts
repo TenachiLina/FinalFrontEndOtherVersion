@@ -24,28 +24,30 @@ const employee = {
   socialSecurityNumber: "000000000000",
 };
 
+// What the server answers for this employee (GET /payroll/payslips): 24 000 × 9 % = 2 160
+const amounts = { days: 30, baseSalary: 24000, postSalary: 24000, socialSecurity: 2160, net: 21840 };
+
 describe("buildPayslip", () => {
-  it("gives the amounts of FICHE DE PAIE.xlsx for 30 days", () => {
-    const p = buildPayslip(employee, company, "2026-05");
-    expect(p).toMatchObject({ period: "MAI 2026", days: 30, postSalary: 24000, socialSecurity: 2160, net: 21840 });
+  it("lays out the amounts the server calculated", () => {
+    const p = buildPayslip(employee, company, "2026-05", amounts);
+    expect(p).toMatchObject({ period: "MAI 2026", days: 30, baseSalary: 24000, postSalary: 24000, socialSecurity: 2160, net: 21840 });
     expect(p.employeeName).toBe("ZERROUKI ALI");
   });
 
-  it("uses the declared salary when one is set", () => {
-    expect(buildPayslip({ ...employee, declaredSalary: 20000 }, company, "2026-05")).toMatchObject({
-      days: 30,
-      baseSalary: 20000,
-      postSalary: 20000,
-      socialSecurity: 1800,
-      net: 18200,
-    });
-    // Removed from insured employees: back to the base salary
-    expect(buildPayslip({ ...employee, declaredSalary: null }, company, "2026-05").baseSalary).toBe(24000);
+  it("never works the amounts out itself: the server's are shown as they are", () => {
+    const fromServer = { days: 30, baseSalary: 20000, postSalary: 20000, socialSecurity: 1800, net: 18200 };
+    // The employee record says 24 000: the payslip still shows what the server sent
+    expect(buildPayslip(employee, company, "2026-05", fromServer)).toMatchObject(fromServer);
   });
 
-  it("rounds to the cent", () => {
-    const p = buildPayslip({ ...employee, baseSalary: 25000.55 }, company, "2026-05");
-    expect(p).toMatchObject({ postSalary: 25000.55, socialSecurity: 2250.05, net: 22750.5 });
+  it("shows zeros while the amounts are not loaded, not a guess", () => {
+    expect(buildPayslip(employee, company, "2026-05")).toMatchObject({
+      days: 0,
+      baseSalary: 0,
+      postSalary: 0,
+      socialSecurity: 0,
+      net: 0,
+    });
   });
 
   it("lists what is still missing", () => {
@@ -72,7 +74,7 @@ describe("period and dates", () => {
 
 describe("buildPayslipWorkbook", () => {
   const reread = async () => {
-    const p = buildPayslip(employee, company, "2026-05");
+    const p = buildPayslip(employee, company, "2026-05", amounts);
     const file = await buildPayslipWorkbook([p, { ...p, empNumber: 102 }]).xlsx.writeBuffer();
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(file);

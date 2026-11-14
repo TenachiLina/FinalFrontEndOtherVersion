@@ -14,7 +14,7 @@ import {
   rawAdvance,
   rawEmployee,
   rawRow,
-  slowWorktimeFor,
+  slowPayrollFor,
   toastMessages,
   clearFeedbackAfterEachTest,
   fixTodayInEachTest,
@@ -50,8 +50,9 @@ describe("useWeeklyAdvancesList", () => {
   it("loads this week by default", async () => {
     const { result, requests } = await renderLoaded();
     expect(result.current.range).toEqual({ start: "2026-03-09", end: "2026-03-15" });
-    expect(rangesRequested(requests, "/worktime")).toEqual(["2026-03-09..2026-03-15"]);
-    expect(rangesRequested(requests, "/advances")).toEqual(["2026-03-09..2026-03-15"]);
+    expect(rangesRequested(requests, "/payroll/period")).toEqual(["2026-03-09..2026-03-15"]);
+    // The pay is calculated by the server: no records are fetched to calculate from
+    expect(requests.map((u) => u.pathname)).toEqual(["/payroll/period"]);
   });
 
   it("computes the week's salary and the advance offer for each scheduled employee", async () => {
@@ -87,7 +88,7 @@ describe("useWeeklyAdvancesList", () => {
     await act(() => result.current.setRange({ start: "2026-03-02", end: "2026-03-08" }));
     expect(result.current.advanceRows.map((r) => r.empId)).toEqual([103]);
     await act(() => result.current.setRange());
-    expect(rangesRequested(requests, "/worktime")).toEqual([
+    expect(rangesRequested(requests, "/payroll/period")).toEqual([
       "2026-03-09..2026-03-15",
       "2026-03-02..2026-03-08",
       "2026-03-02..2026-03-08",
@@ -139,7 +140,7 @@ describe("useWeeklyAdvancesList", () => {
   it("shows an error when the week can't be loaded", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     mockReportingApi(WEEK);
-    failGet("/employees", 500);
+    failGet("/payroll/period", 500);
     const { result } = renderHook(() => useWeeklyAdvancesList());
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.error).toBe(
@@ -148,30 +149,18 @@ describe("useWeeklyAdvancesList", () => {
     expect(result.current.advanceRows).toEqual([]);
   });
 
-  it("shows every offer as not given when the advances can't be loaded, and warns", async () => {
-    vi.spyOn(console, "error").mockImplementation(() => {});
-    mockReportingApi(WEEK);
-    failGet("/advances", 500);
-    const { result } = renderHook(() => useWeeklyAdvancesList());
-    await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(result.current.advanceRows.map((r) => r.advanceGiven)).toEqual([false, false]);
-    await waitFor(() => expect(toastMessages("warning")).toHaveLength(1));
-  });
-
-  // BUG-502: when the planning can't be loaded, the list is empty
-  it("still lists the employees who worked when the planning can't be loaded", async () => {
-    vi.spyOn(console, "error").mockImplementation(() => {});
-    mockReportingApi(WEEK);
-    failGet("/planning", 500);
-    const { result } = renderHook(() => useWeeklyAdvancesList());
-    await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(result.current.advanceRows.map((r) => r.empId)).toEqual(expect.arrayContaining([101, 102]));
+  it("takes back only the advance asked for", async () => {
+    const { result } = await renderLoaded();
+    captureWrites("delete", "/advances/:id");
+    const before = result.current.advanceRows.map((r) => r.advanceGiven);
+    await act(() => result.current.revokeAdvance("adv-unknown"));
+    expect(result.current.advanceRows.map((r) => r.advanceGiven)).toEqual(before);
   });
 
   // BUG-501: no guard against an older, slower response
   it("shows the last week chosen when an earlier request answers late", async () => {
     const { result } = await renderLoaded();
-    slowWorktimeFor("2026-03-02", 150, WEEK);
+    slowPayrollFor("2026-03-02", 150, WEEK);
     let first!: Promise<void>;
     act(() => {
       first = result.current.setRange({ start: "2026-03-02", end: "2026-03-08" });

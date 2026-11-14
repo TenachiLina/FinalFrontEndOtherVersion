@@ -12,7 +12,6 @@ import {
   rawEmployee,
   rawRow,
   slowWorktimeFor,
-  toastMessages,
   clearFeedbackAfterEachTest,
   fixTodayInEachTest,
   type ReportingData,
@@ -60,9 +59,11 @@ describe("useReportingOverview", () => {
     expect(result.current.loading).toBe(true);
     expect(result.current.range).toEqual({ start: "2026-03-09", end: "2026-03-15" });
     await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(rangesRequested(requests, "/worktime")).toEqual(["2026-03-09..2026-03-15", "2026-03-02..2026-03-08"]);
-    expect(rangesRequested(requests, "/advances")).toEqual(["2026-03-09..2026-03-15", "2026-03-02..2026-03-08"]);
-    expect(rangesRequested(requests, "/bonuses")).toEqual(["2026-03-09..2026-03-15", "2026-03-02..2026-03-08"]);
+    // Totals of both periods come from the server; the records are only for the trend charts
+    expect(rangesRequested(requests, "/payroll/period")).toEqual(["2026-03-09..2026-03-15", "2026-03-02..2026-03-08"]);
+    expect(rangesRequested(requests, "/worktime")).toEqual(["2026-03-09..2026-03-15"]);
+    expect(rangesRequested(requests, "/advances")).toEqual([]);
+    expect(rangesRequested(requests, "/bonuses")).toEqual([]);
     expect(result.current.previousRange).toEqual({ start: "2026-03-02", end: "2026-03-08" });
   });
 
@@ -98,12 +99,12 @@ describe("useReportingOverview", () => {
     expect(result.current.previous).toMatchObject({ hours: 8, gross: 1600, net: 1600, records: 1, activeEmployees: 1, advances: 0, bonuses: 0 });
   });
 
-  it("counts hours of an employee it doesn't know, but no pay for them", async () => {
+  it("leaves the records of an unknown employee out of the totals", async () => {
     const { result } = await renderLoaded({
       employees: [rawEmployee(AMINE)],
       worktime: [rawRow({ emp_id: 101, work_hours: "02:00" }), rawRow({ emp_id: 555, work_hours: "03:00" })],
     });
-    expect(result.current.current).toMatchObject({ hours: 5, gross: 400, activeEmployees: 2 });
+    expect(result.current.current).toMatchObject({ hours: 2, gross: 400, activeEmployees: 1 });
   });
 
   it("groups a short range by day, gaps included", async () => {
@@ -124,7 +125,7 @@ describe("useReportingOverview", () => {
     const { result, requests } = await renderLoaded();
     await act(() => result.current.setRange({ start: "2026-03-01", end: "2026-03-31" }));
     const { trend } = result.current;
-    expect(rangesRequested(requests, "/worktime").slice(-2)).toEqual(["2026-03-01..2026-03-31", "2026-01-29..2026-02-28"]);
+    expect(rangesRequested(requests, "/payroll/period").slice(-2)).toEqual(["2026-03-01..2026-03-31", "2026-01-29..2026-02-28"]);
     expect(trend.granularity).toBe("weekly");
     // March 1st 2026 is a Sunday, so the first bucket is the week of Feb 23
     expect(trend.categories).toEqual(["Wk 23 Feb", "Wk 2 Mar", "Wk 9 Mar", "Wk 16 Mar", "Wk 23 Mar", "Wk 30 Mar"]);
@@ -159,37 +160,20 @@ describe("useReportingOverview", () => {
     expect(result.current.error).toBe("Failed to load the overview.");
   });
 
-  it("keeps working without advances and bonuses, and warns that totals may be incomplete", async () => {
+  it("shows an error when the payroll can't be loaded", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     mockReportingApi(WEEK);
-    failGet("/advances", 500);
-    failGet("/bonuses", 500);
+    failGet("/payroll/period", 500);
     const { result } = renderHook(() => useReportingOverview());
     await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(result.current.error).toBe("");
-    expect(result.current.current).toMatchObject({ gross: 3700, advances: 0, bonuses: 0, net: 3100 });
-    await waitFor(() =>
-      expect(toastMessages("warning").sort()).toEqual([
-        "Advances couldn't be loaded, so the totals shown may be incomplete. Try refreshing.",
-        "Bonuses couldn't be loaded, so the totals shown may be incomplete. Try refreshing.",
-      ])
-    );
-  });
-
-  it("stays silent when advances are switched off for the company (403)", async () => {
-    mockReportingApi(WEEK);
-    failGet("/advances", 403);
-    const { result } = renderHook(() => useReportingOverview());
-    await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(result.current.current.advances).toBe(0);
-    await new Promise((r) => setTimeout(r, 20));
-    expect(toastMessages()).toEqual([]);
+    expect(result.current.error).toBe("Failed to load the overview.");
+    expect(result.current.current).toMatchObject({ gross: 0, net: 0, records: 0 });
   });
 
   it("clears a previous error when a new range loads", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     mockReportingApi(WEEK);
-    failGet("/employees", 500);
+    failGet("/payroll/period", 500);
     const { result } = renderHook(() => useReportingOverview());
     await waitFor(() => expect(result.current.error).not.toBe(""));
     mockReportingApi(WEEK);

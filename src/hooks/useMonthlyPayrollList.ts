@@ -1,11 +1,9 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { Employee, WorktimeRow, DateRange, AdvanceRecord } from "@/components/reporting/types";
-import { getThisMonthRange, fetchEmployees, fetchWorktimeRows, fetchAdvances, fetchScheduledEmpIds } from "@/lib/reporting";
-import { payrollConfig, sumHours, sumConsommation, sumPenalties, sumAbsences } from "@/lib/payrollConfig";
-import { fetchBonuses, BonusRecord } from "@/lib/bonuses";
-import { friendlyError, optionalData } from "@/lib/errors";
+import { DateRange } from "@/components/reporting/types";
+import { getThisMonthRange } from "@/lib/reporting";
+import { fetchPayrollPeriod, PayrollRow } from "@/lib/payrollApi";
+import { friendlyError } from "@/lib/errors";
 import { locale } from "@/lib/i18n";
-import { t } from "@/lib/i18n";
 
 export interface MonthlyPayrollRow {
   empId: number | string;
@@ -26,14 +24,12 @@ export interface MonthlyPayrollRow {
 // initialRange: lets the page reopen on a specific month (e.g. when coming back from an employee's details)
 export function useMonthlyPayrollList(initialRange?: DateRange) {
   const [range, setRangeState] = useState<DateRange>(initialRange ?? getThisMonthRange());
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [rows, setRows] = useState<WorktimeRow[]>([]);
-  const [advances, setAdvances] = useState<AdvanceRecord[]>([]);
-  const [bonuses, setBonuses] = useState<BonusRecord[]>([]);
-  const [scheduledIds, setScheduledIds] = useState<Set<string>>(new Set());
+  // The pay of each employee, calculated by the server (GET /payroll/period)
+  const [lines, setLines] = useState<PayrollRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+
   // Each call gets an id; a response is only applied if no newer call started meanwhile
   const req = useRef(0);
 
@@ -42,21 +38,9 @@ export function useMonthlyPayrollList(initialRange?: DateRange) {
     setLoading(true);
     setError("");
     try {
-      const emps = await fetchEmployees();
-
-      const [worktimeRows, advanceRecords, bonusRecords, scheduled] = await Promise.all([
-        fetchWorktimeRows(r),
-        fetchAdvances(emps, undefined, r).catch(optionalData([] as AdvanceRecord[], "Advances")),
-        fetchBonuses(r).catch(optionalData([] as BonusRecord[], "Bonuses")),
-        fetchScheduledEmpIds(r).catch(optionalData(new Set<string>(), "The planning")),
-      ]);
+      const period = await fetchPayrollPeriod(r);
       if (reqId !== req.current) return; // outdated response → ignore
-
-      setEmployees(emps);
-      setRows(worktimeRows);
-      setAdvances(advanceRecords);
-      setBonuses(bonusRecords);
-      setScheduledIds(scheduled);
+      setLines(period.rows);
       setRangeState(r);
     } catch (err) {
       if (reqId !== req.current) return;
@@ -72,77 +56,33 @@ export function useMonthlyPayrollList(initialRange?: DateRange) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const advancesByEmp = useMemo(() => {
-    const map: Record<string, number> = {};
-    advances.forEach((a) => {
-      const key = String(a.empId);
-      map[key] = (map[key] || 0) + a.amount;
-    });
-    return map;
-  }, [advances]);
+  const payrollRows: MonthlyPayrollRow[] = useMemo(
+    () =>
+      lines
+        .filter((l) => {
+          if (!search) return true;
+          const name = `${l.firstName} ${l.lastName}`.toLowerCase();
+          return name.includes(search.toLowerCase());
+        })
+        .map((l) => ({
+          empId: l.empId,
+          firstName: l.firstName,
+          lastName: l.lastName,
+          baseSalary: l.baseSalary,
+          hourlyRate: l.hourlyRate,
+          hours: l.hours,
+          brut: l.gross,
+          penalties: l.penalties,
+          consommation: l.consommation,
+          advancesDeducted: l.advances,
+          bonuses: l.bonuses,
+          net: l.net,
+          absences: l.absences,
+        })),
+    [lines, search]
+  );
 
-  const bonusesByEmp = useMemo(() => {
-    const map: Record<string, number> = {};
-    bonuses.forEach((b) => {
-      const key = String(b.empId);
-      map[key] = (map[key] || 0) + b.amount;
-    });
-    return map;
-  }, [bonuses]);
-
-  const payrollRows: MonthlyPayrollRow[] = useMemo(() => {
-    const groups: Record<string, WorktimeRow[]> = {};
-    rows.forEach((row) => {
-      const key = String(row.emp_id);
-      if (!groups[key]) groups[key] = [];
-      groups[key].push(row);
-    });
-
-    return employees
-      // Employees scheduled (Planning) in this range, or who worked in it: hours worked without a
-      // planning entry are still paid, and the list isn't empty when the planning can't be loaded
-      .filter((emp) => scheduledIds.has(String(emp.emp_id)) || groups[String(emp.emp_id)]?.length > 0)
-      .filter((emp) => {
-        if (!search) return true;
-        const name = `${emp.FirstName} ${emp.LastName}`.toLowerCase();
-        return name.includes(search.toLowerCase());
-      })
-      .map((emp) => {
-        const empRows = groups[String(emp.emp_id)] || [];
-        const hourlyRate = payrollConfig.hourlyRate(emp);
-        const hours = sumHours(empRows);
-        const penalties = sumPenalties(empRows);
-        const consommation = sumConsommation(empRows);
-        const absences = sumAbsences(empRows);
-        const advancesDeducted = advancesByEmp[String(emp.emp_id)] || 0;
-        const empBonuses = bonusesByEmp[String(emp.emp_id)] || 0;
-
-        const { brut, net } = payrollConfig.monthlyPayout({
-          hours,
-          hourlyRate,
-          penalties,
-          consommation,
-          advancesGivenThisMonth: advancesDeducted,
-        });
-
-        return {
-          empId: emp.emp_id,
-          firstName: emp.FirstName,
-          lastName: emp.LastName,
-          baseSalary: Number(emp.Base_salary || 0),
-          hourlyRate: Number(hourlyRate.toFixed(2)),
-          hours: Number(hours.toFixed(2)),
-          brut: Number(brut.toFixed(2)),
-          penalties: Number(penalties.toFixed(2)),
-          consommation: Number(consommation.toFixed(2)),
-          advancesDeducted: Number(advancesDeducted.toFixed(2)),
-          bonuses: Number(empBonuses.toFixed(2)),
-          net: Number((net + empBonuses).toFixed(2)), // bonuses are added to the net salary
-          absences,
-        };
-      });
-  }, [employees, rows, search, advancesByEmp, bonusesByEmp, scheduledIds]);
-
+  // Totals of the lines on screen (they follow the search)
   const totals = useMemo(
     () => ({
       totalBrut: payrollRows.reduce((sum, r) => sum + r.brut, 0).toFixed(2),

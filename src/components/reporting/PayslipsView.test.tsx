@@ -7,15 +7,25 @@ import { dismissToast, getToasts } from "@/lib/notify";
 
 const employee = { _id: "e1", empNumber: 101, firstName: "Ali", lastName: "Zerrouki", baseSalary: 24000 };
 
+// What the server calculated for this employee: 24 000 × 9 % = 2 160
+const amounts = { employeeId: "e1", empId: 101, days: 30, baseSalary: 24000, postSalary: 24000, socialSecurity: 2160, net: 21840 };
+
 let puts: { url: string; body: unknown }[];
+let monthsAsked: (string | null)[];
 let patches: unknown[];
 
 beforeEach(() => {
   puts = [];
   patches = [];
+  monthsAsked = [];
   vi.spyOn(console, "error").mockImplementation(() => {});
   server.use(
     http.get(`${API}/employees`, () => HttpResponse.json([employee])),
+    http.get(`${API}/payroll/payslips`, ({ request }) => {
+      const month = new URL(request.url).searchParams.get("month");
+      monthsAsked.push(month);
+      return HttpResponse.json({ month, payslips: [amounts] });
+    }),
     http.put(`${API}/employees/:id`, async ({ request }) => {
       puts.push({ url: request.url.replace(API, ""), body: await request.json() });
       return HttpResponse.json({});
@@ -73,6 +83,19 @@ describe("editing the payslip by clicking it", () => {
     await user.click(screen.getByRole("button", { name: "Edit Family status" }));
     await user.selectOptions(screen.getByRole("combobox", { name: "Family status" }), "M");
     await waitFor(() => expect(puts).toEqual([{ url: "/employees/e1", body: { familyStatus: "M" } }]));
+  });
+
+  it("shows the amounts the server calculated, for the month on screen", async () => {
+    await open();
+    expect(await screen.findAllByText(/21[\s\u202f\u00a0.,]?840/)).not.toHaveLength(0);
+    expect(monthsAsked.at(-1)).toMatch(/^\d{4}-\d{2}$/);
+  });
+
+  it("says so when the amounts can't be loaded, and shows no made-up amount", async () => {
+    server.use(http.get(`${API}/payroll/payslips`, () => HttpResponse.json({ message: "No" }, { status: 500 })));
+    await open();
+    await waitFor(() => expect(getToasts().map((t) => t.kind)).toEqual(["error"]));
+    expect(screen.queryByText(/21[\s\u202f\u00a0.,]?840/)).toBeNull();
   });
 
   it("says so when saving fails, and keeps the field empty", async () => {

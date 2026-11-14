@@ -13,8 +13,7 @@ import {
   rawBonus,
   rawEmployee,
   rawRow,
-  slowWorktimeFor,
-  toastMessages,
+  slowPayrollFor,
   clearFeedbackAfterEachTest,
   fixTodayInEachTest,
   type ReportingData,
@@ -59,13 +58,17 @@ describe("useMonthlyPayrollList", () => {
   it("loads the current month by default", async () => {
     const { result, requests } = await renderLoaded();
     expect(result.current.range).toEqual({ start: "2026-03-01", end: "2026-03-31" });
-    expect(rangesRequested(requests, "/worktime")).toEqual(["2026-03-01..2026-03-31"]);
-    expect(rangesRequested(requests, "/advances")).toEqual(["2026-03-01..2026-03-31"]);
-    expect(rangesRequested(requests, "/bonuses")).toEqual(["2026-03-01..2026-03-31"]);
+    expect(rangesRequested(requests, "/payroll/period")).toEqual(["2026-03-01..2026-03-31"]);
     expect(result.current.monthLabel).toBe("March 2026");
   });
 
-  it("computes each scheduled employee's gross and net pay", async () => {
+  // The pay is calculated by the server: the hook asks for it and nothing else
+  it("asks the server for the pay, and for no records to calculate from", async () => {
+    const { requests } = await renderLoaded();
+    expect(requests.map((u) => u.pathname)).toEqual(["/payroll/period"]);
+  });
+
+  it("shows each scheduled employee's gross and net pay", async () => {
     const { result } = await renderLoaded();
     expect(result.current.payrollRows).toEqual([
       {
@@ -100,7 +103,7 @@ describe("useMonthlyPayrollList", () => {
 
   it("opens on the month passed in", async () => {
     const { result, requests } = await renderLoaded(MARCH, { start: "2026-02-01", end: "2026-02-28" });
-    expect(rangesRequested(requests, "/worktime")).toEqual(["2026-02-01..2026-02-28"]);
+    expect(rangesRequested(requests, "/payroll/period")).toEqual(["2026-02-01..2026-02-28"]);
     expect(result.current.monthLabel).toBe("February 2026");
     // 4 h × 200 = 800, − 9999 advance = −9199
     expect(result.current.payrollRows).toEqual([expect.objectContaining({ empId: 101, hours: 4, brut: 800, net: -9199 })]);
@@ -116,7 +119,7 @@ describe("useMonthlyPayrollList", () => {
   it("reloads the same month when called without a range", async () => {
     const { result, requests } = await renderLoaded();
     await act(() => result.current.setRange());
-    expect(rangesRequested(requests, "/worktime")).toEqual(["2026-03-01..2026-03-31", "2026-03-01..2026-03-31"]);
+    expect(rangesRequested(requests, "/payroll/period")).toEqual(["2026-03-01..2026-03-31", "2026-03-01..2026-03-31"]);
   });
 
   it("is empty when nobody is scheduled or worked", async () => {
@@ -125,10 +128,10 @@ describe("useMonthlyPayrollList", () => {
     expect(result.current.totals.totalNet).toBe("0.00");
   });
 
-  it("shows an error when the worktime can't be loaded", async () => {
+  it("shows an error when the payroll can't be loaded", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     mockReportingApi(MARCH);
-    failGet("/worktime", 500);
+    failGet("/payroll/period", 500);
     const { result } = renderHook(() => useMonthlyPayrollList());
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.error).toBe(
@@ -136,25 +139,14 @@ describe("useMonthlyPayrollList", () => {
     );
   });
 
-  it("pays without advances and bonuses when they can't be loaded, and warns", async () => {
+  it("keeps the lines on screen empty after a failed load", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     mockReportingApi(MARCH);
-    failGet("/advances", 500);
-    failGet("/bonuses", 500);
+    failGet("/payroll/period", 403, "Not allowed");
     const { result } = renderHook(() => useMonthlyPayrollList());
     await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(result.current.payrollRows.map((r) => r.net)).toEqual([4250, 950, 1000]);
-    await waitFor(() => expect(toastMessages("warning")).toHaveLength(2));
-  });
-
-  // BUG-502: when the planning can't be loaded, every employee disappears from the payroll
-  it("still lists the employees who worked when the planning can't be loaded", async () => {
-    vi.spyOn(console, "error").mockImplementation(() => {});
-    mockReportingApi(MARCH);
-    failGet("/planning", 500);
-    const { result } = renderHook(() => useMonthlyPayrollList());
-    await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(result.current.payrollRows.map((r) => r.empId)).toEqual(expect.arrayContaining([101, 102]));
+    expect(result.current.payrollRows).toEqual([]);
+    expect(result.current.totals.totalNet).toBe("0.00");
   });
 
   // BUG-506: hours worked by someone without a planning entry are never paid
@@ -166,7 +158,7 @@ describe("useMonthlyPayrollList", () => {
   // BUG-501: no guard against an older, slower response
   it("shows the last month chosen when an earlier request answers late", async () => {
     const { result } = await renderLoaded();
-    slowWorktimeFor("2026-01-01", 150, MARCH);
+    slowPayrollFor("2026-01-01", 150, MARCH);
     let first!: Promise<void>;
     act(() => {
       first = result.current.setRange({ start: "2026-01-01", end: "2026-01-31" });

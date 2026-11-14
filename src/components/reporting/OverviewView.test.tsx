@@ -147,7 +147,7 @@ describe("OverviewView", () => {
     const { user, requests } = await renderView();
     await user.click(screen.getByRole("button", { name: "This Month" }));
     expect(await screen.findByRole("heading", { name: "Hours worked (Weekly)" })).toBeInTheDocument();
-    expect(rangesRequested(requests, "/worktime").slice(-2)).toEqual(["2026-03-01..2026-03-31", "2026-01-29..2026-02-28"]);
+    expect(rangesRequested(requests, "/payroll/period").slice(-2)).toEqual(["2026-03-01..2026-03-31", "2026-01-29..2026-02-28"]);
     expect(screen.getByText(/compared with the previous one \(2026-01-29 → 2026-02-28\)/)).toBeInTheDocument();
   });
 
