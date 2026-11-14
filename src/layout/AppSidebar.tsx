@@ -17,6 +17,7 @@ import {
   ListIcon,
   LockIcon,
   PageIcon,
+  PaperPlaneIcon,
   PieChartIcon,
   PlugInIcon,
   TableIcon,
@@ -163,6 +164,11 @@ const navItems: NavItem[] = [
   //     { name: "404 Error", path: "/error-404", pro: false },
   //   ],
   // },
+  {
+    icon: <PaperPlaneIcon />,
+    name: "Mobile app",
+    path: "/mobile-app",
+  },
   {
     icon: <UserCircleIcon />,
     name: "Users",

@@ -329,3 +329,125 @@ describe("UsersView password reset", () => {
     expect(screen.getByLabelText(/New password/)).toHaveValue("");
   });
 });
+
+describe("UsersView sign-in details for mobile app employees", () => {
+  const amineEmployee = { _id: "e9", empNumber: 9, firstName: "Amine", lastName: "B", phoneNumber: "0550 12 34 56" };
+  const staffRow = makeUserRow({ _id: "u9", name: "Amine", email: "amine@test.dz", role: "staff", employeeId: "e9" });
+
+  function serveWithPhone(...lists: UserRow[][]) {
+    serveUsers(...lists);
+    server.use(http.get(`${API}/employees`, () => HttpResponse.json([...employees, amineEmployee])));
+  }
+
+  it("shows them right after creating the account, ready to send by WhatsApp to the employee's phone", async () => {
+    serveWithPhone([], [staffRow]);
+    capture("post", "/users");
+    const { user } = renderWithProviders(<UsersView />);
+    await waitFor(() => expect(screen.queryByText("Loading…")).not.toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "Add user" }));
+    await user.type(screen.getByLabelText("Name"), "Amine");
+    await user.type(screen.getByLabelText("Email"), "Amine@Test.dz");
+    await user.type(screen.getByLabelText(/Temporary password/), "Good-pass-42");
+    await user.selectOptions(screen.getByLabelText("Role"), "staff");
+    await user.selectOptions(screen.getByLabelText("This account is for the employee"), "e9");
+    await user.click(screen.getByRole("button", { name: "Create user" }));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("Send sign-in details to Amine")).toBeInTheDocument();
+    expect(within(dialog).getByTestId("share-email")).toHaveTextContent("amine@test.dz");
+    expect(within(dialog).getByTestId("share-password")).toHaveTextContent("Good-pass-42");
+    const message = (within(dialog).getByLabelText("Message") as HTMLTextAreaElement).value;
+    expect(message).toContain("Temporary password: Good-pass-42");
+    const whatsapp = within(dialog).getByRole("link", { name: "WhatsApp" });
+    expect(whatsapp.getAttribute("href")).toMatch(/^https:\/\/wa\.me\/213550123456\?text=/);
+    expect(decodeURIComponent(whatsapp.getAttribute("href")!)).toContain("Good-pass-42");
+    expect(within(dialog).getByRole("link", { name: "SMS" })).toHaveAttribute("href", expect.stringMatching(/^sms:\+213550123456\?body=/));
+    expect(within(dialog).getByRole("link", { name: "Email" })).toHaveAttribute("href", expect.stringMatching(/^mailto:amine%40test\.dz\?subject=/));
+
+    // The message can be switched to French or Arabic
+    await user.click(within(dialog).getByRole("button", { name: "Français" }));
+    expect((within(dialog).getByLabelText("Message") as HTMLTextAreaElement).value).toContain("Mot de passe provisoire : Good-pass-42");
+    await user.click(within(dialog).getByRole("button", { name: "Done" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("aren't offered for other roles", async () => {
+    serveUsers([], [makeUserRow({ name: "Nina" })]);
+    capture("post", "/users");
+    const { user } = renderWithProviders(<UsersView />);
+    await user.click(await screen.findByRole("button", { name: "Add user" }));
+    await user.type(screen.getByLabelText("Name"), "Nina");
+    await user.type(screen.getByLabelText("Email"), "nina@test.dz");
+    await user.type(screen.getByLabelText(/Temporary password/), "password1");
+    await user.click(screen.getByRole("button", { name: "Create user" }));
+    expect(await screen.findByText("Nina")).toBeInTheDocument();
+    expect(screen.queryByText(/Send sign-in details to/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Send sign-in details" })).not.toBeInTheDocument();
+  });
+
+  it("are sent again with a new temporary password, after a warning", async () => {
+    serveWithPhone([me, staffRow]);
+    const bodies = capture("post", "/users/u9/password", () => new HttpResponse(null, { status: 204 }));
+    const { user } = renderWithProviders(<UsersView />);
+    await user.click(await screen.findByRole("button", { name: "Send sign-in details" }));
+    await answerConfirmDialog(false);
+    expect(bodies).toEqual([]);
+
+    await user.click(screen.getByRole("button", { name: "Send sign-in details" }));
+    await answerConfirmDialog(true);
+    const dialog = await screen.findByRole("dialog");
+    expect(bodies).toHaveLength(1);
+    const { password } = bodies[0] as { password: string };
+    expect(password).toMatch(/^[a-zA-Z]{6}-[2-9]{4}$/);
+    expect(within(dialog).getByTestId("share-password")).toHaveTextContent(password);
+  });
+
+  it("says when the new password can't be saved", async () => {
+    serveWithPhone([me, staffRow]);
+    capture("post", "/users/u9/password", () => HttpResponse.json({ message: "User not found" }, { status: 404 }));
+    const { user } = renderWithProviders(<UsersView />);
+    await user.click(await screen.findByRole("button", { name: "Send sign-in details" }));
+    await answerConfirmDialog(true);
+    expect(await screen.findByText(/Couldn't create a new password/)).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("are offered after a manual password reset of an employee account", async () => {
+    serveWithPhone([me, staffRow]);
+    capture("post", "/users/u9/password", () => new HttpResponse(null, { status: 204 }));
+    const { user } = renderWithProviders(<UsersView />);
+    const row = (await screen.findByText("amine@test.dz")).closest("tr")!;
+    await user.click(within(row).getByRole("button", { name: "Reset password" }));
+    await user.type(screen.getByLabelText(/New password/), "Other-pass-7");
+    await user.click(screen.getByRole("button", { name: "Set password" }));
+    const dialog = await screen.findByText("Send sign-in details to Amine");
+    expect(screen.getByTestId("share-password")).toHaveTextContent("Other-pass-7");
+    expect(dialog).toBeInTheDocument();
+  });
+
+  it("copies the message, and says when the employee has no phone", async () => {
+    serveWithPhone([me, makeUserRow({ ...staffRow, employeeId: "e1" })]);
+    capture("post", "/users/u9/password", () => new HttpResponse(null, { status: 204 }));
+    const { user } = renderWithProviders(<UsersView />);
+    await user.click(await screen.findByRole("button", { name: "Send sign-in details" }));
+    await answerConfirmDialog(true);
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText(/No phone number on this employee's record/)).toBeInTheDocument();
+    expect(within(dialog).getByRole("link", { name: "WhatsApp" }).getAttribute("href")).toMatch(/^https:\/\/wa\.me\/\?text=/);
+    await user.click(within(dialog).getByRole("button", { name: "Copy message" }));
+    expect(await navigator.clipboard.readText()).toContain("Hello Amine,");
+    expect(await screen.findByText("Message copied")).toBeInTheDocument();
+
+    vi.spyOn(navigator.clipboard, "writeText").mockRejectedValueOnce(new Error("denied"));
+    await user.click(within(dialog).getAllByRole("button", { name: "Copy" })[1]);
+    expect(await screen.findByText("Couldn't copy. Select the text and copy it by hand.")).toBeInTheDocument();
+  });
+
+  it("generates a strong temporary password in the form", async () => {
+    serveUsers([]);
+    const { user } = renderWithProviders(<UsersView />);
+    await user.click(await screen.findByRole("button", { name: "Add user" }));
+    await user.click(screen.getByRole("button", { name: "Generate" }));
+    expect((screen.getByLabelText(/Temporary password/) as HTMLInputElement).value).toMatch(/^[a-zA-Z]{6}-[2-9]{4}$/);
+  });
+});

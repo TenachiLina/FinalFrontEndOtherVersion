@@ -9,6 +9,8 @@ import { useAuth } from "@/context/AuthContext";
 import { Modal } from "@/components/ui/modal";
 import Button from "@/components/ui/button/Button";
 import { t } from "@/lib/i18n";
+import { generatePassword } from "@/lib/mobileApp";
+import ShareCredentialsDialog, { type SignInDetails } from "./ShareCredentialsDialog";
 
 interface UserRow extends Omit<AuthUser, "id"> {
   _id: string;
@@ -28,6 +30,8 @@ interface EmployeeOption {
   empNumber: number;
   firstName: string;
   lastName: string;
+  // For WhatsApp and SMS when sending sign-in details
+  phoneNumber?: string | null;
 }
 
 const employeeLabel = (e: EmployeeOption) => `${e.firstName} ${e.lastName} (#${e.empNumber})`;
@@ -69,6 +73,13 @@ export default function UsersView() {
 
   const [resetFor, setResetFor] = useState<UserRow | null>(null);
   const [newPassword, setNewPassword] = useState("");
+
+  // Sign-in details of a mobile app employee, shown once to be sent to them
+  const [sharing, setSharing] = useState<SignInDetails | null>(null);
+  const phoneOf = (employeeId?: string | null) =>
+    employees.find((e) => e._id === employeeId)?.phoneNumber ?? null;
+  const shareDetails = (name: string, email: string, password: string, employeeId?: string | null) =>
+    setSharing({ name, email, password, phone: phoneOf(employeeId) });
 
   const load = useCallback(async () => {
     try {
@@ -118,6 +129,10 @@ export default function UsersView() {
         }),
       });
       setCreateOpen(false);
+      // A mobile app employee gets their sign-in details right away
+      if (form.role === "staff") {
+        shareDetails(form.name, form.email.trim().toLowerCase(), form.password, form.employeeId);
+      }
       setForm(emptyForm);
       await load();
     } catch (err) {
@@ -147,9 +162,34 @@ export default function UsersView() {
         body: JSON.stringify({ password: newPassword }),
       });
       toast.success(t("Password updated for {name}.", { name: resetFor.name }));
+      if (resetFor.role === "staff") {
+        shareDetails(resetFor.name, resetFor.email, newPassword, resetFor.employeeId);
+      }
       closeReset();
     } catch (err) {
       toast.error(friendlyError(err, "Couldn't reset the password"));
+    }
+  };
+
+  /**
+   * A new temporary password for a mobile app employee, then the message to
+   * send it. The server never shows a password again, so this is how sign-in
+   * details are sent a second time.
+   */
+  const sendSignInDetails = async (u: UserRow) => {
+    const ok = await confirmDialog({
+      title: t("Send new sign-in details to {name}?", { name: u.name }),
+      message:
+        "A new temporary password replaces the current one, and they are signed out of the app until they use it.",
+      confirmLabel: "Create a new password",
+    });
+    if (!ok) return;
+    const password = generatePassword();
+    try {
+      await api(`/users/${u._id}/password`, { method: "POST", body: JSON.stringify({ password }) });
+      shareDetails(u.name, u.email, password, u.employeeId);
+    } catch (err) {
+      toast.error(friendlyError(err, "Couldn't create a new password"));
     }
   };
 
@@ -270,6 +310,11 @@ export default function UsersView() {
                     </span>
                   </td>
                   <td className="space-x-3 whitespace-nowrap px-4 py-3 text-end">
+                    {u.role === "staff" && u.active && (
+                      <button type="button" className="font-medium text-brand-500 hover:underline" onClick={() => sendSignInDetails(u)}>
+                        {t("Send sign-in details")}
+                      </button>
+                    )}
                     <button type="button" className="text-brand-500 hover:underline" onClick={() => openReset(u)}>
                       {t("Reset password")}
                     </button>
@@ -321,7 +366,16 @@ export default function UsersView() {
           </div>
           <div>
             <label className={labelClass} htmlFor="new-password">{t("Temporary password (min 8 characters)")}</label>
-            <input id="new-password" type="text" autoComplete="off" className={inputClass} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+            <div className="flex gap-2">
+              <input id="new-password" type="text" autoComplete="off" className={inputClass} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, password: generatePassword() })}
+                className="shrink-0 rounded-lg px-3 text-sm font-medium text-brand-500 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:ring-gray-700 dark:hover:bg-white/[0.03]"
+              >
+                {t("Generate")}
+              </button>
+            </div>
           </div>
           <div>
             <label className={labelClass} htmlFor="new-role">{t("Role")}</label>
@@ -365,6 +419,8 @@ export default function UsersView() {
           </div>
         </form>
       </Modal>
+
+      <ShareCredentialsDialog details={sharing} onClose={() => setSharing(null)} />
 
       <Modal isOpen={!!resetFor} onClose={closeReset} className="max-w-[420px] p-6">
         <form onSubmit={handleReset} className="space-y-4">
