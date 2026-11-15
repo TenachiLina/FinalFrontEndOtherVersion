@@ -38,6 +38,7 @@ afterEach(() => {
 function serveCompanies(...lists: CompanyRow[][]) {
   let call = 0;
   server.use(
+    http.get(`${API}/packs`, () => HttpResponse.json([])),
     http.get(`${API}/companies`, () => HttpResponse.json(lists[Math.min(call++, lists.length - 1)]))
   );
 }
@@ -193,6 +194,7 @@ describe("CompaniesView edit", () => {
     await screen.findByText("/signin?company=pizza-roma");
     expect(body).toEqual({
       features: ["planning", "clockin", "faceRecognition", "reporting", "bonuses"],
+      disabledPages: [],
       devices: [{ serial: "ZK1", name: "Front" }, { serial: "ZK2" }, { serial: "ZK3" }],
       slug: "pizza-roma",
       branding: { title: "Roma!", subtitle: "Hello team", color: "#ff0000" },
@@ -329,5 +331,50 @@ describe("CompaniesView suspend / reactivate", () => {
     await user.click(await screen.findByRole("button", { name: button }));
     if (active) await answerConfirmDialog(true);
     expect(await screen.findByText(`${message}. Nope`)).toBeInTheDocument();
+  });
+});
+
+describe("CompaniesView: pages and subscription", () => {
+  it("shows each company's pack and where its subscription stands", async () => {
+    serveCompanies([
+      makeCompanyRow({ _id: "c1", name: "Pizza Roma" }),
+      makeCompanyRow({
+        _id: "c2",
+        name: "Cafe Uno",
+        subscription: {
+          packId: "p1",
+          packName: "Starter",
+          status: "trial",
+          startsAt: new Date().toISOString(),
+          endsAt: new Date(Date.now() + 9 * 86_400_000 + 60_000).toISOString(),
+          maxEmployees: 15,
+          price: 3000,
+          currency: "DA",
+          periodMonths: 1,
+          payments: [],
+        },
+      }),
+    ]);
+    renderView();
+    expect((await screen.findByText("Pizza Roma")).closest("tr")).toHaveTextContent("No subscription");
+    expect(screen.getByText("Cafe Uno").closest("tr")).toHaveTextContent("Starter · Trial · 9 days left");
+  });
+
+  it("switches a single page off for a company", async () => {
+    let body: { disabledPages?: string[] } = {};
+    serveCompanies([makeCompanyRow({ _id: "c1", name: "Pizza Roma", disabledPages: ["payslips"] })]);
+    server.use(
+      http.patch(`${API}/companies/c1`, async ({ request }) => {
+        body = (await request.json()) as typeof body;
+        return HttpResponse.json({});
+      })
+    );
+    const { user } = renderView();
+    await user.click(within((await screen.findByText("Pizza Roma")).closest("tr")!).getByRole("button", { name: "Edit" }));
+    expect(await screen.findByRole("checkbox", { name: "Payslips" })).not.toBeChecked();
+    await user.click(screen.getByRole("checkbox", { name: "Clock-in kiosk" }));
+    await user.click(screen.getByRole("checkbox", { name: "Payslips" }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(body.disabledPages).toEqual(["kiosk"]));
   });
 });

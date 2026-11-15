@@ -185,6 +185,11 @@ const navItems: NavItem[] = [
     path: "/companies",
   },
   {
+    icon: <BoxCubeIcon />,
+    name: "Packs",
+    path: "/packs",
+  },
+  {
     icon: <ListIcon />,
     name: "Activity log",
     path: "/activity-log",

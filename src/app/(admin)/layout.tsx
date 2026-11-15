@@ -10,6 +10,7 @@ import { useAuth } from "@/context/AuthContext";
 import { canOpen, homePathFor } from "@/lib/auth";
 import { getRememberedSlug } from "@/lib/branding";
 import { t } from "@/lib/i18n";
+import SubscriptionBanner from "@/components/billing/SubscriptionBanner";
 
 export default function AdminLayout({
   children,
@@ -75,6 +76,8 @@ export default function AdminLayout({
             </button>
           </div>
         )}
+        {/* Trial or subscription about to end, or ended (read-only) */}
+        <SubscriptionBanner />
         {/* Page Content */}
         {/* Fills the width next to the sidebar (no centred max width, which left a gap on wide screens) */}
         <div className="p-4 md:p-6">{children}</div>
