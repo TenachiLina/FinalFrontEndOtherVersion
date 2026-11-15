@@ -54,7 +54,6 @@ export default defineConfig({
         "src/components/ecommerce/**",
         "src/components/form/Form.tsx",
         "src/components/form/input/RadioSm.tsx",
-        "src/components/header/NotificationDropdown.tsx",
         "src/components/ui/avatar/AvatarText.tsx",
         "src/components/videos/**",
         "src/hooks/useGoBack.ts",

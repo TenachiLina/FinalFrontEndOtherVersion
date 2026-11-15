@@ -1225,6 +1225,27 @@ const ar: Record<string, string> = {
   "Restored a post": "استعاد منصبًا",
   "Archived a user": "أرشف مستخدمًا",
   "Restored a user": "استعاد مستخدمًا",
+
+  // Notifications
+  "{names} and {count} more": "{names} و{count} آخرون",
+  "1 person has not clocked in": "شخص واحد لم يسجّل حضوره",
+  "{count} people have not clocked in": "{count} أشخاص لم يسجّلوا حضورهم",
+  "Planned today, shift started: {names}": "مبرمجون اليوم وبدأت فترتهم: {names}",
+  "1 late arrival today": "تأخّر واحد اليوم",
+  "{count} late arrivals today": "{count} تأخّرات اليوم",
+  "1 absence today": "غياب واحد اليوم",
+  "{count} absences today": "{count} غيابات اليوم",
+  "{month} closes soon": "{month} سيُغلق قريبًا",
+  "It closes automatically on {date}. After that its hours and pay can no longer be changed.": "سيُغلق تلقائيًا في {date}. بعد ذلك لا يمكن تعديل ساعاته ورواتبه.",
+  "Your free trial ends on {date}": "تنتهي تجربتكم المجانية في {date}",
+  "Your subscription ends on {date}": "ينتهي اشتراككم في {date}",
+  "The account is read-only until it is renewed.": "الحساب للقراءة فقط إلى أن يُجدَّد.",
+  "The clocking machine {name} is not responding": "جهاز التسجيل {name} لا يستجيب",
+  "Last contact: {date}. Check its power and network.": "آخر اتصال: {date}. تحققوا من الكهرباء والشبكة.",
+  "Notification": "إشعار",
+  "Notifications": "الإشعارات",
+  "Notifications, {count} unread": "الإشعارات، {count} غير مقروءة",
+  "Nothing to report right now.": "لا شيء للإبلاغ عنه الآن.",
 };
 
 export default ar;

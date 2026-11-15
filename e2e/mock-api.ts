@@ -242,6 +242,8 @@ export async function mockApi(page: Page, init: Partial<MockState> = {}): Promis
         },
       });
     }
+    // Nothing to report in the mock
+    if (path === "/notifications") return json(route, { items: [], unread: 0 });
     // Months are open, with nothing to close, in the mock
     if (path.startsWith("/payroll/closings/")) {
       return json(route, { month: path.split("/").pop(), closed: false, auto: false, closesAt: null, canClose: false });

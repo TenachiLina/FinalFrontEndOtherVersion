@@ -1225,6 +1225,27 @@ const fr: Record<string, string> = {
   "Restored a post": "A rétabli un poste",
   "Archived a user": "A archivé un utilisateur",
   "Restored a user": "A rétabli un utilisateur",
+
+  // Notifications
+  "{names} and {count} more": "{names} et {count} autres",
+  "1 person has not clocked in": "1 personne n'a pas pointé",
+  "{count} people have not clocked in": "{count} personnes n'ont pas pointé",
+  "Planned today, shift started: {names}": "Prévus aujourd'hui, créneau commencé : {names}",
+  "1 late arrival today": "1 retard aujourd'hui",
+  "{count} late arrivals today": "{count} retards aujourd'hui",
+  "1 absence today": "1 absence aujourd'hui",
+  "{count} absences today": "{count} absences aujourd'hui",
+  "{month} closes soon": "{month} sera bientôt clôturé",
+  "It closes automatically on {date}. After that its hours and pay can no longer be changed.": "Il sera clôturé automatiquement le {date}. Ensuite, ses heures et sa paie ne pourront plus être modifiées.",
+  "Your free trial ends on {date}": "Votre essai gratuit se termine le {date}",
+  "Your subscription ends on {date}": "Votre abonnement se termine le {date}",
+  "The account is read-only until it is renewed.": "Le compte est en lecture seule jusqu'à son renouvellement.",
+  "The clocking machine {name} is not responding": "La pointeuse {name} ne répond pas",
+  "Last contact: {date}. Check its power and network.": "Dernier contact : {date}. Vérifiez son alimentation et son réseau.",
+  "Notification": "Notification",
+  "Notifications": "Notifications",
+  "Notifications, {count} unread": "Notifications, {count} non lues",
+  "Nothing to report right now.": "Rien à signaler pour le moment.",
 };
 
 export default fr;

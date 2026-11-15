@@ -2,6 +2,7 @@
 import { ThemeToggleButton } from "@/components/common/ThemeToggleButton";
 import LanguageSwitcher from "@/components/common/LanguageSwitcher";
 import UserDropdown from "@/components/header/UserDropdown";
+import NotificationDropdown from "@/components/header/NotificationDropdown";
 import { useSidebar } from "@/context/SidebarContext";
 import { useAuth } from "@/context/AuthContext";
 import { DEFAULT_BRAND } from "@/lib/branding";
@@ -198,7 +199,8 @@ const AppHeader: React.FC = () => {
             <ThemeToggleButton />
             {/* <!-- Dark Mode Toggler --> */}
             <LanguageSwitcher />
-            {/* The template's notification bell showed made-up notifications; removed */}
+            {/* Late arrivals, missing clock-ins, a month about to close… (admins and managers) */}
+            <NotificationDropdown />
           </div>
           {/* <!-- User Area --> */}
           <UserDropdown /> 
