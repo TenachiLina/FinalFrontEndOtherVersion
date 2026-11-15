@@ -1209,6 +1209,22 @@ const fr: Record<string, string> = {
   "Changed a subscription": "A modifié un abonnement",
   "Recorded a payment": "A enregistré un paiement",
   "Removed a subscription": "A supprimé un abonnement",
+
+  // Archiving
+  "Archive {name}?": "Archiver {name} ?",
+  "They leave the planning, clock-in and kiosk lists. Their hours, pay and history are kept, and you can bring them back at any time.": "Il quitte les listes du planning, du pointage et de la borne. Ses heures, sa paie et son historique sont conservés, et vous pouvez le rétablir à tout moment.",
+  "Employee archived.": "Employé archivé.",
+  "Couldn't archive the employee": "Impossible d'archiver l'employé",
+  "Employee restored.": "Employé rétabli.",
+  "Couldn't restore the employee": "Impossible de rétablir l'employé",
+  "Employees shown": "Employés affichés",
+  "They are signed out and can no longer sign in. The account stays in the activity log and can be restored.": "Il est déconnecté et ne peut plus se connecter. Le compte reste dans le journal d'activité et peut être rétabli.",
+  "Archived an employee": "A archivé un employé",
+  "Restored an employee": "A rétabli un employé",
+  "Archived a post": "A archivé un poste",
+  "Restored a post": "A rétabli un poste",
+  "Archived a user": "A archivé un utilisateur",
+  "Restored a user": "A rétabli un utilisateur",
 };
 
 export default fr;

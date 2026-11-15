@@ -15,6 +15,8 @@ import ShareCredentialsDialog, { type SignInDetails } from "./ShareCredentialsDi
 interface UserRow extends Omit<AuthUser, "id"> {
   _id: string;
   active: boolean;
+  // Someone who left: can't sign in, kept for the activity log
+  isArchived?: boolean;
   createdAt?: string;
   // For a manager: the employee record that is this person.
   // For a mobile app employee: required, whose data the account sees.
@@ -85,7 +87,8 @@ export default function UsersView() {
     try {
       const [userRows, employeeRows] = await Promise.all([
         api<UserRow[]>("/users"),
-        api<EmployeeOption[]>("/employees").catch(() => [] as EmployeeOption[]),
+        // Only people who work here now can be linked to an account
+        api<EmployeeOption[]>("/employees?status=active").catch(() => [] as EmployeeOption[]),
       ]);
       setUsers(userRows);
       setEmployees(
@@ -306,7 +309,7 @@ export default function UsersView() {
                           : "bg-gray-100 text-gray-500 dark:bg-white/5 dark:text-gray-400"
                       }`}
                     >
-                      {u.active ? t("Active") : t("Disabled")}
+                      {u.isArchived ? t("Archived") : u.active ? t("Active") : t("Disabled")}
                     </span>
                   </td>
                   <td className="space-x-3 whitespace-nowrap px-4 py-3 text-end">
@@ -320,15 +323,41 @@ export default function UsersView() {
                     </button>
                     {!isMe && (
                       <>
-                        <button
-                          type="button"
-                          className="text-gray-600 hover:underline dark:text-gray-300"
-                          onClick={() =>
-                            run(() => api(`/users/${u._id}`, { method: "PATCH", body: JSON.stringify({ active: !u.active }) }))
-                          }
-                        >
-                          {u.active ? t("Disable") : t("Enable")}
-                        </button>
+                        {u.isArchived ? (
+                          <button
+                            type="button"
+                            className="text-gray-600 hover:underline dark:text-gray-300"
+                            onClick={() => run(() => api(`/users/${u._id}/restore`, { method: "PATCH" }))}
+                          >
+                            {t("Restore")}
+                          </button>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              className="text-gray-600 hover:underline dark:text-gray-300"
+                              onClick={() =>
+                                run(() => api(`/users/${u._id}`, { method: "PATCH", body: JSON.stringify({ active: !u.active }) }))
+                              }
+                            >
+                              {u.active ? t("Disable") : t("Enable")}
+                            </button>
+                            <button
+                              type="button"
+                              className="text-gray-600 hover:underline dark:text-gray-300"
+                              onClick={async () => {
+                                const ok = await confirmDialog({
+                                  title: t("Archive {name}?", { name: u.name }),
+                                  message: t("They are signed out and can no longer sign in. The account stays in the activity log and can be restored."),
+                                  confirmLabel: t("Archive"),
+                                });
+                                if (ok) run(() => api(`/users/${u._id}/archive`, { method: "PATCH" }));
+                              }}
+                            >
+                              {t("Archive")}
+                            </button>
+                          </>
+                        )}
                         <button
                           type="button"
                           className="text-error-500 hover:underline"

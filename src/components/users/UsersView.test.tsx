@@ -451,3 +451,75 @@ describe("UsersView sign-in details for mobile app employees", () => {
     expect((screen.getByLabelText(/Temporary password/) as HTMLInputElement).value).toMatch(/^[a-zA-Z]{6}-[2-9]{4}$/);
   });
 });
+
+describe("UsersView archive", () => {
+  const archived = { ...makeUserRow({ _id: "u3", name: "Old Manager", email: "old@test.dz", active: false }), isArchived: true };
+
+  it("archives a user after a confirmation, and reloads the list", async () => {
+    const calls: string[] = [];
+    serveUsers([me, makeUserRow()], [me, { ...makeUserRow({ active: false }), isArchived: true } as UserRow]);
+    server.use(
+      http.patch(`${API}/users/:id/:action`, ({ params }) => {
+        calls.push(`${params.action} ${params.id}`);
+        return HttpResponse.json({});
+      })
+    );
+    const { user } = renderWithProviders(<UsersView />);
+    await user.click(within(await screen.findByText("Mia Manager").then((el) => el.closest("tr")!)).getByRole("button", { name: "Archive" }));
+    expect(calls).toEqual([]);
+    const dialog = await screen.findByRole("alertdialog");
+    expect(dialog).toHaveTextContent("Archive Mia Manager?");
+    expect(dialog).toHaveTextContent("They are signed out and can no longer sign in.");
+    await answerConfirmDialog(true);
+    await waitFor(() => expect(calls).toEqual(["archive u2"]));
+    await waitFor(() => expect(within(rowOf("Mia Manager")).getByText("Archived")).toBeInTheDocument());
+  });
+
+  it("does nothing when the confirmation is cancelled", async () => {
+    const calls: string[] = [];
+    serveUsers([me, makeUserRow()]);
+    server.use(
+      http.patch(`${API}/users/:id/:action`, ({ params }) => {
+        calls.push(String(params.action));
+        return HttpResponse.json({});
+      })
+    );
+    const { user } = renderWithProviders(<UsersView />);
+    await user.click(within(await screen.findByText("Mia Manager").then((el) => el.closest("tr")!)).getByRole("button", { name: "Archive" }));
+    await answerConfirmDialog(false);
+    expect(calls).toEqual([]);
+  });
+
+  it("an archived user is marked, and can only be restored or deleted", async () => {
+    const calls: string[] = [];
+    serveUsers([me, archived as UserRow], [me, makeUserRow({ _id: "u3", name: "Old Manager" })]);
+    server.use(
+      http.patch(`${API}/users/:id/:action`, ({ params }) => {
+        calls.push(`${params.action} ${params.id}`);
+        return HttpResponse.json({});
+      })
+    );
+    const { user } = renderWithProviders(<UsersView />);
+    const row = (await screen.findByText("Old Manager")).closest("tr")!;
+    expect(within(row).getByText("Archived")).toBeInTheDocument();
+    expect(within(row).queryByRole("button", { name: "Archive" })).toBeNull();
+    expect(within(row).queryByRole("button", { name: "Enable" })).toBeNull();
+    await user.click(within(row).getByRole("button", { name: "Restore" }));
+    await waitFor(() => expect(calls).toEqual(["restore u3"]));
+    await waitFor(() => expect(within(rowOf("Old Manager")).getByText("Active")).toBeInTheDocument());
+  });
+
+  it("only offers employees who work here now when linking an account", async () => {
+    const asked: string[] = [];
+    serveUsers([me]);
+    server.use(
+      http.get(`${API}/employees`, ({ request }) => {
+        asked.push(new URL(request.url).search);
+        return HttpResponse.json(employees);
+      })
+    );
+    renderWithProviders(<UsersView />);
+    await screen.findByText("admin@test.dz");
+    expect(asked).toEqual(["?status=active"]);
+  });
+});

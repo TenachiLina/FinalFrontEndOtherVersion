@@ -1209,6 +1209,22 @@ const ar: Record<string, string> = {
   "Changed a subscription": "عدّل اشتراكًا",
   "Recorded a payment": "سجّل دفعة",
   "Removed a subscription": "أزال اشتراكًا",
+
+  // Archiving
+  "Archive {name}?": "أرشفة {name}؟",
+  "They leave the planning, clock-in and kiosk lists. Their hours, pay and history are kept, and you can bring them back at any time.": "يغادر قوائم التخطيط والتسجيل والكشك. تُحفظ ساعاته ورواتبه وسجله، ويمكنكم استعادته في أي وقت.",
+  "Employee archived.": "تمت أرشفة الموظف.",
+  "Couldn't archive the employee": "تعذّرت أرشفة الموظف",
+  "Employee restored.": "تمت استعادة الموظف.",
+  "Couldn't restore the employee": "تعذّرت استعادة الموظف",
+  "Employees shown": "الموظفون المعروضون",
+  "They are signed out and can no longer sign in. The account stays in the activity log and can be restored.": "يُسجَّل خروجه ولا يمكنه الدخول بعد الآن. يبقى الحساب في سجل النشاط ويمكن استعادته.",
+  "Archived an employee": "أرشف موظفًا",
+  "Restored an employee": "استعاد موظفًا",
+  "Archived a post": "أرشف منصبًا",
+  "Restored a post": "استعاد منصبًا",
+  "Archived a user": "أرشف مستخدمًا",
+  "Restored a user": "استعاد مستخدمًا",
 };
 
 export default ar;

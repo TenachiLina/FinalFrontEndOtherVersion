@@ -115,7 +115,10 @@ export const useShiftGrid = () => {
   const [isCopyingMonth, setIsCopyingMonth] = useState(false);
 
   // ── Filtered employee list for dropdown ───────────────────────────────────
-  const filteredEmployees = employees.filter((e) => {
+  // The people who can be planned: the ones who work here now
+  const choosable = employees.filter((e) => !e.isArchived);
+
+  const filteredEmployees = choosable.filter((e) => {
     const q = empSearch.toLowerCase();
     return (
       e.firstName.toLowerCase().includes(q) ||
@@ -125,7 +128,7 @@ export const useShiftGrid = () => {
   });
   //Filtered backup employee list for dropdown
   //(hides the main employee and the backups that are already added)
-  const filteredBackupEmployees = employees.filter((e) => {
+  const filteredBackupEmployees = choosable.filter((e) => {
     if (selectedEmployee && e._id === selectedEmployee._id) return false;
     if (selectedBackupEmployees.some((b) => b._id === e._id)) return false;
 
@@ -138,7 +141,7 @@ export const useShiftGrid = () => {
       String(e.empNumber).includes(q)
     );
   });
-  const filteredEditEmployees = employees.filter((emp) => {
+  const filteredEditEmployees = choosable.filter((emp) => {
     const search = editTitle.toLowerCase().trim();
 
     if (!search) return false;
@@ -153,7 +156,7 @@ export const useShiftGrid = () => {
     );
   });
   //Editing Modal Employees filtering:
-  const filteredEditBackupEmployees = employees.filter((e) => {
+  const filteredEditBackupEmployees = choosable.filter((e) => {
     const mainId = editSelectedEmployee?._id ?? editingEmployee?.id;
     if (mainId && e._id === mainId) return false;
     if (editBackupEmployees.some((b) => b._id === e._id)) return false;

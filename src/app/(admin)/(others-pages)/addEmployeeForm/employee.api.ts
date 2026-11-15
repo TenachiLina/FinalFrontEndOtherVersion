@@ -26,6 +26,8 @@ export interface EmployeeRecord extends EmployeePayload {
   _id: string;
   // Set by the API, for a manager, on other managers' records
   otherManager?: boolean;
+  // An employee who left: kept for history, not offered in pickers
+  isArchived?: boolean;
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
