@@ -5,13 +5,16 @@ import CompaniesPage from "@/app/(admin)/companies/page";
 import { API, server } from "@/test/server";
 import { makeUser } from "@/test/factories";
 import { answerConfirmDialog, fireEvent, renderWithProviders, screen, waitFor, within } from "@/test/render";
-import type { Feature } from "@/lib/auth";
+import type { Feature, Page } from "@/lib/auth";
+import type { CompanySubscription } from "@/lib/billing";
 
 interface CompanyRow {
   _id: string;
   name: string;
   active: boolean;
   features: Feature[];
+  disabledPages?: Page[];
+  subscription?: CompanySubscription | null;
   devices: { serial: string; name?: string }[];
   slug?: string;
   branding?: { logo?: string; title?: string; subtitle?: string; color?: string };
