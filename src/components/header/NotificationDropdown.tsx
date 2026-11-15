@@ -29,7 +29,9 @@ const DOT: Record<NotificationItem["level"], string> = {
 export default function NotificationDropdown() {
   const { user, company } = useAuth();
   const enabled = !!company && (user?.role === "admin" || user?.role === "manager" || user?.role === "superadmin");
-  const [items, setItems] = useState<NotificationItem[]>([]);
+  const [loaded, setItems] = useState<NotificationItem[]>([]);
+  // Nothing is shown to someone the bell is not for, whatever was loaded before
+  const items = enabled ? loaded : [];
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
 
@@ -42,10 +44,7 @@ export default function NotificationDropdown() {
   }, []);
 
   useEffect(() => {
-    if (!enabled) {
-      setItems([]);
-      return;
-    }
+    if (!enabled) return;
     load();
     const timer = setInterval(load, REFRESH_MS);
     return () => clearInterval(timer);
