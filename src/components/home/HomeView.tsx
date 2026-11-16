@@ -19,6 +19,7 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { canOpen } from "@/lib/auth";
 import { locale, t } from "@/lib/i18n";
+import TodayDashboard from "./TodayDashboard";
 
 type Icon = React.ComponentType<React.SVGProps<SVGSVGElement>>;
 
@@ -78,6 +79,9 @@ export default function HomeView() {
           {t("Help & guides")}
         </Link>
       </div>
+
+      {/* Today at a glance: who is in, late, absent; what is waiting */}
+      <TodayDashboard />
 
       {/* How it works */}
       {flow.length > 0 && (

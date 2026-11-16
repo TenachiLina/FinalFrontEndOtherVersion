@@ -242,6 +242,21 @@ export async function mockApi(page: Page, init: Partial<MockState> = {}): Promis
         },
       });
     }
+    // A quiet day on the Home dashboard in the mock
+    if (path === "/dashboard") {
+      return json(route, {
+        day: new Date().toISOString().slice(0, 10),
+        time: "10:00",
+        attendance: {
+          employees: employees.length,
+          counts: { planned: 0, present: 0, left: 0, late: 0, absent: 0, missing: 0, expected: 0 },
+          people: [],
+        },
+        pending: { corrections: 0 },
+        month: null,
+        subscription: { status: "none", endingSoon: false, readOnly: false, daysLeft: null },
+      });
+    }
     // Nothing to report in the mock
     if (path === "/notifications") return json(route, { items: [], unread: 0 });
     // Months are open, with nothing to close, in the mock

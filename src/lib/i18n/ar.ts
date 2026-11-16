@@ -1262,6 +1262,30 @@ const ar: Record<string, string> = {
   "Photo file": "ملف الصورة",
   "Your email, role and company are set by an admin. Ask them if one of these needs to change.": "بريدكم الإلكتروني ودوركم وشركتكم يحددها المسؤول. اطلبوا منه إن وجب تغيير أحدها.",
   "Save profile": "حفظ الملف الشخصي",
+
+  // Home dashboard
+  "Expected later": "متوقَّع لاحقًا",
+  "Left": "غادر",
+  "Not planned": "غير مبرمج",
+  "{minutes} min late": "تأخّر {minutes} د",
+  "Couldn't load today's figures": "تعذّر تحميل أرقام اليوم",
+  "Updated at {time}": "حُدِّث في {time}",
+  "of {count} planned": "من {count} مبرمجين",
+  "Late arrivals": "التأخّرات",
+  "shift started": "بدأت الفترة",
+  "Who is where": "أين الجميع",
+  "Open the clock-in history": "فتح سجل التسجيل",
+  "Nobody is planned or clocked in today.": "لا أحد مبرمج أو سجّل حضوره اليوم.",
+  "Clock-in is switched off for this company, so there is no attendance to show.": "التسجيل معطّل لهذه الشركة، فلا يوجد حضور لعرضه.",
+  "{month} so far": "{month} حتى الآن",
+  "Open the payroll": "فتح الرواتب",
+  "Gross": "الإجمالي",
+  "Net to pay": "الصافي للدفع",
+  "{hours} hours worked by {count} employees.": "{hours} ساعة عمل لـ {count} موظفين.",
+  "Waiting for you": "في انتظاركم",
+  "1 correction request from an employee is waiting for an answer.": "طلب تصحيح واحد من موظف ينتظر ردًّا.",
+  "{count} correction requests from employees are waiting for an answer.": "{count} طلبات تصحيح من الموظفين تنتظر ردًّا.",
+  "Answer them": "الرد عليها",
 };
 
 export default ar;

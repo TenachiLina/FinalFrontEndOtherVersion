@@ -1262,6 +1262,30 @@ const fr: Record<string, string> = {
   "Photo file": "Fichier de la photo",
   "Your email, role and company are set by an admin. Ask them if one of these needs to change.": "Votre e-mail, votre rôle et votre entreprise sont définis par un administrateur. Adressez-vous à lui si l'un d'eux doit changer.",
   "Save profile": "Enregistrer le profil",
+
+  // Home dashboard
+  "Expected later": "Attendu plus tard",
+  "Left": "Parti",
+  "Not planned": "Non planifié",
+  "{minutes} min late": "{minutes} min de retard",
+  "Couldn't load today's figures": "Impossible de charger les chiffres du jour",
+  "Updated at {time}": "Mis à jour à {time}",
+  "of {count} planned": "sur {count} planifiés",
+  "Late arrivals": "Retards",
+  "shift started": "créneau commencé",
+  "Who is where": "Qui est où",
+  "Open the clock-in history": "Ouvrir l'historique des pointages",
+  "Nobody is planned or clocked in today.": "Personne n'est planifié ni n'a pointé aujourd'hui.",
+  "Clock-in is switched off for this company, so there is no attendance to show.": "Le pointage est désactivé pour cette entreprise : aucune présence à afficher.",
+  "{month} so far": "{month} jusqu'ici",
+  "Open the payroll": "Ouvrir la paie",
+  "Gross": "Brut",
+  "Net to pay": "Net à payer",
+  "{hours} hours worked by {count} employees.": "{hours} heures travaillées par {count} employés.",
+  "Waiting for you": "En attente de votre réponse",
+  "1 correction request from an employee is waiting for an answer.": "1 demande de correction d'un employé attend une réponse.",
+  "{count} correction requests from employees are waiting for an answer.": "{count} demandes de correction d'employés attendent une réponse.",
+  "Answer them": "Y répondre",
 };
 
 export default fr;
