@@ -20,13 +20,13 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe("/clockinfacerecognitionpage", () => {
+describe("/clock-in/face", () => {
   it("is titled Clock In / Out", () => {
     expect(metadata.title).toBe("Clock In / Out");
   });
 
   it("shows the breadcrumb and today's face-recognition attendance", async () => {
-    renderWithProviders(<ClockInPageRoute />, { url: "/clockinfacerecognitionpage" });
+    renderWithProviders(<ClockInPageRoute />, { url: "/clock-in/face" });
     expect(screen.getByRole("link", { name: /Home/ })).toHaveAttribute("href", "/");
     expect(await screen.findByRole("heading", { name: "Attendance" })).toBeInTheDocument();
     expect(screen.getByText("Operation date: 2026-03-10")).toBeInTheDocument();

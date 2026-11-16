@@ -7,7 +7,7 @@ import {
   EmployeeRecord,
   getEmployees,
   updateEmployee,
-} from "@/app/(admin)/(others-pages)/addEmployeeForm/employee.api";
+} from "@/app/(admin)/employees/new/employee.api";
 import { friendlyError } from "@/lib/errors";
 import { locale, t } from "@/lib/i18n";
 import { confirmDialog, toast } from "@/lib/notify";

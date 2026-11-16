@@ -67,7 +67,7 @@ describe("CorrectionsView", () => {
     expect(within(first).getByText(/Worked time · Mon, 2 Nov 2026/)).toBeInTheDocument();
     expect(within(first).getByText("The app showed: In 10:12 · Out 18:00 · 07:48 worked · 12 min late")).toBeInTheDocument();
     expect(within(first).getByText("Waiting")).toBeInTheDocument();
-    expect(within(first).getByRole("link", { name: /Open Clock In\/Out History/ })).toHaveAttribute("href", "/clockinpagehistory");
+    expect(within(first).getByRole("link", { name: /Open Clock In\/Out History/ })).toHaveAttribute("href", "/clock-in/history");
 
     expect(within(card("c2")).getByText(/5,000 DA · Rent/)).toBeInTheDocument();
     expect(within(card("c2")).getByRole("link", { name: /Open Advances/ })).toHaveAttribute("href", "/reporting/advances");

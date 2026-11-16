@@ -138,7 +138,7 @@ afterEach(() => {
 const SAVE_WAIT = { timeout: 3000 };
 
 async function renderPage(props: { currentDate?: string } = { currentDate: TODAY }) {
-  const view = renderWithProviders(<AttendancePage {...props} />, { url: "/clockinpage" });
+  const view = renderWithProviders(<AttendancePage {...props} />, { url: "/clock-in" });
   await screen.findByRole("heading", { name: "Attendance" });
   return view;
 }

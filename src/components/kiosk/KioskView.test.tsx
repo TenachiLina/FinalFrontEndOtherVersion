@@ -85,7 +85,7 @@ describe("KioskView access", () => {
     serveEmployees([]);
     const { user } = renderKiosk({ user: makeUser() });
     await user.click(await screen.findByRole("button", { name: "Exit kiosk" }));
-    expect(router.push).toHaveBeenCalledWith("/clockinpagehistory");
+    expect(router.push).toHaveBeenCalledWith("/clock-in/history");
     expect(screen.queryByRole("button", { name: "Sign out" })).not.toBeInTheDocument();
   });
 

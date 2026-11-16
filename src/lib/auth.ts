@@ -153,20 +153,20 @@ const PATH_FEATURES: [string, Feature][] = [
   ["/reporting/advances", "advances"],
   ["/reporting/bonuses", "bonuses"],
   ["/reporting", "reporting"],
-  ["/calendar", "planning"],
-  ["/clockinfacerecognitionpage", "faceRecognition"],
-  ["/clockinpagehistory", "clockin"],
-  ["/clockinpage", "clockin"],
+  ["/planning", "planning"],
+  ["/clock-in/face", "faceRecognition"],
+  ["/clock-in/history", "clockin"],
+  ["/clock-in", "clockin"],
   ["/kiosk", "clockin"],
 ];
 
 // Page prefix → the page switch it belongs to. The first match wins.
 const PATH_PAGES: [string, Page][] = [
-  ["/calendar/DoPlanning", "planningNew"],
-  ["/calendar/ViewPlanning", "planningView"],
-  ["/calendar/ShiftsManagment", "shifts"],
-  ["/clockinpagehistory", "clockinHistory"],
-  ["/clockinpage", "clockinManual"],
+  ["/planning/new", "planningNew"],
+  ["/planning/view", "planningView"],
+  ["/planning/shifts", "shifts"],
+  ["/clock-in/history", "clockinHistory"],
+  ["/clock-in", "clockinManual"],
   ["/kiosk", "kiosk"],
   ["/reporting/overview", "overview"],
   ["/reporting/attendance", "attendance"],
@@ -190,6 +190,8 @@ export function isAdminOnlyPath(pathname: string): boolean {
 
 /** The page switch a path belongs to, if any. */
 export function pageForPath(pathname: string): Page | null {
+  // Face clock-in sits under /clock-in but is its own feature, not the manual page
+  if (matches(pathname, "/clock-in/face")) return null;
   return PATH_PAGES.find(([p]) => matches(pathname, p))?.[1] ?? null;
 }
 
@@ -243,7 +245,7 @@ export function homePathFor(user: AuthUser, company: CompanyInfo | null): string
   if (!company) return user.role === "superadmin" ? "/companies" : "/account";
   if (user.role === "employee") return "/kiosk";
   // Everyone with a company lands on the welcome home page
-  const candidates = ["/home", "/reporting/overview", "/calendar/ViewPlanning", "/clockinpage", "/basic-tables"];
+  const candidates = ["/home", "/reporting/overview", "/planning/view", "/clock-in", "/employees"];
   return candidates.find((p) => canOpen(p, user, company)) ?? "/account";
 }
 

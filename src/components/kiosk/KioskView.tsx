@@ -248,7 +248,7 @@ export default function KioskView() {
           ) : (
             <button
               type="button"
-              onClick={() => router.push("/clockinpagehistory")}
+              onClick={() => router.push("/clock-in/history")}
               className="rounded-lg px-3 py-2 text-sm text-gray-500 ring-1 ring-inset ring-gray-200 hover:bg-gray-50 dark:text-gray-400 dark:ring-gray-700 dark:hover:bg-white/5"
             >
               {t("Exit kiosk")}

@@ -11,7 +11,7 @@ describe("Clock-in history page", () => {
       http.get(`${API}/employees`, () => HttpResponse.json([])),
       http.get(`${API}/device/status`, () => HttpResponse.json({ connected: true, name: "Machine" }))
     );
-    renderWithProviders(<ClockInPageRoute />, { url: "/clockinpagehistory" });
+    renderWithProviders(<ClockInPageRoute />, { url: "/clock-in/history" });
     expect(screen.getByRole("heading", { name: "Clock In / Out History" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Clock-in history" })).toBeInTheDocument();
     expect(await screen.findByText("No clock-in records in this period.")).toBeInTheDocument();

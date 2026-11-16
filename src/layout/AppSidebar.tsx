@@ -98,19 +98,19 @@ const navItems: NavItem[] = [
     icon: <CalenderIcon />,
     name: "Planning",
     subItems: [
-      { name: "New Planning", path: "/calendar/DoPlanning", pro: false },
-      { name: "View Planning", path: "/calendar/ViewPlanning", pro: false },
-      { name: "Shifts Management", path: "/calendar/ShiftsManagment", pro: false },
+      { name: "New Planning", path: "/planning/new", pro: false },
+      { name: "View Planning", path: "/planning/view", pro: false },
+      { name: "Shifts Management", path: "/planning/shifts", pro: false },
     ]
   },
   {
     icon: <UserCircleIcon />,
     name: "Clock In/Out",
     subItems: [
-      {  name: "Clock In / Out", path: "/clockinpage", pro: false },
-      {  name: "Clock In/Out with Face recognition", path: "/clockinfacerecognitionpage", pro: false },
+      {  name: "Clock In / Out", path: "/clock-in", pro: false },
+      {  name: "Clock In/Out with Face recognition", path: "/clock-in/face", pro: false },
       {  name: "Clock-in kiosk", path: "/kiosk", pro: false },
-      {  name: "Clock In/Out History", path: "/clockinpagehistory", pro: false },
+      {  name: "Clock In/Out History", path: "/clock-in/history", pro: false },
     ]
   },
 
@@ -118,8 +118,8 @@ const navItems: NavItem[] = [
     name: "Employees Management",
     icon: <TableIcon />,
     subItems: [
-      { name: "Add Employee", path: "/addEmployeeForm", pro: false },
-      { name: "View Employees", path: "/basic-tables", pro: false },
+      { name: "Add Employee", path: "/employees/new", pro: false },
+      { name: "View Employees", path: "/employees", pro: false },
       { name: "Insured Employees", path: "/insured-employees", pro: false },
 
     ],

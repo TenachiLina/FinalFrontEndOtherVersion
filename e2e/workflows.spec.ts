@@ -49,7 +49,7 @@ test("planning: an assignment saved for today is there after a reload, once", as
   const state = await mockApi(page);
   await signInAs(page, "admin@roma.dz");
   await expect(page).toHaveURL(/\/home$/);
-  await page.goto("/calendar/DoPlanning");
+  await page.goto("/planning/new");
 
   // Pizzaiolo × morning shift (08:00–16:00)
   const cell = page.getByRole("row", { name: /Pizzaiolo/ }).getByRole("cell").nth(1);

@@ -11,7 +11,7 @@ describe("Employees page", () => {
         HttpResponse.json([{ _id: "e1", empNumber: 101, firstName: "Ali", lastName: "Zerrouki", baseSalary: 30000 }])
       )
     );
-    renderWithProviders(<BasicTables />, { url: "/basic-tables" });
+    renderWithProviders(<BasicTables />, { url: "/employees" });
     // the breadcrumb title and the table title
     expect(screen.getAllByRole("heading", { name: "Employees Management", level: 2 })).toHaveLength(2);
     expect(screen.getByRole("heading", { name: "Details" })).toBeInTheDocument();

@@ -170,7 +170,7 @@ afterEach(() => {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 async function renderHistory() {
-  const view = renderWithProviders(<ClockInPageHistory />, { url: "/clockinpagehistory" });
+  const view = renderWithProviders(<ClockInPageHistory />, { url: "/clock-in/history" });
   await waitFor(() => expect(screen.queryByText("Loading clock-in records…")).not.toBeInTheDocument());
   await screen.findByText("Machine:");
   return view;

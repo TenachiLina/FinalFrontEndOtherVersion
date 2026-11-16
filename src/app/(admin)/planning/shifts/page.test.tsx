@@ -33,7 +33,7 @@ function shiftsBackend(active: ManagedShift[] = [morning, evening], archived: Ma
 }
 
 async function renderPage() {
-  const view = renderWithProviders(<ShiftsManagementPage />, { url: "/ShiftsManagment" });
+  const view = renderWithProviders(<ShiftsManagementPage />, { url: "/planning/shifts" });
   await waitFor(() => expect(screen.queryByText("Loading...")).not.toBeInTheDocument());
   return view;
 }

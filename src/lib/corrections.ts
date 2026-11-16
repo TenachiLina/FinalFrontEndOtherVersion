@@ -45,7 +45,7 @@ export const STATUS_LABELS: Record<CorrectionStatus, string> = {
 
 /** The page where the record is fixed. */
 export const FIX_PAGE: Record<CorrectionKind, { path: string; label: string }> = {
-  worktime: { path: "/clockinpagehistory", label: "Open Clock In/Out History" },
+  worktime: { path: "/clock-in/history", label: "Open Clock In/Out History" },
   advance: { path: "/reporting/advances", label: "Open Advances" },
   bonus: { path: "/reporting/bonuses/history", label: "Open Bonuses history" },
 };

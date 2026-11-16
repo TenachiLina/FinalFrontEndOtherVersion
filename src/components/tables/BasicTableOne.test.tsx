@@ -87,7 +87,7 @@ const field = (label: string) => screen.getByText(label, { selector: "label" }).
 
 async function renderTable(list: Employee[]) {
   serve(list);
-  const view = renderWithProviders(<BasicTableOne />, { url: "/basic-tables" });
+  const view = renderWithProviders(<BasicTableOne />, { url: "/employees" });
   if (list.length) await screen.findByText(list[0].firstName);
   else await waitFor(() => expect(screen.queryByText("Loading employees…")).not.toBeInTheDocument());
   return view;

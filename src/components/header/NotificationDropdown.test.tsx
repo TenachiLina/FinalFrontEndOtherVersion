@@ -14,7 +14,7 @@ const item = (overrides: Partial<NotificationItem>): NotificationItem => ({
   type: "late",
   level: "warning",
   params: {},
-  href: "/clockinpagehistory",
+  href: "/clock-in/history",
   read: false,
   ...overrides,
 });
@@ -85,7 +85,7 @@ describe("NotificationDropdown", () => {
     const links = within(list).getAllByRole("link");
     expect(links[0]).toHaveTextContent("2 people have not clocked in");
     expect(links[0]).toHaveTextContent("Planned today, shift started: Amine Bensalah, Sara Haddad");
-    expect(links[0]).toHaveAttribute("href", "/clockinpagehistory");
+    expect(links[0]).toHaveAttribute("href", "/clock-in/history");
     expect(links[1]).toHaveTextContent("1 late arrival today");
     expect(links[1]).toHaveTextContent("Karim Meziane");
     expect(links[2]).toHaveTextContent("October 2026 closes soon");

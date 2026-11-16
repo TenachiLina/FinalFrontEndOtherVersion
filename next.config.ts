@@ -11,8 +11,25 @@ const securityHeaders = [
   { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=()" },
 ];
 
+// The addresses the pages had before they were renamed. Bookmarks and old
+// links keep working: each one leads to the page's new address.
+export const OLD_ADDRESSES: [string, string][] = [
+  ["/basic-tables", "/employees"],
+  ["/addEmployeeForm", "/employees/new"],
+  ["/add-employee", "/employees/new"],
+  ["/calendar/DoPlanning", "/planning/new"],
+  ["/calendar/ViewPlanning", "/planning/view"],
+  ["/calendar/ShiftsManagment", "/planning/shifts"],
+  ["/clockinpage", "/clock-in"],
+  ["/clockinfacerecognitionpage", "/clock-in/face"],
+  ["/clockinpagehistory", "/clock-in/history"],
+];
+
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  async redirects() {
+    return OLD_ADDRESSES.map(([source, destination]) => ({ source, destination, permanent: true }));
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

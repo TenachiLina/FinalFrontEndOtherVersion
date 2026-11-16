@@ -13,7 +13,7 @@ describe("Clock in / out page", () => {
       http.get(`${API}/planning`, () => HttpResponse.json([])),
       http.get(`${API}/worktime`, () => HttpResponse.json([]))
     );
-    renderWithProviders(<ClockInPageRoute />, { url: "/clockinpage" });
+    renderWithProviders(<ClockInPageRoute />, { url: "/clock-in" });
     expect(screen.getByRole("heading", { name: "Clock In / Out" })).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "08:00 – 16:00 shift" })).toBeInTheDocument();
     expect(metadata.title).toBe("Clock In / Out");

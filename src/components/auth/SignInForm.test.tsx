@@ -174,8 +174,8 @@ describe("SignInForm", () => {
   });
 
   it("skips the form when already signed in", async () => {
-    renderWithProviders(<SignInForm />, { url: "/signin?next=%2Fcalendar%2FViewPlanning" });
-    await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/calendar/ViewPlanning"));
+    renderWithProviders(<SignInForm />, { url: "/signin?next=%2Fplanning%2Fview" });
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/planning/view"));
   });
 
   it("renders from the sign-in page", async () => {

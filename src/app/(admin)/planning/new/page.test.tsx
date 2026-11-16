@@ -12,7 +12,7 @@ describe("DoPlanning page", () => {
 
   it("shows the Planning heading above the planning grid", async () => {
     mockPlanningApi({ plannings: { "2026-10-24": [makeRecord(ALICE)] } });
-    renderWithProviders(<Page />, { url: "/calendar/DoPlanning" });
+    renderWithProviders(<Page />, { url: "/planning/new" });
 
     expect(screen.getByRole("heading", { name: "Planning" })).toBeInTheDocument();
     expect(await screen.findByText("Alice Martin")).toBeInTheDocument();

@@ -90,11 +90,11 @@ describe("pages switched off one by one", () => {
 
   it.each([
     ["/kiosk", "kiosk"],
-    ["/clockinpage", "clockinManual"],
-    ["/clockinpagehistory", "clockinHistory"],
-    ["/calendar/DoPlanning", "planningNew"],
-    ["/calendar/ViewPlanning", "planningView"],
-    ["/calendar/ShiftsManagment", "shifts"],
+    ["/clock-in", "clockinManual"],
+    ["/clock-in/history", "clockinHistory"],
+    ["/planning/new", "planningNew"],
+    ["/planning/view", "planningView"],
+    ["/planning/shifts", "shifts"],
     ["/reporting/overview", "overview"],
     ["/reporting/monthly-payroll", "monthlyPayroll"],
     ["/reporting/payslips", "payslips"],
@@ -110,8 +110,16 @@ describe("pages switched off one by one", () => {
     expect(pageForPath(path)).toBe(page);
   });
 
+  it("switching the manual clock-in page off leaves face clock-in open", () => {
+    expect(pageForPath("/clock-in/face")).toBeNull();
+    const company = makeCompany({ disabledPages: ["clockinManual"] });
+    expect(canOpen("/clock-in", makeUser(), company)).toBe(false);
+    expect(canOpen("/clock-in/face", makeUser(), company)).toBe(true);
+    expect(canOpen("/clock-in/history", makeUser(), company)).toBe(true);
+  });
+
   it("other paths belong to no page switch", () => {
-    for (const path of ["/home", "/users", "/company-settings", "/reporting/employee/12", "/account"]) {
+    for (const path of ["/home", "/users", "/company-settings", "/reporting/employee/12", "/account", "/employees", "/employees/new"]) {
       expect(pageForPath(path)).toBeNull();
     }
   });
@@ -121,7 +129,7 @@ describe("pages switched off one by one", () => {
     const admin = makeUser();
     expect(isPageOff("/kiosk", company)).toBe(true);
     expect(canOpen("/kiosk", admin, company)).toBe(false);
-    expect(canOpen("/clockinpage", admin, company)).toBe(true);
+    expect(canOpen("/clock-in", admin, company)).toBe(true);
     // The kiosk account has nowhere to go
     expect(canOpen("/kiosk", makeUser({ role: "employee" }), company)).toBe(false);
     expect(canOpen("/kiosk", makeUser({ role: "employee" }), makeCompany())).toBe(true);
