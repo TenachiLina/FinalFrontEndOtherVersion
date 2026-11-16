@@ -1246,6 +1246,22 @@ const ar: Record<string, string> = {
   "Notifications": "الإشعارات",
   "Notifications, {count} unread": "الإشعارات، {count} غير مقروءة",
   "Nothing to report right now.": "لا شيء للإبلاغ عنه الآن.",
+
+  // Profile
+  "My account": "حسابي",
+  "Your profile": "ملفكم الشخصي",
+  "Choose a PNG, JPEG or WebP image.": "اختاروا صورة بصيغة PNG أو JPEG أو WebP.",
+  "The photo must be at most 200 KB.": "يجب ألا يتجاوز حجم الصورة 200 كيلوبايت.",
+  "Profile saved.": "تم حفظ الملف الشخصي.",
+  "Couldn't save your profile": "تعذّر حفظ ملفكم الشخصي",
+  "Your photo": "صورتكم",
+  "Change photo": "تغيير الصورة",
+  "Add a photo": "إضافة صورة",
+  "Remove photo": "إزالة الصورة",
+  "PNG, JPEG or WebP, at most 200 KB.": "PNG أو JPEG أو WebP، 200 كيلوبايت على الأكثر.",
+  "Photo file": "ملف الصورة",
+  "Your email, role and company are set by an admin. Ask them if one of these needs to change.": "بريدكم الإلكتروني ودوركم وشركتكم يحددها المسؤول. اطلبوا منه إن وجب تغيير أحدها.",
+  "Save profile": "حفظ الملف الشخصي",
 };
 
 export default ar;

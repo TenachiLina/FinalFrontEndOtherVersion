@@ -35,9 +35,14 @@ function toggleDropdown(e: React.MouseEvent<HTMLButtonElement, MouseEvent>) {
         onClick={toggleDropdown} 
         className="flex items-center text-gray-700 dark:text-gray-400 dropdown-toggle"
       >
-        <span className="me-3 flex h-11 w-11 items-center justify-center rounded-full bg-brand-100 font-semibold text-brand-600 dark:bg-brand-500/20 dark:text-brand-400">
-          {initials}
-        </span>
+        {user?.photo ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={user.photo} alt="" data-testid="user-photo" className="me-3 h-11 w-11 rounded-full object-cover" />
+        ) : (
+          <span className="me-3 flex h-11 w-11 items-center justify-center rounded-full bg-brand-100 font-semibold text-brand-600 dark:bg-brand-500/20 dark:text-brand-300">
+            {initials}
+          </span>
+        )}
 
         <span className="block me-1 font-medium text-theme-sm">{user?.name}</span>
 
@@ -131,7 +136,7 @@ function toggleDropdown(e: React.MouseEvent<HTMLButtonElement, MouseEvent>) {
                   fill=""
                 />
               </svg>
-              {t("Change password")}
+              {t("My account")}
             </DropdownItem>
           </li>
         </ul>

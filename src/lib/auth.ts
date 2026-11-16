@@ -118,6 +118,8 @@ export interface AuthUser {
   name: string;
   role: Role;
   companyId: string | null;
+  /** Their picture, as a data URL; they set it on the My account page */
+  photo?: string | null;
 }
 
 const TOKEN_KEY = "auth_token";

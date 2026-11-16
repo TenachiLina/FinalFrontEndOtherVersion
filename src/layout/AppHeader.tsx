@@ -44,7 +44,7 @@ const AppHeader: React.FC = () => {
     "/users": "Users",
     "/company-settings": "Company settings",
     "/companies": "Companies",
-    "/account": "Change password",
+    "/account": "My account",
   };
   const currentPage = pageTitles[pathname] ? t(pageTitles[pathname]) : "Nexo InOuty";
 

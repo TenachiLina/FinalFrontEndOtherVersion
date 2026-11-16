@@ -1246,6 +1246,22 @@ const fr: Record<string, string> = {
   "Notifications": "Notifications",
   "Notifications, {count} unread": "Notifications, {count} non lues",
   "Nothing to report right now.": "Rien à signaler pour le moment.",
+
+  // Profile
+  "My account": "Mon compte",
+  "Your profile": "Votre profil",
+  "Choose a PNG, JPEG or WebP image.": "Choisissez une image PNG, JPEG ou WebP.",
+  "The photo must be at most 200 KB.": "La photo ne doit pas dépasser 200 Ko.",
+  "Profile saved.": "Profil enregistré.",
+  "Couldn't save your profile": "Impossible d'enregistrer votre profil",
+  "Your photo": "Votre photo",
+  "Change photo": "Changer la photo",
+  "Add a photo": "Ajouter une photo",
+  "Remove photo": "Supprimer la photo",
+  "PNG, JPEG or WebP, at most 200 KB.": "PNG, JPEG ou WebP, 200 Ko au maximum.",
+  "Photo file": "Fichier de la photo",
+  "Your email, role and company are set by an admin. Ask them if one of these needs to change.": "Votre e-mail, votre rôle et votre entreprise sont définis par un administrateur. Adressez-vous à lui si l'un d'eux doit changer.",
+  "Save profile": "Enregistrer le profil",
 };
 
 export default fr;
