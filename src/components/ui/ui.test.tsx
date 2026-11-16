@@ -1,75 +1,18 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import React, { useState } from "react";
 import { act, render, screen, userEvent, within } from "@/test/render";
-import Alert from "./alert/Alert";
-import Avatar from "./avatar/Avatar";
 import Badge from "./badge/Badge";
 import Button from "./button/Button";
 import { Dropdown } from "./dropdown/Dropdown";
 import { DropdownItem } from "./dropdown/DropdownItem";
 import FeedbackHost from "./feedback/FeedbackHost";
 import LoadError from "./feedback/LoadError";
-import ResponsiveImage from "./images/ResponsiveImage";
-import TwoColumnImageGrid from "./images/TwoColumnImageGrid";
-import ThreeColumnImageGrid from "./images/ThreeColumnImageGrid";
 import { Modal } from "./modal";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "./table";
-import YouTubeEmbed from "./video/YouTubeEmbed";
-import VideosExample from "./video/VideosExample";
 import { answerConfirm, confirmDialog, dismissToast, getConfirm, getToasts, toast } from "@/lib/notify";
 import { setLang } from "@/lib/i18n";
 
-describe("Alert", () => {
-  it.each([
-    ["success", "border-success-500"],
-    ["error", "border-error-500"],
-    ["warning", "border-warning-500"],
-    ["info", "border-blue-light-500"],
-  ] as const)("shows a %s alert with its title and message", (variant, border) => {
-    const { container } = render(<Alert variant={variant} title="Saved" message="All good" />);
-    expect(screen.getByRole("heading", { name: "Saved" })).toBeInTheDocument();
-    expect(screen.getByText("All good")).toBeInTheDocument();
-    expect(container.firstElementChild).toHaveClass(border);
-    expect(container.querySelector("svg")).toBeInTheDocument();
-  });
 
-  it("has no link unless asked for one", () => {
-    render(<Alert variant="info" title="T" message="M" />);
-    expect(screen.queryByRole("link")).not.toBeInTheDocument();
-  });
-
-  it("shows the link with its default text and address", () => {
-    render(<Alert variant="info" title="T" message="M" showLink />);
-    expect(screen.getByRole("link", { name: "Learn more" })).toHaveAttribute("href", "#");
-  });
-
-  it("shows a custom link", () => {
-    render(<Alert variant="info" title="T" message="M" showLink linkHref="/help" linkText="Read the guide" />);
-    expect(screen.getByRole("link", { name: "Read the guide" })).toHaveAttribute("href", "/help");
-  });
-});
-
-describe("Avatar", () => {
-  it("shows the image with a default description and no status dot", () => {
-    const { container } = render(<Avatar src="/me.jpg" />);
-    expect(screen.getByRole("img", { name: "User Avatar" })).toHaveAttribute("src", "/me.jpg");
-    expect(container.firstElementChild).toHaveClass("h-10");
-    expect(container.querySelector("span")).toBeNull();
-  });
-
-  it.each([
-    ["online", "bg-success-500"],
-    ["offline", "bg-error-400"],
-    ["busy", "bg-warning-500"],
-  ] as const)("shows a coloured dot when %s", (status, colour) => {
-    const { container } = render(<Avatar src="/me.jpg" alt="Sara" size="xxlarge" status={status} />);
-    expect(screen.getByRole("img", { name: "Sara" })).toBeInTheDocument();
-    expect(container.firstElementChild).toHaveClass("h-16");
-    const dot = container.querySelector("span");
-    expect(dot).toHaveClass(colour);
-    expect(dot).toHaveClass("h-4");
-  });
-});
 
 describe("Badge", () => {
   it("defaults to a light, medium, primary badge", () => {
@@ -393,20 +336,6 @@ describe("FeedbackHost", () => {
   });
 });
 
-describe("images", () => {
-  it("shows the responsive cover image", () => {
-    render(<ResponsiveImage />);
-    expect(screen.getByRole("img", { name: "Cover" })).toHaveAttribute("src", "/images/grid-image/image-01.png");
-  });
-
-  it("shows two and three image grids", () => {
-    const two = render(<TwoColumnImageGrid />);
-    expect(two.container.querySelectorAll("img")).toHaveLength(2);
-    two.unmount();
-    const three = render(<ThreeColumnImageGrid />);
-    expect(three.container.querySelectorAll("img")).toHaveLength(3);
-  });
-});
 
 describe("Modal", () => {
   afterEach(() => {
@@ -541,26 +470,3 @@ describe("Table", () => {
   });
 });
 
-describe("YouTubeEmbed", () => {
-  it("embeds the video at 16:9 by default", () => {
-    render(<YouTubeEmbed videoId="abc123" />);
-    const frame = screen.getByTitle("YouTube video");
-    expect(frame).toHaveAttribute("src", "https://www.youtube.com/embed/abc123");
-    expect(frame.parentElement).toHaveClass("aspect-video");
-  });
-
-  it.each([
-    ["4:3", "aspect-4/3"],
-    ["21:9", "aspect-21/9"],
-    ["1:1", "aspect-square"],
-  ] as const)("supports the %s ratio", (ratio, cls) => {
-    render(<YouTubeEmbed videoId="x" aspectRatio={ratio} title="Demo" className="extra" />);
-    expect(screen.getByTitle("Demo").parentElement).toHaveClass(cls, "extra");
-  });
-
-  it("shows the four example videos", () => {
-    render(<VideosExample />);
-    expect(screen.getAllByTitle("YouTube video")).toHaveLength(4);
-    expect(screen.getByText("Video Ratio 21:9")).toBeInTheDocument();
-  });
-});

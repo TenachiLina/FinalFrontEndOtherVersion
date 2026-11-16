@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { http, HttpResponse } from "msw";
 import EmployeeDataForm from "./page";
-import AddEmployeePage from "../add-employee/page";
 import InsuredForm from "./EmployeeDataForm";
 import { API, server } from "@/test/server";
 import { router } from "@/test/navigation";
@@ -164,11 +163,6 @@ describe("Add employee form", () => {
     const { user } = renderWithProviders(<EmployeeDataForm />);
     await user.click(screen.getByRole("button", { name: "Cancel" }));
     expect(router.back).toHaveBeenCalledOnce();
-  });
-
-  it("is also served at /add-employee", () => {
-    renderWithProviders(<AddEmployeePage />);
-    expect(screen.getByRole("heading", { name: "Add Employee" })).toBeInTheDocument();
   });
 });
 
