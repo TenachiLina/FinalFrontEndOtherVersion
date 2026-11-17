@@ -312,7 +312,9 @@ export default function UsersView() {
                       {u.isArchived ? t("Archived") : u.active ? t("Active") : t("Disabled")}
                     </span>
                   </td>
-                  <td className="space-x-3 whitespace-nowrap px-4 py-3 text-end">
+                  <td className="px-4 py-3">
+                    {/* Wraps instead of running off the table on narrow screens */}
+                    <div className="flex min-w-[180px] flex-wrap justify-end gap-x-3 gap-y-1 whitespace-nowrap">
                     {u.role === "staff" && u.active && (
                       <button type="button" className="font-medium text-brand-500 hover:underline" onClick={() => sendSignInDetails(u)}>
                         {t("Send sign-in details")}
@@ -374,6 +376,7 @@ export default function UsersView() {
                         </button>
                       </>
                     )}
+                    </div>
                   </td>
                 </tr>
               );

@@ -69,7 +69,8 @@ export default function ShareCredentialsDialog({
   return (
     <Modal isOpen onClose={onClose} className="max-w-[560px] p-6">
       <div className="space-y-4">
-        <div>
+        {/* Room for the dialog's close button */}
+        <div className="pe-10">
           <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">
             {t("Send sign-in details to {name}", { name: details.name })}
           </h3>
