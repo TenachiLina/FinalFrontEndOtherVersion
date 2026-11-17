@@ -1,12 +1,12 @@
 import type { NextConfig } from "next";
 
 // Sent with every page. HSTS tells browsers to use HTTPS only for a year
-// (ignored on http://localhost); the others block clickjacking, MIME
+// (ignored on http://localhost); the others block clickjacking (only the app itself may frame its pages: the Help guides do), MIME
 // sniffing and referrer leaks. The camera stays allowed for face clock-in.
 const securityHeaders = [
   { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
   { key: "X-Content-Type-Options", value: "nosniff" },
-  { key: "X-Frame-Options", value: "DENY" },
+  { key: "X-Frame-Options", value: "SAMEORIGIN" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=()" },
 ];

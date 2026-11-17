@@ -1,3 +1,5 @@
+// Demo mode (the guides on the Help page) is set up before anything reads storage or calls the API
+import "@/lib/demo";
 import { API_BASE_URL } from "@/lib/config";
 import { getLang } from "@/lib/i18n";
 import { t } from "@/lib/i18n";

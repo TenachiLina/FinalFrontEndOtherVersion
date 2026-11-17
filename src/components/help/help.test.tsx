@@ -6,9 +6,9 @@ import { act, fireEvent, render, renderWithProviders, screen, userEvent, within 
 import { makeCompany, makeUser } from "@/test/factories";
 import { setLang } from "@/lib/i18n";
 import HelpView from "./HelpView";
-import GuideVideo from "./GuideVideo";
+import GuideVideo, { durationOf, openPage, playback, timingsOf } from "./GuideVideo";
 import { FAQ, GUIDES, SUPPORT } from "./content";
-import { SCENES, SceneStage, type Scene } from "./scenes";
+import { DESIGN_H, DESIGN_W, SCENES, type Scene } from "./scenes";
 
 afterEach(() => {
   act(() => setLang("en"));
@@ -69,7 +69,7 @@ describe("help content", () => {
     expect(paths.filter((p) => !routes.has(p))).toEqual([]);
   });
 
-  it("has one animated scene per step for every guide, and no scenes without a guide", () => {
+  it("has one scene per step for every guide, and no scenes without a guide", () => {
     for (const g of GUIDES) {
       expect(SCENES[g.id], `scenes for ${g.id}`).toBeDefined();
       expect(SCENES[g.id], `scene count for ${g.id}`).toHaveLength(g.steps.en.length);
@@ -78,112 +78,94 @@ describe("help content", () => {
     expect(Object.keys(SCENES).filter((id) => !guideIds.has(id))).toEqual([]);
   });
 
-  it("draws every element the cursor goes to, at the moment it goes there", () => {
-    const missing: string[] = [];
+  // Each step plays on a real page; e2e/guides.spec.ts plays them all on the built app
+  it("plays every step on a page that exists, and points at something on it", () => {
+    const routes = appRoutes();
     for (const [guide, scenes] of Object.entries(SCENES)) {
       scenes.forEach((scene, n) => {
-        const flags = new Set(scene.flags ?? []);
-        for (const action of scene.actions) {
-          const { container, unmount } = render(
-            <SceneStage scene={scene} state={{ flags: new Set(flags), typed: {}, active: null, menu: scene.menu ?? null }} />
-          );
-          if (!container.querySelector(`[data-target="${CSS.escape(action.target)}"]`)) {
-            missing.push(`${guide} step ${n + 1}: ${action.target}`);
-          }
-          unmount();
-          action.sets?.split(" ").forEach((f) => flags.add(f));
+        expect(routes.has(scene.path), `${guide} step ${n + 1}: ${scene.path}`).toBe(true);
+        expect(scene.actions.length, `${guide} step ${n + 1} has actions`).toBeGreaterThan(0);
+        for (const a of scene.actions) {
+          expect(a.target.text || a.target.label || a.target.selector, `${guide} step ${n + 1}`).toBeTruthy();
         }
       });
     }
-    expect(missing).toEqual([]);
-  });
-});
-
-// ─── SceneStage ──────────────────────────────────────────────────────────
-
-describe("SceneStage", () => {
-  const stage = (scene: Scene, flags: string[] = [], extra: Partial<{ typed: Record<string, string>; active: string }> = {}) =>
-    render(<SceneStage scene={scene} state={{ flags: new Set(flags), typed: extra.typed ?? {}, active: extra.active ?? null, menu: scene.menu ?? null }} />);
-
-  it("shows the sign-in screen full size, without the app menu", () => {
-    stage({ screen: "signin", actions: [] });
-    expect(screen.getAllByText("Sign in").length).toBeGreaterThan(0);
-    expect(screen.queryByText("Nexo InOuty")).not.toBeInTheDocument();
   });
 
-  it("shows other screens inside the app menu, with the current item highlighted", () => {
-    const { container } = stage({ screen: "home", menu: "home", actions: [] }, ["open:planning"]);
-    expect(screen.getByText("Nexo InOuty")).toBeInTheDocument();
-    expect(container.querySelector('[data-target="menu:home"]')).toHaveClass("bg-brand-50");
-    expect(screen.getByText("New Planning")).toBeInTheDocument();
-  });
-
-  it("shows typed text and the focused field", () => {
-    const { container } = stage({ screen: "signin", actions: [] }, [], { typed: { email: "sara@nexo.dz" }, active: "email" });
-    expect(screen.getByText("sara@nexo.dz")).toBeInTheDocument();
-    expect(container.querySelector('[data-target="email"]')).toHaveClass("border-brand-400");
-  });
-
-  it("opens the language and user menus and switches to French", () => {
-    stage({ screen: "home", menu: "home", actions: [] }, ["langMenu", "userMenu", "fr"]);
-    expect(screen.getAllByText("Français").length).toBeGreaterThan(1);
-    expect(screen.getByText("Change password")).toBeInTheDocument();
-  });
-
-  it("draws every guide step in its final state (after all its clicks)", () => {
-    for (const scenes of Object.values(SCENES)) {
-      for (const scene of scenes) {
-        const flags = [...(scene.flags ?? []), ...scene.actions.flatMap((a) => a.sets?.split(" ") ?? [])];
-        const { container, unmount } = stage(scene, flags);
-        expect(container.querySelectorAll("[data-target]").length).toBeGreaterThan(0);
-        unmount();
-      }
-    }
-    // e.g. the payroll details and the open role list
-    stage({ screen: "payroll", menu: "reporting", actions: [] }, ["details"]);
-    expect(screen.getByText("Mon")).toBeInTheDocument();
-  });
-
-  it("is translated", () => {
-    setLang("fr");
-    stage({ screen: "home", menu: "home", actions: [] });
-    expect(screen.getByText("Accueil")).toBeInTheDocument();
+  it("only signs out for the sign-in page", () => {
+    const signedOut = Object.values(SCENES)
+      .flat()
+      .filter((s) => s.signedOut);
+    expect(signedOut.length).toBeGreaterThan(0);
+    expect(signedOut.every((s) => s.path === "/signin")).toBe(true);
   });
 });
 
 // ─── GuideVideo ──────────────────────────────────────────────────────────
 
 const twoSteps: Scene[] = [
-  { screen: "home", menu: "home", actions: [{ target: "home-cards" }] },
-  { screen: "signin", actions: [{ target: "email", type: "ab" }] },
+  { path: "/home", actions: [{ target: { text: "Today" }, click: false }] },
+  { path: "/form", actions: [{ target: { label: "Name" }, type: "ab" }] },
 ];
-const captions = ["Open the home page", "Type your email"];
+const captions = ["Open the home page", "Type your name"];
+
+/** Pages of a tiny app, opened by the player instead of real navigation. */
+const PAGES: Record<string, string> = {
+  "/home": `<main><h2>Today</h2><button>Refresh</button></main>`,
+  "/form": `<main><label for="n">Name</label><input id="n" /></main>`,
+};
+/** Replaces the frame's document, as a page load does (a new document, fully loaded). */
+const writePage = (frame: HTMLIFrameElement, html: string) => {
+  const doc = frame.contentDocument!;
+  doc.open();
+  doc.write(`<!doctype html><html><body>${html}</body></html>`);
+  doc.close();
+  // The frame is a window of its own: jsdom lays nothing out there either
+  const proto = (frame.contentWindow as unknown as typeof globalThis).Element.prototype;
+  proto.getClientRects = () => [{}] as unknown as DOMRectList;
+  proto.getBoundingClientRect = () => ({ left: 100, top: 200, width: 80, height: 20, right: 180, bottom: 220, x: 100, y: 200, toJSON: () => ({}) }) as DOMRect;
+};
+// jsdom never marks a frame's document complete: a page counts as loaded once it shows something other than Loading
+const jsdomReady = (doc: Document) => !!doc.body?.textContent?.trim() && !doc.body.textContent.includes("Loading");
+const opened: string[] = [];
+const fakeOpen = (frame: HTMLIFrameElement, path: string) => {
+  opened.push(path);
+  writePage(frame, PAGES[path] ?? "<p>Loading…</p>");
+};
+const player = (props: Partial<React.ComponentProps<typeof GuideVideo>> = {}) => (
+  <GuideVideo title="Demo guide" scenes={twoSteps} captions={captions} open={fakeOpen} isReady={jsdomReady} {...props} />
+);
 
 describe("GuideVideo", () => {
   const region = () => screen.getByRole("region", { name: "Demo guide" });
+  beforeEach(() => {
+    opened.length = 0;
+  });
 
-  it("starts on a poster for step 1", () => {
-    render(<GuideVideo title="Demo guide" scenes={twoSteps} captions={captions} />);
+  it("starts on a poster for step 1, saying it plays a sample company", () => {
+    render(player());
     expect(region()).toHaveAttribute("aria-roledescription", "Video guide");
-    expect(screen.getByRole("button", { name: "Play the guide (2 steps)" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Play the guide \(2 steps\)/ })).toBeInTheDocument();
+    expect(screen.getByText("Played on the real app with a sample company. Nothing is saved.")).toBeInTheDocument();
     expect(screen.getByText("Open the home page")).toBeInTheDocument();
     expect(screen.getByText("Step 1 of 2")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Previous step" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Play" })).toBeInTheDocument();
+    // Nothing is loaded before the guide is played
+    expect(screen.queryByTestId("guide-frame")).toBeNull();
   });
 
   it("plays and pauses", async () => {
-    render(<GuideVideo title="Demo guide" scenes={twoSteps} captions={captions} />);
-    await userEvent.click(screen.getByRole("button", { name: "Play the guide (2 steps)" }));
+    render(player());
+    await userEvent.click(screen.getByRole("button", { name: /Play the guide/ }));
     expect(screen.queryByRole("button", { name: /Play the guide/ })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Pause" }));
     expect(screen.getByRole("button", { name: "Play" })).toBeInTheDocument();
   });
 
   it("moves between steps with the buttons and the progress bar", async () => {
-    render(<GuideVideo title="Demo guide" scenes={twoSteps} captions={captions} />);
+    render(player());
     await userEvent.click(screen.getByRole("button", { name: "Next step" }));
-    expect(screen.getByText("Type your email")).toBeInTheDocument();
+    expect(screen.getByText("Type your name")).toBeInTheDocument();
     expect(screen.getByText("Step 2 of 2")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Next step" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Step 2" })).toHaveAttribute("aria-current", "step");
@@ -191,14 +173,13 @@ describe("GuideVideo", () => {
     expect(screen.getByText("Step 1 of 2")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Step 2" }));
     expect(screen.getByText("Step 2 of 2")).toBeInTheDocument();
-    // a finished step's bar is full, the next ones empty
     const bars = within(screen.getByRole("group", { name: "Steps" })).getAllByRole("button");
     expect((bars[0].querySelector("span span") as HTMLElement).style.width).toBe("100%");
     expect((bars[1].querySelector("span span") as HTMLElement).style.width).toBe("0%");
   });
 
   it("replays from the first step", async () => {
-    render(<GuideVideo title="Demo guide" scenes={twoSteps} captions={captions} />);
+    render(player());
     await userEvent.click(screen.getByRole("button", { name: "Next step" }));
     await userEvent.click(screen.getByRole("button", { name: "Replay" }));
     expect(screen.getByText("Step 1 of 2")).toBeInTheDocument();
@@ -206,7 +187,7 @@ describe("GuideVideo", () => {
   });
 
   it("is driven by the keyboard", async () => {
-    render(<GuideVideo title="Demo guide" scenes={twoSteps} captions={captions} />);
+    render(player());
     region().focus();
     await userEvent.keyboard("{ArrowRight}");
     expect(screen.getByText("Step 2 of 2")).toBeInTheDocument();
@@ -224,7 +205,7 @@ describe("GuideVideo", () => {
 
   it("swaps the arrow keys right-to-left", async () => {
     document.dir = "rtl";
-    render(<GuideVideo title="Demo guide" scenes={twoSteps} captions={captions} />);
+    render(player());
     region().focus();
     await userEvent.keyboard("{ArrowLeft}");
     expect(screen.getByText("Step 2 of 2")).toBeInTheDocument();
@@ -233,75 +214,162 @@ describe("GuideVideo", () => {
   });
 
   it("only shows as many steps as there are captions", () => {
-    render(<GuideVideo title="Demo guide" scenes={twoSteps} captions={["Only one"]} />);
+    render(player({ captions: ["Only one"] }));
     expect(screen.getByText("Step 1 of 1")).toBeInTheDocument();
   });
 
-  describe("playing over time", () => {
+  it("opens pages in place by default", () => {
+    const replace = vi.fn();
+    const frame = { contentWindow: { location: { replace } } } as unknown as HTMLIFrameElement;
+    openPage(frame, "/home");
+    expect(replace).toHaveBeenCalledWith("/home");
+    const broken = { contentWindow: { location: { replace: () => { throw new Error("cross-origin"); } } }, src: "" } as unknown as HTMLIFrameElement;
+    openPage(broken, "/form");
+    expect(broken.src).toBe("/form");
+  });
 
+  describe("playing over time", () => {
     beforeEach(() => {
       vi.useFakeTimers({ toFake: ["setInterval", "clearInterval", "setTimeout", "clearTimeout", "performance", "Date"] });
-      // The stage is only drawn when it has a width
-      Object.defineProperty(HTMLElement.prototype, "clientWidth", { configurable: true, get: () => 400 });
+      // The stage is only drawn when it has a width; jsdom lays nothing out
+      Object.defineProperty(HTMLElement.prototype, "clientWidth", { configurable: true, get: () => 640 });
+      vi.spyOn(Element.prototype, "getClientRects").mockReturnValue([{}] as unknown as DOMRectList);
+      vi.spyOn(Element.prototype, "getBoundingClientRect").mockReturnValue({ left: 100, top: 200, width: 80, height: 20, right: 180, bottom: 220, x: 100, y: 200, toJSON: () => ({}) } as DOMRect);
     });
     afterEach(() => {
       vi.useRealTimers();
-      // back to jsdom's own getter on Element.prototype
+      vi.restoreAllMocks();
       delete (HTMLElement.prototype as { clientWidth?: number }).clientWidth;
     });
     const advance = (ms: number) => {
       for (let t = 0; t < ms; t += 40) act(() => vi.advanceTimersByTime(40));
     };
-    const cursor = (container: HTMLElement) => container.querySelector(".z-30") as HTMLElement | null;
+    const frameDoc = () => (screen.getByTestId("guide-frame") as HTMLIFrameElement).contentDocument!;
 
-    it("draws the scaled scene, moves the cursor, clicks and types", () => {
-      const { container } = render(<GuideVideo title="Demo guide" scenes={twoSteps} captions={captions} autoPlay />);
-      expect(screen.queryByRole("button", { name: /Play the guide/ })).not.toBeInTheDocument();
-      const frame = region().firstElementChild as HTMLElement;
-      expect(frame.style.height).toBe("225px"); // 450 * 400/800
-      expect(screen.getByText("Nexo InOuty")).toBeInTheDocument();
-      expect(cursor(container)).toBeNull();
-      advance(600); // cursor appears and glides
-      expect(cursor(container)).toBeInTheDocument();
-      expect(cursor(container)!.style.transition).toContain("transform");
-      advance(900); // click
-      expect(container.querySelector(".animate-ping")).toBeInTheDocument();
-      expect(container.querySelector('[data-target="home-cards"]')).toHaveClass("ring-2");
-      advance(2300); // next step
+    it("opens the step's real page in demo mode, at desktop size, scaled to fit", () => {
+      render(player({ autoPlay: true }));
+      const frame = screen.getByTestId("guide-frame") as HTMLIFrameElement;
+      expect(frame).toHaveAttribute("name", "nexo-demo");
+      expect(frame.style.width).toBe(`${DESIGN_W}px`);
+      const holder = region().firstElementChild as HTMLElement;
+      expect(holder.style.height).toBe(`${DESIGN_H * (640 / DESIGN_W)}px`);
+      expect(opened).toEqual(["/home"]);
+    });
+
+    it("waits for the page before the clock runs", () => {
+      const slow = (frame: HTMLIFrameElement) => writePage(frame, "<p>Loading…</p>");
+      render(player({ autoPlay: true, open: slow }));
+      expect(screen.getByRole("status")).toHaveTextContent("Loading…");
+      advance(3000);
+      expect(screen.getByText("Step 1 of 2")).toBeInTheDocument();
+      const bar = within(screen.getByRole("group", { name: "Steps" })).getAllByRole("button")[0];
+      expect((bar.querySelector("span span") as HTMLElement).style.width).toBe("0%");
+      // The page arrives: the guide goes on
+      act(() => writePage(screen.getByTestId("guide-frame") as HTMLIFrameElement, PAGES["/home"]));
+      advance(1500);
+      expect(screen.queryByRole("status")).toBeNull();
+    });
+
+    it("shows a page that never finishes loading after a while, rather than waiting for ever", () => {
+      render(player({ autoPlay: true, open: () => undefined }));
+      advance(13_000);
+      expect(screen.queryByRole("status")).toBeNull();
+    });
+
+    it("points at the target, highlights it, then types into the next step's field", () => {
+      render(player({ autoPlay: true }));
+      advance(600); // page settled
+      expect(screen.queryByTestId("guide-pointer")).toBeNull();
+      advance(1200); // the pointer goes to "Today"
+      const pointer = screen.getByTestId("guide-pointer");
+      expect(pointer.style.transform).toBe("translate(140px, 210px)");
+      expect(pointer.style.transition).toContain("transform");
+      expect(screen.getByTestId("guide-highlight").style.width).toBe("92px");
+      advance(4000); // next step
       expect(screen.getByText("Step 2 of 2")).toBeInTheDocument();
-      advance(2000); // typing done
-      expect(screen.getByText("ab")).toBeInTheDocument();
+      expect(opened).toEqual(["/home", "/form"]);
+      advance(3500); // typed
+      expect((frameDoc().getElementById("n") as HTMLInputElement).value).toBe("ab");
+    });
+
+    it("clicks a target when the action says so", () => {
+      const onClick = vi.fn();
+      const clicking: Scene[] = [{ path: "/home", actions: [{ target: { text: "Refresh", role: "button" } }] }];
+      render(player({ autoPlay: true, scenes: clicking, captions: ["Refresh"] }));
+      advance(600);
+      frameDoc().querySelector("button")!.addEventListener("click", onClick);
+      advance(2500);
+      expect(onClick).toHaveBeenCalledTimes(1);
+      advance(1000);
+      expect(onClick).toHaveBeenCalledTimes(1); // once, not at every tick
+    });
+
+    it("waits for a target that isn't on the page yet", () => {
+      const later: Scene[] = [{ path: "/home", actions: [{ target: { text: "Later" }, click: false }] }];
+      render(player({ autoPlay: true, scenes: later, captions: ["Later"] }));
+      advance(2500);
+      expect(screen.queryByTestId("guide-pointer")).toBeNull();
+      act(() => {
+        frameDoc().body.insertAdjacentHTML("beforeend", "<p>Later</p>");
+      });
+      advance(200);
+      expect(screen.getByTestId("guide-pointer")).toBeInTheDocument();
+    });
+
+    it("plays the sign-in page signed out", () => {
+      render(player({ autoPlay: true, scenes: [{ path: "/signin", signedOut: true, actions: [{ target: { text: "x" } }] }], captions: ["Sign in"] }));
+      expect(screen.getByTestId("guide-frame")).toHaveAttribute("name", "nexo-demo-signed-out");
     });
 
     it("ends on a Watch again screen and restarts from there", () => {
-      render(<GuideVideo title="Demo guide" scenes={twoSteps} captions={captions} autoPlay />);
-      advance(8000);
+      render(player({ autoPlay: true }));
+      advance(14_000);
       const again = screen.getByRole("button", { name: "Watch again" });
       expect(screen.getByText("Step 2 of 2")).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Play" })).toBeInTheDocument();
       fireEvent.click(again);
       expect(screen.getByText("Step 1 of 2")).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Pause" })).toBeInTheDocument();
     });
 
     it("doesn't move while paused", () => {
-      render(<GuideVideo title="Demo guide" scenes={twoSteps} captions={captions} autoPlay />);
+      render(player({ autoPlay: true }));
       fireEvent.click(screen.getByRole("button", { name: "Pause" }));
-      advance(5000);
+      advance(8000);
       expect(screen.getByText("Step 1 of 2")).toBeInTheDocument();
     });
 
-    it("moves the cursor without animation for people who prefer reduced motion", () => {
+    it("moves the pointer without animation for people who prefer reduced motion", () => {
       const realMatchMedia = window.matchMedia;
       window.matchMedia = ((query: string) => ({ ...realMatchMedia(query), matches: true })) as typeof window.matchMedia;
       try {
-        const { container } = render(<GuideVideo title="Demo guide" scenes={twoSteps} captions={captions} autoPlay />);
-        advance(600);
-        expect(cursor(container)!.style.transition).toBe("none");
+        render(player({ autoPlay: true }));
+        advance(1800);
+        expect(screen.getByTestId("guide-pointer").style.transition).toBe("none");
       } finally {
         window.matchMedia = realMatchMedia;
       }
     });
+  });
+});
+
+describe("timeline", () => {
+  it("gives each action time to move, click and type, and the caption time to be read", () => {
+    const scene: Scene = { path: "/x", actions: [{ target: { text: "a" } }, { target: { label: "b" }, type: "abc" }] };
+    const [first, second] = timingsOf(scene);
+    expect(first.clickAt - first.moveAt).toBe(900);
+    expect(second.moveAt).toBe(first.end);
+    expect(second.end - second.clickAt).toBe(350 + 3 * 70 + 500);
+    expect(durationOf(scene, "short")).toBe(second.end + 1800);
+    expect(durationOf(scene, "x".repeat(100))).toBe(second.end + 3200);
+    expect(durationOf({ path: "/x", actions: [] }, "")).toBe(700 + 1800);
+  });
+
+  it("stops at the end, and toggling from the end starts again", () => {
+    const base = { step: 1, elapsed: 0, playing: true, started: true, ended: false, run: 3 };
+    const done = playback(base, { type: "tick", dt: 5000, durations: [100, 1000] });
+    expect(done).toMatchObject({ playing: false, ended: true, elapsed: 1000 });
+    expect(playback(done, { type: "toggle" })).toMatchObject({ step: 0, playing: true, ended: false, run: 4 });
+    expect(playback({ ...base, playing: false }, { type: "tick", dt: 99, durations: [1, 1] })).toEqual({ ...base, playing: false });
   });
 });
 

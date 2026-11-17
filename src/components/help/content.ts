@@ -49,7 +49,7 @@ export const GUIDES: Guide[] = [
         "Use the menu on the side to open every page. On a phone, tap the menu button at the top.",
         "Pick your language (English, Français, العربية) with the globe button at the top. Your choice is remembered on this device.",
         "Switch between light and dark mode with the moon/sun button.",
-        "Change your password from your name in the top corner → Change password.",
+        "Change your name, photo and password from your name in the top corner → My account.",
       ],
       fr: [
         "Connectez-vous avec l'e-mail et le mot de passe donnés par votre administrateur. Utilisez le lien de connexion de votre entreprise si vous en avez un.",
@@ -57,7 +57,7 @@ export const GUIDES: Guide[] = [
         "Le menu latéral ouvre toutes les pages. Sur téléphone, touchez le bouton menu en haut.",
         "Choisissez votre langue (English, Français, العربية) avec le bouton globe en haut. Votre choix est mémorisé sur cet appareil.",
         "Passez du mode clair au mode sombre avec le bouton lune/soleil.",
-        "Changez votre mot de passe depuis votre nom en haut → Changer le mot de passe.",
+        "Changez votre nom, votre photo et votre mot de passe depuis votre nom en haut → Mon compte.",
       ],
       ar: [
         "سجّل الدخول بالبريد الإلكتروني وكلمة المرور اللذين أعطاك إياهما المدير. استخدم رابط الدخول الخاص بشركتك إن وُجد.",
@@ -65,7 +65,7 @@ export const GUIDES: Guide[] = [
         "تفتح القائمة الجانبية كل الصفحات. على الهاتف، اضغط زر القائمة في الأعلى.",
         "اختر لغتك (English أو Français أو العربية) من زر الكرة الأرضية في الأعلى. يُحفظ اختيارك على هذا الجهاز.",
         "بدّل بين الوضع الفاتح والداكن بزر القمر/الشمس.",
-        "غيّر كلمة المرور من اسمك في الأعلى ← تغيير كلمة المرور.",
+        "غيّر اسمك وصورتك وكلمة المرور من اسمك في الأعلى ← حسابي.",
       ],
     },
   },
