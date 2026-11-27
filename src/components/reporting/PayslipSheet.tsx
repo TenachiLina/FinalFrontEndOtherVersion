@@ -1,5 +1,6 @@
 "use client";
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import DateInput from "@/components/form/DateInput";
 import {
   COMPANY_PAYSLIP_FIELDS,
   formatPayslipDate,
@@ -50,6 +51,63 @@ interface ValueProps {
   /** Without onSave the value is plain text: exports, printing, or no right to change it. */
   onSave?: SaveField;
 }
+
+interface DateEditorProps {
+  label: string;
+  value: string;
+  disabled: boolean;
+  onDraft: (value: string) => void;
+  onCommit: (value: string) => void;
+  onCancel: () => void;
+}
+
+/**
+ * A date being edited on the sheet, with the app's calendar open. It saves when a date is picked,
+ * on Enter, or on a click or Tab outside it. Blur alone can't be used: clicking the calendar blurs the input.
+ */
+const PayslipDateEditor: React.FC<DateEditorProps> = ({ label, value, disabled, onDraft, onCommit, onCancel }) => {
+  const ref = useRef<HTMLDivElement>(null);
+  const latest = useRef({ value, onCommit });
+  latest.current = { value, onCommit };
+
+  useEffect(() => {
+    const handleOutside = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) latest.current.onCommit(latest.current.value);
+    };
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, []);
+
+  return (
+    <div
+      ref={ref}
+      className="text-left text-black"
+      onBlur={(e) => {
+        // Focus moved elsewhere by keyboard (Tab)
+        if (e.relatedTarget && !e.currentTarget.contains(e.relatedTarget as Node)) onCommit(value);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") onCancel();
+        if (e.key === "Enter") {
+          e.preventDefault();
+          onCommit(value);
+        }
+      }}
+    >
+      <DateInput
+        value={value}
+        onChange={onDraft}
+        onPick={onCommit}
+        disabled={disabled}
+        ariaLabel={label}
+        autoFocus
+        defaultOpen
+        clearable
+        className="w-full min-w-0"
+      />
+    </div>
+  );
+};
 
 /** A value on the sheet. When it can be changed, a click turns it into a field. */
 const PayslipValue: React.FC<ValueProps> = ({ field, label, value, shown = value, type = "text", onSave }) => {
@@ -106,6 +164,18 @@ const PayslipValue: React.FC<ValueProps> = ({ field, label, value, shown = value
     },
   };
 
+  if (type === "date") {
+    return (
+      <PayslipDateEditor
+        label={t(label)}
+        value={draft}
+        disabled={saving}
+        onDraft={setDraft}
+        onCommit={commit}
+        onCancel={() => setDraft(null)}
+      />
+    );
+  }
   if (type === "textarea") return <textarea rows={2} {...inputProps} />;
   if (type === "select") {
     return (

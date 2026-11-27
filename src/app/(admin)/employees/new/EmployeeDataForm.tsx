@@ -5,6 +5,7 @@ import { createEmployee } from "./employee.api";
 import { friendlyError } from "@/lib/errors";
 import { toast } from "@/lib/notify";
 import { t } from "@/lib/i18n";
+import DateInput from "@/components/form/DateInput";
 
 type Field =
   | "empNumber"
@@ -189,7 +190,7 @@ export default function EmployeeDataForm({ insured = false }: { insured?: boolea
         <form
           onSubmit={handleSave}
           noValidate
-          className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-white/[0.06] overflow-hidden"
+          className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-white/[0.06]"
         >
           {/* Header */}
           <div className="px-8 pt-7 pb-4 border-b border-gray-100 dark:border-white/[0.06]">
@@ -342,11 +343,13 @@ export default function EmployeeDataForm({ insured = false }: { insured?: boolea
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <div>
                 <label className={lbl} htmlFor="birthDate">{t("Date of birth (optional):")}</label>
-                <input id="birthDate" name="birthDate" type="date" className={inp} value={form.birthDate} onChange={set("birthDate")} />
+                <DateInput id="birthDate" className="w-full min-w-0" clearable value={form.birthDate}
+                  onChange={(v) => setForm((prev) => ({ ...prev, birthDate: v }))} />
               </div>
               <div>
                 <label className={lbl} htmlFor="hireDate">{t("Hire date (optional):")}</label>
-                <input id="hireDate" name="hireDate" type="date" className={inp} value={form.hireDate} onChange={set("hireDate")} />
+                <DateInput id="hireDate" className="w-full min-w-0" clearable value={form.hireDate}
+                  onChange={(v) => setForm((prev) => ({ ...prev, hireDate: v }))} />
               </div>
             </div>
 
@@ -387,7 +390,7 @@ export default function EmployeeDataForm({ insured = false }: { insured?: boolea
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-end gap-3 px-8 py-5 border-t border-gray-100 dark:border-white/[0.06] bg-gray-50/50 dark:bg-white/[0.01]">
+          <div className="flex items-center justify-end gap-3 px-8 py-5 rounded-b-2xl border-t border-gray-100 dark:border-white/[0.06] bg-gray-50/50 dark:bg-white/[0.01]">
             <button
               type="button"
               onClick={() => router.back()}
