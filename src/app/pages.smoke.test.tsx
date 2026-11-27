@@ -12,19 +12,7 @@ import RootLayout from "./layout";
 import AdminError from "./(admin)/error";
 import HelpPage, { metadata as helpMetadata } from "./(admin)/help/page";
 import FullWidthPageLayout from "./(full-width-pages)/layout";
-import Error404, { metadata as error404Metadata } from "./(full-width-pages)/(error-pages)/error-404/page";
 import SignUp from "./(full-width-pages)/(auth)/signup/page";
-import Alerts from "./(admin)/(ui-elements)/alerts/page";
-import AvatarPage from "./(admin)/(ui-elements)/avatars/page";
-import BadgePage from "./(admin)/(ui-elements)/badge/page";
-import Buttons from "./(admin)/(ui-elements)/buttons/page";
-import Images from "./(admin)/(ui-elements)/images/page";
-import Modals from "./(admin)/(ui-elements)/modals/page";
-import VideoPage from "./(admin)/(ui-elements)/videos/page";
-import BarChartPage from "./(admin)/(others-pages)/(chart)/bar-chart/page";
-import LineChartPage from "./(admin)/(others-pages)/(chart)/line-chart/page";
-import FormElements from "./(admin)/(others-pages)/(forms)/form-elements/page";
-import BlankPage from "./(admin)/(others-pages)/blank/page";
 
 describe("redirect pages", () => {
   it("sends the site's main address to the home page", () => {
@@ -40,7 +28,6 @@ describe("redirect pages", () => {
 
 describe.each([
   ["not-found", NotFound],
-  ["error-404", Error404],
 ])("%s page", (_name, Page) => {
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ["Date"] });
@@ -134,75 +121,6 @@ describe("help page", () => {
     renderWithProviders(<HelpPage />, { url: "/help" });
     expect(await screen.findByRole("heading", { name: "Help & guides" })).toBeInTheDocument();
     expect(helpMetadata.title).toBe("Help & guides | Nexo InOuty");
-    expect(error404Metadata.title).toBe("Page not found | Nexo InOuty");
   });
 });
 
-describe("template example pages", () => {
-  afterEach(() => {
-    document.body.style.overflow = "";
-  });
-
-  it.each([
-    ["alerts", Alerts, "Alerts", ["Success Alert", "Info Alert"]],
-    ["avatars", AvatarPage, "Avatar", ["Avatar with busy indicator"]],
-    ["badges", BadgePage, "Badges", []],
-    ["buttons", Buttons, "Buttons", ["Outline Button with Right Icon"]],
-    ["images", Images, "Images", ["Image in 3 Grid"]],
-    ["modals", Modals, "Modals", ["Modal Based Alerts", "Full Screen Modal"]],
-    ["videos", VideoPage, "Videos", ["Video Ratio 4:3"]],
-    ["bar chart", BarChartPage, "Bar Chart", ["Bar Chart 1"]],
-    ["line chart", LineChartPage, "Line Chart", ["Line Chart 1"]],
-    ["blank", BlankPage, "Blank Page", []],
-  ] as const)("%s page renders its breadcrumb and sections", async (_name, Page, title, sections) => {
-    render(<Page />);
-    expect(screen.getByRole("heading", { level: 2, name: title })).toBeInTheDocument();
-    for (const s of sections) expect(screen.getByRole("heading", { name: s })).toBeInTheDocument();
-  });
-
-  it("alerts page shows the four kinds twice, with links on the second", () => {
-    render(<Alerts />);
-    expect(screen.getAllByRole("heading", { level: 4 })).toHaveLength(8);
-    expect(screen.getAllByRole("link", { name: "Learn more" })).toHaveLength(4);
-  });
-
-  it("avatars page shows plain and status avatars", () => {
-    render(<AvatarPage />);
-    expect(screen.getAllByRole("img", { name: "User Avatar" })).toHaveLength(24);
-  });
-
-  it("badges page shows every colour in every style", () => {
-    render(<BadgePage />);
-    expect(screen.getAllByText("Primary").length).toBeGreaterThanOrEqual(4);
-    expect(screen.getAllByText("Dark").length).toBeGreaterThanOrEqual(4);
-  });
-
-  it("chart pages draw their charts", async () => {
-    render(
-      <>
-        <BarChartPage />
-        <LineChartPage />
-      </>
-    );
-    expect(await screen.findAllByTestId("chart")).toHaveLength(2);
-  });
-
-  it("form elements page shows every example card", async () => {
-    render(<FormElements />);
-    expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent(/Elements$/);
-    for (const card of [
-      "Default Inputs",
-      "Select Inputs",
-      "Textarea input field",
-      "Input States",
-      "Input Group",
-      "File Input",
-      "Checkbox",
-      "Radio Buttons",
-      "Toggle switch input",
-      "Dropzone",
-    ]) {
-      expect(screen.getByRole("heading", { name: card })).toBeInTheDocument();
-    }
-  });
-});

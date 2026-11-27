@@ -50,13 +50,14 @@ describe("path helpers", () => {
     ["/reporting/bonuses/give", "bonuses"],
     ["/reporting/overview", "reporting"],
     ["/reporting", "reporting"],
-    ["/calendar/DoPlanning", "planning"],
-    ["/clockinfacerecognitionpage", "faceRecognition"],
-    ["/clockinpagehistory", "clockin"],
-    ["/clockinpage", "clockin"],
+    ["/planning/new", "planning"],
+    ["/clock-in/face", "faceRecognition"],
+    ["/clock-in/history", "clockin"],
+    ["/clock-in", "clockin"],
     ["/kiosk", "clockin"],
     ["/home", null],
-    ["/clockinpageX", null],
+    ["/clock-inX", null],
+    ["/planningX", null],
   ])("featureForPath(%s) = %s", (path, feature) => {
     expect(auth.featureForPath(path)).toBe(feature);
   });
@@ -80,6 +81,12 @@ describe("canOpen", () => {
     expect(auth.canOpen("/home", as("employee"), company)).toBe(false);
     expect(auth.canOpen("/kiosk", as("employee"), makeCompany({ features: ["planning"] }))).toBe(false);
     expect(auth.canOpen("/kiosk", as("employee"), null)).toBe(false);
+  });
+
+  it("mobile app employee accounts open no page", () => {
+    for (const path of ["/home", "/kiosk", "/account", "/planning/view"]) {
+      expect(auth.canOpen(path, as("staff"), company)).toBe(false);
+    }
   });
 
   it("without a company, only the company-free pages open", () => {
@@ -106,7 +113,7 @@ describe("canOpen", () => {
   it.each(ALL_FEATURES.filter((f) => f !== "faceRecognition").map((f) => [f]))(
     "a page needing %s is closed when the company doesn't have it",
     (feature) => {
-      const path = { planning: "/calendar", clockin: "/clockinpage", reporting: "/reporting", advances: "/reporting/advances", bonuses: "/reporting/bonuses" }[
+      const path = { planning: "/planning", clockin: "/clock-in", reporting: "/reporting", advances: "/reporting/advances", bonuses: "/reporting/bonuses" }[
         feature as Exclude<Feature, "faceRecognition">
       ];
       const without = makeCompany({ features: ALL_FEATURES.filter((f) => f !== feature) });
@@ -116,7 +123,7 @@ describe("canOpen", () => {
   );
 
   it("face recognition also needs clock-in", () => {
-    const path = "/clockinfacerecognitionpage";
+    const path = "/clock-in/face";
     expect(auth.canOpen(path, as("admin"), company)).toBe(true);
     expect(auth.canOpen(path, as("admin"), makeCompany({ features: ["faceRecognition"] }))).toBe(false);
     expect(auth.canOpen(path, as("admin"), makeCompany({ features: ["clockin"] }))).toBe(false);

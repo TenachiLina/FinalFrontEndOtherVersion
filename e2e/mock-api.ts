@@ -180,6 +180,107 @@ export async function mockApi(page: Page, init: Partial<MockState> = {}): Promis
       );
     }
     if (path === "/advances" || path === "/bonuses") return json(route, []);
+    // Pay is calculated by the server: these answer what it would for the mock's records
+    // (hourly rate = salary / 8 / 26; no advances or bonuses in the mock)
+    if (path === "/payroll/period") {
+      const start = url.searchParams.get("start") ?? "";
+      const end = url.searchParams.get("end") ?? "";
+      const inside = (d: unknown) => String(d).slice(0, 10) >= start && String(d).slice(0, 10) <= end;
+      const round = (n: number) => Number(n.toFixed(2));
+      const rows = employees
+        .map((e) => {
+          const mine = state.worktime.filter((r) => r.emp_id === e.empNumber && inside(r.work_date));
+          const hours = mine.reduce((sum, r) => sum + Number(String(r.work_hours ?? "0").split(":")[0]), 0);
+          const penalties = mine.reduce((sum, r) => sum + Number(r.penalty ?? 0), 0);
+          const consommation = mine.reduce((sum, r) => sum + Number(r.consommation ?? 0), 0);
+          const hourlyRate = Number(e.baseSalary ?? 0) / 8 / 26;
+          const gross = hours * hourlyRate;
+          const scheduled = Object.entries(state.planning).some(
+            ([day, entries]) => inside(day) && entries.some((p) => p.empId === e._id)
+          );
+          return {
+            employeeId: e._id,
+            empId: e.empNumber,
+            firstName: e.firstName,
+            lastName: e.lastName,
+            baseSalary: Number(e.baseSalary ?? 0),
+            scheduled,
+            hourlyRate: round(hourlyRate),
+            hours,
+            gross: round(gross),
+            penalties,
+            consommation,
+            absences: 0,
+            lateMinutes: 0,
+            lateDays: 0,
+            overtimeMinutes: 0,
+            records: mine.length,
+            advances: 0,
+            advancesCount: 0,
+            advanceId: null,
+            bonuses: 0,
+            bonusesCount: 0,
+            net: round(gross - penalties - consommation),
+            advanceOffer: round((gross - consommation) * 0.5),
+          };
+        })
+        .filter((r) => r.scheduled || r.records > 0);
+      const sum = (pick: (r: (typeof rows)[number]) => number) => round(rows.reduce((total, r) => total + pick(r), 0));
+      return json(route, {
+        start,
+        end,
+        rows,
+        totals: {
+          hours: sum((r) => r.hours),
+          gross: sum((r) => r.gross),
+          penalties: sum((r) => r.penalties),
+          consommation: sum((r) => r.consommation),
+          net: sum((r) => r.net),
+          records: sum((r) => r.records),
+          activeEmployees: rows.filter((r) => r.hours > 0).length,
+          employees: rows.length,
+        },
+      });
+    }
+    // A quiet day on the Home dashboard in the mock
+    if (path === "/dashboard") {
+      return json(route, {
+        day: new Date().toISOString().slice(0, 10),
+        time: "10:00",
+        attendance: {
+          employees: employees.length,
+          counts: { planned: 0, present: 0, left: 0, late: 0, absent: 0, missing: 0, expected: 0 },
+          people: [],
+        },
+        pending: { corrections: 0 },
+        month: null,
+        subscription: { status: "none", endingSoon: false, readOnly: false, daysLeft: null },
+      });
+    }
+    // Nothing to report in the mock
+    if (path === "/notifications") return json(route, { items: [], unread: 0 });
+    // Months are open, with nothing to close, in the mock
+    if (path.startsWith("/payroll/closings/")) {
+      return json(route, { month: path.split("/").pop(), closed: false, auto: false, closesAt: null, canClose: false });
+    }
+    if (path === "/payroll/payslips") {
+      return json(route, {
+        month: url.searchParams.get("month"),
+        payslips: employees.map((e) => {
+          const baseSalary = Number(e.baseSalary ?? 0);
+          const socialSecurity = Number((baseSalary * 0.09).toFixed(2));
+          return {
+            employeeId: e._id,
+            empId: e.empNumber,
+            days: 30,
+            baseSalary,
+            postSalary: baseSalary,
+            socialSecurity,
+            net: Number((baseSalary - socialSecurity).toFixed(2)),
+          };
+        }),
+      });
+    }
 
     state.unhandled.push(`${method} ${path}`);
     return json(route, method === "GET" ? [] : {});

@@ -4,6 +4,7 @@ import CompanySettingsForm from "./CompanySettingsForm";
 import CompanySettingsPage from "@/app/(admin)/company-settings/page";
 import { API, server } from "@/test/server";
 import { renderWithProviders, screen, waitFor } from "@/test/render";
+import { makeCompany } from "@/test/factories";
 import { setLang } from "@/lib/i18n";
 import { payrollConfig } from "@/lib/payrollConfig";
 
@@ -95,5 +96,65 @@ describe("CompanySettingsForm", () => {
     renderWithProviders(<CompanySettingsPage />);
     expect(await screen.findByLabelText("Company name")).toBeInTheDocument();
     expect(screen.getAllByText("Company settings").length).toBeGreaterThan(0);
+  });
+});
+
+describe("CompanySettingsForm: month closing", () => {
+  const saveWith = async (type: (field: HTMLElement, user: ReturnType<typeof renderWithProviders>["user"]) => Promise<void>, company?: Parameters<typeof renderWithProviders>[1]) => {
+    let body: { settings?: Record<string, unknown> } = {};
+    server.use(
+      http.patch(`${API}/company`, async ({ request }) => {
+        body = (await request.json()) as typeof body;
+        return HttpResponse.json({});
+      })
+    );
+    // The form refills itself when the signed-in company is re-read: wait for that first
+    let meCalls = 0;
+    const countMe = ({ request }: { request: Request }) => {
+      if (request.url.endsWith("/auth/me")) meCalls++;
+    };
+    server.events.on("request:start", countMe);
+    const { user } = renderWithProviders(<CompanySettingsForm />, company);
+    await waitFor(() => expect(meCalls).toBe(1));
+    server.events.removeListener("request:start", countMe);
+    await new Promise((r) => setTimeout(r, 30));
+    await type(await screen.findByLabelText("Close months automatically after (days)"), user);
+    await user.click(screen.getByRole("button", { name: "Save settings" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("Settings saved.");
+    return body.settings ?? {};
+  };
+
+  it("is empty (never) for a company that closes months by hand", async () => {
+    renderWithProviders(<CompanySettingsForm />);
+    const field = await screen.findByLabelText("Close months automatically after (days)");
+    expect(field).toHaveValue(null);
+    expect(field).toHaveAttribute("placeholder", "Never");
+  });
+
+  it("saves the number of days", async () => {
+    const settings = await saveWith(async (field, user) => {
+      await user.type(field, "10");
+    });
+    expect(settings.monthCloseDelayDays).toBe(10);
+  });
+
+  it("saves 0 as a real choice: close as soon as the month ends", async () => {
+    const settings = await saveWith(async (field, user) => {
+      await user.type(field, "0");
+    });
+    expect(settings.monthCloseDelayDays).toBe(0);
+  });
+
+  it("emptying the field switches automatic closing off", async () => {
+    const company = makeCompany();
+    company.settings = { ...company.settings, monthCloseDelayDays: 7 };
+    const settings = await saveWith(
+      async (field, user) => {
+        expect(field).toHaveValue(7);
+        await user.clear(field);
+      },
+      { company }
+    );
+    expect(settings.monthCloseDelayDays).toBeNull();
   });
 });

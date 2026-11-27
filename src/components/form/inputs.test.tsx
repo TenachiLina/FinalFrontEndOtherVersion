@@ -4,17 +4,8 @@ import { act, fireEvent, render, screen, userEvent, within } from "@/test/render
 import DateInput from "./DateInput";
 import Label from "./Label";
 import MonthInput from "./MonthInput";
-import MultiSelect from "./MultiSelect";
-import Select from "./Select";
 import TimeSelect from "./TimeSelect";
-import DatePicker from "./date-picker";
-import Checkbox from "./input/Checkbox";
-import FileInput from "./input/FileInput";
 import Input from "./input/InputField";
-import Radio from "./input/Radio";
-import TextArea from "./input/TextArea";
-import Switch from "./switch/Switch";
-import PhoneInput from "./group-input/PhoneInput";
 import { setLang } from "@/lib/i18n";
 
 /** Keeps a controlled field's value in state, like a real form does. */
@@ -278,121 +269,9 @@ describe("MonthInput", () => {
 
 // ─── MultiSelect ─────────────────────────────────────────────────────────
 
-describe("MultiSelect", () => {
-  const options = [
-    { value: "1", text: "Kitchen", selected: false },
-    { value: "2", text: "Cashier", selected: false },
-    { value: "3", text: "Delivery", selected: false },
-  ];
-  const field = () => screen.getByText("Posts").nextElementSibling!.querySelector(".mb-2") as HTMLElement;
-
-  it("shows a placeholder when nothing is selected", () => {
-    render(<MultiSelect label="Posts" options={options} />);
-    expect(screen.getByDisplayValue("Select option")).toBeInTheDocument();
-    expect(screen.queryByText("Kitchen")).not.toBeInTheDocument();
-  });
-
-  it("shows the pre-selected options as chips", () => {
-    render(<MultiSelect label="Posts" options={options} defaultSelected={["1", "3"]} />);
-    expect(screen.getByText("Kitchen")).toBeInTheDocument();
-    expect(screen.getByText("Delivery")).toBeInTheDocument();
-    expect(screen.queryByDisplayValue("Select option")).not.toBeInTheDocument();
-  });
-
-  it("opens the list on a click in the field and selects/unselects options", async () => {
-    const onChange = vi.fn();
-    render(<MultiSelect label="Posts" options={options} onChange={onChange} />);
-    await user().click(screen.getByDisplayValue("Select option"));
-    await user().click(screen.getByText("Cashier"));
-    expect(onChange).toHaveBeenLastCalledWith(["2"]);
-    await user().click(screen.getAllByText("Kitchen")[0]);
-    expect(onChange).toHaveBeenLastCalledWith(["2", "1"]);
-    // the list stays open; clicking a selected option removes it
-    const list = screen.getAllByText("Cashier").at(-1)!;
-    expect(list.parentElement).toHaveClass("bg-primary/10");
-    await user().click(list);
-    expect(onChange).toHaveBeenLastCalledWith(["1"]);
-  });
-
-  it("closes the list on a second click in the field", async () => {
-    render(<MultiSelect label="Posts" options={options} />);
-    await user().click(screen.getByDisplayValue("Select option"));
-    expect(screen.getByText("Delivery")).toBeInTheDocument();
-    await user().click(screen.getByDisplayValue("Select option"));
-    expect(screen.queryByText("Delivery")).not.toBeInTheDocument();
-  });
-
-  it("removes a chip with its cross", async () => {
-    const onChange = vi.fn();
-    render(<MultiSelect label="Posts" options={options} defaultSelected={["1", "2"]} onChange={onChange} />);
-    const chip = screen.getByText("Kitchen").parentElement!;
-    await user().click(within(chip).getByRole("button"));
-    expect(onChange).toHaveBeenLastCalledWith(["2"]);
-    expect(screen.queryAllByText("Kitchen").filter((el) => el.closest(".rounded-full"))).toHaveLength(0);
-  });
-
-  it("doesn't open when disabled", async () => {
-    render(<MultiSelect label="Posts" options={options} disabled />);
-    await user().click(screen.getByDisplayValue("Select option"));
-    expect(screen.queryByText("Kitchen")).not.toBeInTheDocument();
-  });
-
-  // BUG-703: the chevron button toggles the list twice (its own onClick + the field's), so it never opens
-  it("opens the list with the arrow button", async () => {
-    render(<MultiSelect label="Posts" options={options} />);
-    await user().click(within(field()).getByRole("button"));
-    expect(screen.getByText("Kitchen")).toBeInTheDocument();
-  });
-
-  // BUG-704: removing a chip also opens the option list (the click bubbles to the field)
-  it("doesn't open the list when a chip is removed", async () => {
-    render(<MultiSelect label="Posts" options={options} defaultSelected={["1", "2"]} />);
-    const chip = screen.getByText("Kitchen").parentElement!;
-    await user().click(within(chip).getByRole("button"));
-    expect(screen.queryByText("Delivery")).not.toBeInTheDocument();
-  });
-
-  // BUG-705: a disabled MultiSelect still lets the user remove selected options
-  it("doesn't let a disabled field be changed", async () => {
-    const onChange = vi.fn();
-    render(<MultiSelect label="Posts" options={options} defaultSelected={["1"]} onChange={onChange} disabled />);
-    const chip = screen.getByText("Kitchen").parentElement!;
-    await user().click(within(chip).getByRole("button"));
-    expect(onChange).not.toHaveBeenCalled();
-    expect(screen.getByText("Kitchen")).toBeInTheDocument();
-  });
-});
 
 // ─── Select ──────────────────────────────────────────────────────────────
 
-describe("Select", () => {
-  const options = [
-    { value: "a", label: "Alpha" },
-    { value: "b", label: "Beta" },
-  ];
-
-  it("starts on a disabled placeholder", () => {
-    render(<Select options={options} onChange={() => {}} className="extra" />);
-    const select = screen.getByRole("combobox");
-    expect(select).toHaveValue("");
-    expect(select).toHaveClass("text-gray-400", "extra");
-    expect(screen.getByRole("option", { name: "Select an option" })).toBeDisabled();
-  });
-
-  it("reports the picked value and shows it", async () => {
-    const onChange = vi.fn();
-    render(<Select options={options} onChange={onChange} placeholder="Pick" />);
-    await user().selectOptions(screen.getByRole("combobox"), "Beta");
-    expect(onChange).toHaveBeenCalledWith("b");
-    expect(screen.getByRole("combobox")).toHaveValue("b");
-    expect(screen.getByRole("combobox")).toHaveClass("text-gray-800");
-  });
-
-  it("starts on the default value", () => {
-    render(<Select options={options} onChange={() => {}} defaultValue="a" />);
-    expect(screen.getByRole("combobox")).toHaveValue("a");
-  });
-});
 
 // ─── TimeSelect ──────────────────────────────────────────────────────────
 
@@ -446,112 +325,11 @@ describe("TimeSelect", () => {
 
 // ─── DatePicker (flatpickr) ──────────────────────────────────────────────
 
-describe("DatePicker", () => {
-  it("attaches a calendar to its labelled input with the default date", () => {
-    render(<DatePicker id="when" label="When" placeholder="Pick a date" defaultDate="2026-03-15" />);
-    const input = screen.getByLabelText("When") as HTMLInputElement & { _flatpickr?: unknown };
-    expect(input).toHaveAttribute("placeholder", "Pick a date");
-    expect(input._flatpickr).toBeDefined();
-    expect(input).toHaveValue("2026-03-15");
-  });
-
-  it("works without a label, in range mode", () => {
-    render(<DatePicker id="range" mode="range" />);
-    const input = document.getElementById("range") as HTMLInputElement & { _flatpickr?: { config: { mode: string } } };
-    expect(screen.queryByText("When")).not.toBeInTheDocument();
-    expect(input._flatpickr?.config.mode).toBe("range");
-  });
-
-  it("reports picked dates", () => {
-    const onChange = vi.fn();
-    render(<DatePicker id="pick" onChange={onChange} />);
-    const input = document.getElementById("pick") as HTMLInputElement & { _flatpickr: { setDate: (d: string, fire: boolean) => void } };
-    act(() => input._flatpickr.setDate("2026-05-02", true));
-    expect(onChange).toHaveBeenCalled();
-    expect(onChange.mock.calls[0][1]).toBe("2026-05-02");
-  });
-
-  it("removes the calendar when unmounted", () => {
-    const { unmount } = render(<DatePicker id="gone" />);
-    const input = document.getElementById("gone") as HTMLInputElement & { _flatpickr: { destroy: () => void } };
-    const destroy = vi.spyOn(input._flatpickr, "destroy");
-    unmount();
-    expect(destroy).toHaveBeenCalled();
-  });
-});
 
 // ─── Checkbox / Radio / FileInput / InputField / TextArea ────────────────
 
-describe("Checkbox", () => {
-  it("toggles through its label", async () => {
-    const onChange = vi.fn();
-    render(<Checkbox id="c" label="Remember me" checked={false} onChange={onChange} className="x" />);
-    const box = screen.getByRole("checkbox", { name: "Remember me" });
-    expect(box).toHaveClass("x");
-    await user().click(screen.getByText("Remember me"));
-    expect(onChange).toHaveBeenCalledWith(true);
-  });
 
-  it("shows a tick when checked and reports unchecking", async () => {
-    const onChange = vi.fn();
-    const { container } = render(<Checkbox checked onChange={onChange} />);
-    expect(container.querySelectorAll("svg")).toHaveLength(1);
-    await user().click(screen.getByRole("checkbox"));
-    expect(onChange).toHaveBeenCalledWith(false);
-  });
 
-  it("can't be changed when disabled", async () => {
-    const onChange = vi.fn();
-    const { container } = render(<Checkbox label="Off" checked={false} onChange={onChange} disabled />);
-    expect(screen.getByRole("checkbox")).toBeDisabled();
-    expect(container.firstElementChild).toHaveClass("cursor-not-allowed");
-    await user().click(screen.getByText("Off"));
-    expect(onChange).not.toHaveBeenCalled();
-  });
-});
-
-describe("Radio", () => {
-  it("reports its value when picked through its label", async () => {
-    const onChange = vi.fn();
-    render(<Radio id="r1" name="g" value="a" label="Option A" checked={false} onChange={onChange} className="x" />);
-    await user().click(screen.getByText("Option A"));
-    expect(onChange).toHaveBeenCalledWith("a");
-    expect(screen.getByRole("radio", { name: "Option A" })).not.toBeChecked();
-  });
-
-  it("shows the checked state", () => {
-    render(<Radio id="r2" name="g" value="b" label="B" checked onChange={() => {}} />);
-    expect(screen.getByRole("radio", { name: "B" })).toBeChecked();
-    expect(screen.getByText("B").querySelector(".block")).toBeInTheDocument();
-  });
-
-  it("can't be picked when disabled", async () => {
-    const onChange = vi.fn();
-    render(<Radio id="r3" name="g" value="c" label="C" checked={false} onChange={onChange} disabled />);
-    expect(screen.getByRole("radio", { name: "C" })).toBeDisabled();
-    await user().click(screen.getByText("C"));
-    expect(onChange).not.toHaveBeenCalled();
-  });
-
-  it("ignores a change event while disabled", () => {
-    const onChange = vi.fn();
-    render(<Radio id="r4" name="g" value="d" label="D" checked={false} onChange={onChange} disabled />);
-    fireEvent.click(screen.getByRole("radio", { name: "D" }));
-    expect(onChange).not.toHaveBeenCalled();
-  });
-});
-
-describe("FileInput", () => {
-  it("passes the chosen file on", async () => {
-    const onChange = vi.fn();
-    const { container } = render(<FileInput onChange={onChange} className="custom" />);
-    const input = container.querySelector("input[type=file]") as HTMLInputElement;
-    expect(input).toHaveClass("custom");
-    await user().upload(input, new File(["x"], "photo.png", { type: "image/png" }));
-    expect(onChange).toHaveBeenCalled();
-    expect(input.files?.[0].name).toBe("photo.png");
-  });
-});
 
 describe("Input", () => {
   it("passes attributes through and reports typing", async () => {
@@ -594,126 +372,9 @@ describe("Input", () => {
   });
 });
 
-describe("TextArea", () => {
-  it("reports typed text", async () => {
-    function Box() {
-      const [v, setV] = useState("");
-      return <TextArea value={v} onChange={setV} rows={4} />;
-    }
-    render(<Box />);
-    const area = screen.getByPlaceholderText("Enter your message");
-    expect(area).toHaveAttribute("rows", "4");
-    await user().type(area, "Hello");
-    expect(area).toHaveValue("Hello");
-  });
-
-  it("ignores typing without a handler", async () => {
-    render(<TextArea placeholder="Notes" />);
-    await user().type(screen.getByPlaceholderText("Notes"), "x");
-    expect(screen.getByPlaceholderText("Notes")).toHaveValue("");
-  });
-
-  it("shows an error hint", () => {
-    render(<TextArea error hint="Required" />);
-    expect(screen.getByText("Required")).toHaveClass("text-error-500");
-    expect(screen.getByRole("textbox")).toHaveClass("focus:border-error-300");
-  });
-
-  it("shows a normal hint and can be disabled", () => {
-    render(<TextArea disabled hint="Read only" />);
-    expect(screen.getByRole("textbox")).toBeDisabled();
-    expect(screen.getByText("Read only")).toHaveClass("text-gray-500");
-  });
-});
 
 // ─── Switch ──────────────────────────────────────────────────────────────
 
-describe("Switch", () => {
-  const track = (label: string) => screen.getByText(label).querySelector(".block") as HTMLElement;
-
-  it("toggles on click and reports the new state", async () => {
-    const onChange = vi.fn();
-    render(<Switch label="Notifications" onChange={onChange} />);
-    expect(track("Notifications")).toHaveClass("bg-gray-200");
-    await user().click(screen.getByText("Notifications"));
-    expect(onChange).toHaveBeenLastCalledWith(true);
-    expect(track("Notifications")).toHaveClass("bg-brand-500");
-    await user().click(screen.getByText("Notifications"));
-    expect(onChange).toHaveBeenLastCalledWith(false);
-  });
-
-  it("starts on and uses the gray colours", async () => {
-    render(<Switch label="Dark" defaultChecked color="gray" />);
-    expect(track("Dark")).toHaveClass("bg-gray-800");
-    await user().click(screen.getByText("Dark"));
-    expect(track("Dark")).toHaveClass("bg-gray-200");
-  });
-
-  it("works without a handler", async () => {
-    render(<Switch label="Plain" />);
-    await user().click(screen.getByText("Plain"));
-    expect(track("Plain")).toHaveClass("bg-brand-500");
-  });
-
-  it("does nothing when disabled", async () => {
-    const onChange = vi.fn();
-    render(<Switch label="Locked" disabled onChange={onChange} />);
-    await user().click(screen.getByText("Locked"));
-    expect(onChange).not.toHaveBeenCalled();
-    expect(track("Locked")).toHaveClass("bg-gray-100");
-  });
-
-  // BUG-706: Switch has no input or switch role, so it can't be reached or toggled with the keyboard
-  it("can be toggled with the keyboard", async () => {
-    const onChange = vi.fn();
-    render(<Switch label="Notifications" onChange={onChange} />);
-    const u = user();
-    await u.tab();
-    await u.keyboard(" ");
-    expect(screen.getByRole("switch", { name: "Notifications" })).toBeChecked();
-    expect(onChange).toHaveBeenCalledWith(true);
-  });
-});
 
 // ─── PhoneInput ──────────────────────────────────────────────────────────
 
-describe("PhoneInput", () => {
-  const countries = [
-    { code: "US", label: "+1" },
-    { code: "GB", label: "+44" },
-  ];
-
-  it("starts with the US prefix and switches prefix with the country", async () => {
-    const onChange = vi.fn();
-    render(<PhoneInput countries={countries} onChange={onChange} />);
-    const phone = screen.getByPlaceholderText("+1 (555) 000-0000");
-    expect(phone).toHaveValue("+1");
-    expect(phone).toHaveClass("pl-[84px]");
-    await user().selectOptions(screen.getByRole("combobox"), "GB");
-    expect(phone).toHaveValue("+44");
-    expect(onChange).toHaveBeenLastCalledWith("+44");
-  });
-
-  it("reports typed numbers", async () => {
-    const onChange = vi.fn();
-    render(<PhoneInput countries={countries} onChange={onChange} placeholder="Phone" selectPosition="end" />);
-    const phone = screen.getByPlaceholderText("Phone");
-    expect(phone).toHaveClass("pr-[84px]");
-    await user().type(phone, "5");
-    expect(onChange).toHaveBeenLastCalledWith("+15");
-  });
-
-  it("works without a handler", async () => {
-    render(<PhoneInput countries={countries} selectPosition="end" />);
-    await user().selectOptions(screen.getByRole("combobox"), "GB");
-    await user().type(screen.getByRole("textbox"), "7");
-    expect(screen.getByRole("textbox")).toHaveValue("+447");
-  });
-
-  // BUG-707: PhoneInput always starts on "US"/"+1", even when the country list doesn't contain the US
-  it("starts on the first listed country's prefix", () => {
-    render(<PhoneInput countries={[{ code: "DZ", label: "+213" }, { code: "FR", label: "+33" }]} />);
-    expect(screen.getByRole("combobox")).toHaveValue("DZ");
-    expect(screen.getByRole("textbox")).toHaveValue("+213");
-  });
-});

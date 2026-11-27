@@ -36,14 +36,14 @@ describe("HomeView", () => {
     at("2026-03-02T08:00:00Z");
     renderWithProviders(<HomeView />);
     const flow = within(screen.getByRole("region", { name: "How Nexo InOuty works" })).getAllByRole("link");
-    expect(flow.map((a) => a.getAttribute("href"))).toEqual(["/calendar/DoPlanning", "/kiosk", "/clockinpagehistory", "/reporting/monthly-payroll"]);
+    expect(flow.map((a) => a.getAttribute("href"))).toEqual(["/planning/new", "/kiosk", "/clock-in/history", "/reporting/monthly-payroll"]);
     expect(openLinks()).toEqual([
       "/company-settings",
-      "/addEmployeeForm",
-      "/calendar/ShiftsManagment",
-      "/calendar/DoPlanning",
+      "/employees/new",
+      "/planning/shifts",
+      "/planning/new",
       "/kiosk",
-      "/clockinpagehistory",
+      "/clock-in/history",
       "/reporting/monthly-payroll",
       "/users",
     ]);
@@ -56,14 +56,14 @@ describe("HomeView", () => {
     renderWithProviders(<HomeView />, { user: makeUser({ role: "manager" }) });
     expect(openLinks()).not.toContain("/users");
     expect(openLinks()).not.toContain("/company-settings");
-    expect(openLinks()).toContain("/addEmployeeForm");
+    expect(openLinks()).toContain("/employees/new");
   });
 
   it("hides steps for features the company doesn't have", () => {
     at("2026-03-02T08:00:00Z");
     renderWithProviders(<HomeView />, { company: makeCompany({ features: ["planning"] }) });
     const flow = within(screen.getByRole("region", { name: "How Nexo InOuty works" })).getAllByRole("link");
-    expect(flow.map((a) => a.getAttribute("href"))).toEqual(["/calendar/DoPlanning"]);
+    expect(flow.map((a) => a.getAttribute("href"))).toEqual(["/planning/new"]);
     expect(openLinks()).not.toContain("/kiosk");
     expect(openLinks()).not.toContain("/reporting/monthly-payroll");
   });

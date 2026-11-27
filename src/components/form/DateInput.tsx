@@ -13,6 +13,11 @@ interface DateInputProps {
   max?: string; // "YYYY-MM-DD", days after are disabled
   clearable?: boolean; // show a "Clear" button in the calendar (for optional filters)
   disabled?: boolean;
+  /** Called after onChange when a date is chosen from the calendar (a day, Today or Clear), not when typing. */
+  onPick?: (value: string) => void;
+  autoFocus?: boolean;
+  defaultOpen?: boolean; // start with the calendar open
+  ariaLabel?: string;
 }
 
 const toIso = (y: number, m: number, d: number) =>
@@ -34,8 +39,18 @@ const DateInput: React.FC<DateInputProps> = ({
   max,
   clearable = false,
   disabled = false,
+  onPick,
+  autoFocus,
+  defaultOpen = false,
+  ariaLabel,
 }) => {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(defaultOpen && !disabled);
+
+  const pick = (v: string) => {
+    onChange(v);
+    setIsOpen(false);
+    onPick?.(v);
+  };
   const containerRef = useRef<HTMLDivElement>(null);
 
   const selected = value ? new Date(`${value}T00:00:00`) : new Date();
@@ -77,10 +92,7 @@ const DateInput: React.FC<DateInputProps> = ({
 
   const days = buildDays(viewYear, viewMonth);
 
-  const handlePick = (day: number) => {
-    onChange(toIso(viewYear, viewMonth, day));
-    setIsOpen(false);
-  };
+  const handlePick = (day: number) => pick(toIso(viewYear, viewMonth, day));
 
   // ISO strings compare correctly as plain strings
   const isOutOfRange = (day: number) => {
@@ -115,6 +127,8 @@ const DateInput: React.FC<DateInputProps> = ({
           placeholder="YYYY-MM-DD"
           value={value}
           disabled={disabled}
+          autoFocus={autoFocus}
+          aria-label={ariaLabel}
           onClick={openCalendar}
           onChange={(e) => onChange(e.target.value)}
           className={`cursor-pointer rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 ${className}`}
@@ -185,10 +199,7 @@ const DateInput: React.FC<DateInputProps> = ({
             <button
               type="button"
               disabled={!todayAllowed}
-              onClick={() => {
-                onChange(todayIso);
-                setIsOpen(false);
-              }}
+              onClick={() => pick(todayIso)}
               className="font-medium text-brand-500 hover:text-brand-600 disabled:opacity-30"
             >
               {t("Today")}
@@ -196,10 +207,7 @@ const DateInput: React.FC<DateInputProps> = ({
             {clearable && value && (
               <button
                 type="button"
-                onClick={() => {
-                  onChange("");
-                  setIsOpen(false);
-                }}
+                onClick={() => pick("")}
                 className="text-gray-500 hover:text-red-500 dark:text-gray-400"
               >
                 {t("Clear")}

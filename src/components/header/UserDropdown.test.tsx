@@ -28,7 +28,7 @@ describe("UserDropdown", () => {
     expect(screen.getByText("Manager")).toBeInTheDocument();
     expect(screen.getByText("Test Pizza")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Help & guides" })).toHaveAttribute("href", "/help");
-    expect(screen.getByRole("link", { name: "Change password" })).toHaveAttribute("href", "/account");
+    expect(screen.getByRole("link", { name: "My account" })).toHaveAttribute("href", "/account");
     await user.click(button);
     expect(screen.queryByText("mia@test.dz")).not.toBeInTheDocument();
   });
@@ -66,7 +66,7 @@ describe("UserDropdown", () => {
     await user.click(screen.getByText("Outside"));
     expect(screen.queryByText("admin@test.dz")).not.toBeInTheDocument();
     await user.click(toggle());
-    await user.click(screen.getByRole("link", { name: "Change password" }));
+    await user.click(screen.getByRole("link", { name: "My account" }));
     expect(screen.queryByText("admin@test.dz")).not.toBeInTheDocument();
   });
 

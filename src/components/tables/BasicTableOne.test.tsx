@@ -12,6 +12,7 @@ vi.setConfig({ testTimeout: 20000 });
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
 interface Employee {
+  isArchived?: boolean;
   _id: string;
   empNumber: number;
   firstName: string;
@@ -65,6 +66,10 @@ beforeEach(() => {
     http.delete(`${API}/employees/:id`, async ({ request }) => {
       await remember(request);
       return HttpResponse.json({ deleted: true });
+    }),
+    http.patch(`${API}/employees/:id/:action`, async ({ request, params }) => {
+      await remember(request);
+      return HttpResponse.json({ _id: String(params.id), isArchived: params.action === "archive" });
     })
   );
 });
@@ -82,7 +87,7 @@ const field = (label: string) => screen.getByText(label, { selector: "label" }).
 
 async function renderTable(list: Employee[]) {
   serve(list);
-  const view = renderWithProviders(<BasicTableOne />, { url: "/basic-tables" });
+  const view = renderWithProviders(<BasicTableOne />, { url: "/employees" });
   if (list.length) await screen.findByText(list[0].firstName);
   else await waitFor(() => expect(screen.queryByText("Loading employees…")).not.toBeInTheDocument());
   return view;
@@ -220,13 +225,13 @@ describe("BasicTableOne – search, sort and pages", () => {
   });
 
   // BUG-203: deleting the only row of the last page leaves an empty page
-  it("shows the previous page after the last row of the last page is deleted", async () => {
+  it("shows the previous page after the last row of the last page is archived", async () => {
     const list = Array.from({ length: 6 }, () => makeEmployee());
     const { user } = await renderTable(list);
     await user.click(screen.getByRole("button", { name: "2" }));
-    await user.click(within(tableRows()[0]).getByRole("button", { name: "Delete" }));
+    await user.click(within(tableRows()[0]).getByRole("button", { name: "Archive" }));
     await answerConfirmDialog(true);
-    await screen.findByText("Employee deleted.");
+    await screen.findByText("Employee archived.");
     expect(screen.queryByText("No employees found.")).not.toBeInTheDocument();
     expect(tableRows()).toHaveLength(5);
   });
@@ -344,33 +349,124 @@ describe("BasicTableOne – add and edit", () => {
 
 // ─── Delete ───────────────────────────────────────────────────────────────────
 
-describe("BasicTableOne – delete", () => {
-  it("asks before deleting, and does nothing when cancelled", async () => {
+describe("BasicTableOne – archive", () => {
+  const archivedTab = () => screen.getByRole("button", { name: /^Archived \(/ });
+  const activeTab = () => screen.getByRole("button", { name: /^Active \(/ });
+
+  it("shows the people who work here now, with the count of each side", async () => {
+    await renderTable([ali(), sara(), makeEmployee({ _id: "old", firstName: "Karim", isArchived: true })]);
+    expect(firstNames()).toEqual(["Ali", "Sara"]);
+    expect(activeTab()).toHaveTextContent("Active (2)");
+    expect(activeTab()).toHaveAttribute("aria-pressed", "true");
+    expect(archivedTab()).toHaveTextContent("Archived (1)");
+  });
+
+  it("asks before archiving, and does nothing when cancelled", async () => {
     const { user } = await renderTable([ali()]);
-    await user.click(screen.getByRole("button", { name: "Delete" }));
+    await user.click(screen.getByRole("button", { name: "Archive" }));
     const dialog = await screen.findByRole("alertdialog");
-    expect(dialog).toHaveTextContent("Delete Ali Zerrouki?");
-    expect(dialog).toHaveTextContent("This removes the employee from the app. This can't be undone.");
+    expect(dialog).toHaveTextContent("Archive Ali Zerrouki?");
+    expect(dialog).toHaveTextContent("Their hours, pay and history are kept, and you can bring them back at any time.");
     await answerConfirmDialog(false);
     expect(requests).toEqual([]);
     expect(screen.getByText("Ali")).toBeInTheDocument();
   });
 
-  it("deletes the employee once confirmed", async () => {
+  it("archives the employee: they move to the Archived side", async () => {
     const { user } = await renderTable([ali(), sara()]);
-    await user.click(within(screen.getByText("Ali").closest("tr")!).getByRole("button", { name: "Delete" }));
+    await user.click(within(screen.getByText("Ali").closest("tr")!).getByRole("button", { name: "Archive" }));
     await answerConfirmDialog(true);
-    expect(await screen.findByText("Employee deleted.")).toBeInTheDocument();
-    expect(requests).toEqual([{ method: "DELETE", url: "/employees/ali", body: undefined }]);
+    expect(await screen.findByText("Employee archived.")).toBeInTheDocument();
+    expect(requests).toEqual([{ method: "PATCH", url: "/employees/ali/archive", body: undefined }]);
     expect(firstNames()).toEqual(["Sara"]);
+    await user.click(archivedTab());
+    expect(firstNames()).toEqual(["Ali"]);
   });
 
-  it("keeps the employee and explains when the delete fails", async () => {
-    server.use(http.delete(`${API}/employees/:id`, () => HttpResponse.json({ message: "Has worktime records" }, { status: 409 })));
+  it("keeps the employee and explains when archiving fails", async () => {
+    server.use(http.patch(`${API}/employees/:id/archive`, () => HttpResponse.json({ message: "You can't archive your own employee record" }, { status: 403 })));
     const { user } = await renderTable([ali()]);
+    await user.click(screen.getByRole("button", { name: "Archive" }));
+    await answerConfirmDialog(true);
+    expect(await screen.findByText(/You can't archive your own employee record/)).toBeInTheDocument();
+    expect(firstNames()).toEqual(["Ali"]);
+  });
+
+  it("restores an archived employee", async () => {
+    const { user } = await renderTable([sara(), makeEmployee({ _id: "old", firstName: "Karim", isArchived: true })]);
+    await user.click(archivedTab());
+    expect(firstNames()).toEqual(["Karim"]);
+    // An archived employee can be restored or deleted, not edited
+    expect(screen.queryByRole("button", { name: "Edit" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Restore" }));
+    expect(await screen.findByText("Employee restored.")).toBeInTheDocument();
+    expect(requests).toEqual([{ method: "PATCH", url: "/employees/old/restore", body: undefined }]);
+    expect(screen.queryByText("Karim")).not.toBeInTheDocument();
+    await user.click(activeTab());
+    expect(firstNames()).toEqual(["Sara", "Karim"]);
+  });
+
+  it("explains when there is no room to restore", async () => {
+    server.use(
+      http.patch(`${API}/employees/:id/restore`, () =>
+        HttpResponse.json({ message: "Your pack is full: it has no room for another employee. Contact us to upgrade" }, { status: 403 })
+      )
+    );
+    const { user } = await renderTable([sara(), makeEmployee({ _id: "old", firstName: "Karim", isArchived: true })]);
+    await user.click(archivedTab());
+    await user.click(screen.getByRole("button", { name: "Restore" }));
+    expect(await screen.findByText(/Your pack is full/)).toBeInTheDocument();
+    expect(firstNames()).toEqual(["Karim"]);
+  });
+});
+
+// Deleting is for a record added by mistake: only from the Archived side
+describe("BasicTableOne – delete", () => {
+  const karim = () => makeEmployee({ _id: "old", firstName: "Karim", lastName: "Meziane", isArchived: true });
+  async function renderArchived(list: Employee[]) {
+    const view = await renderTable(list);
+    await view.user.click(screen.getByRole("button", { name: /^Archived \(/ }));
+    return view;
+  }
+
+  it("an active employee has no delete button", async () => {
+    await renderTable([ali()]);
+    expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
+  });
+
+  it("asks before deleting, and does nothing when cancelled", async () => {
+    const { user } = await renderArchived([sara(), karim()]);
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(dialog).toHaveTextContent("Delete Karim Meziane?");
+    expect(dialog).toHaveTextContent("This removes the employee from the app. This can't be undone.");
+    await answerConfirmDialog(false);
+    expect(requests).toEqual([]);
+    expect(screen.getByText("Karim")).toBeInTheDocument();
+  });
+
+  it("deletes the employee once confirmed", async () => {
+    const { user } = await renderArchived([sara(), karim()]);
     await user.click(screen.getByRole("button", { name: "Delete" }));
     await answerConfirmDialog(true);
-    expect(await screen.findByText(/Has worktime records/)).toBeInTheDocument();
-    expect(screen.getByText("Ali")).toBeInTheDocument();
+    expect(await screen.findByText("Employee deleted.")).toBeInTheDocument();
+    expect(requests).toEqual([{ method: "DELETE", url: "/employees/old", body: undefined }]);
+    expect(screen.queryByText("Karim")).not.toBeInTheDocument();
+  });
+
+  it("keeps the employee and explains when they have history", async () => {
+    server.use(
+      http.delete(`${API}/employees/:id`, () =>
+        HttpResponse.json(
+          { message: "This employee has planning, hours or pay on record: archive them instead of deleting them" },
+          { status: 409 }
+        )
+      )
+    );
+    const { user } = await renderArchived([sara(), karim()]);
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+    await answerConfirmDialog(true);
+    expect(await screen.findByText(/This employee has planning, hours or pay on record/)).toBeInTheDocument();
+    expect(screen.getByText("Karim")).toBeInTheDocument();
   });
 });

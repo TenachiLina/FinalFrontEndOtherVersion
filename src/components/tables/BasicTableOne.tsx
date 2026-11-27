@@ -7,6 +7,7 @@ import { ensureOk, friendlyError } from "@/lib/errors";
 import { confirmDialog, toast } from "@/lib/notify";
 import { currency } from "@/lib/payrollConfig";
 import { locale, t } from "@/lib/i18n";
+import DateInput from "../form/DateInput";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -26,6 +27,8 @@ interface Employee {
   socialSecurityNumber?: string;
   // Set by the API, for a manager, on other managers' records.
   otherManager?: boolean;
+  // An employee who left: off the daily screens, kept in history and pay
+  isArchived?: boolean;
 }
 
 // Only used on the payslip
@@ -48,11 +51,15 @@ const getEmployees = () => apiFetch<Employee[]>("/employees");
 const createEmployee = (body: Omit<Employee, "_id">) => apiFetch<Employee>("/employees", { method: "POST", body: JSON.stringify(body) });
 const updateEmployee = (id: string, body: Partial<Employee>) => apiFetch<Employee>(`/employees/${id}`, { method: "PUT", body: JSON.stringify(body) });
 const deleteEmployee = (id: string) => apiFetch<unknown>(`/employees/${id}`, { method: "DELETE" });
+const archiveEmployee = (id: string) => apiFetch<Employee>(`/employees/${id}/archive`, { method: "PATCH" });
+const restoreEmployee = (id: string) => apiFetch<Employee>(`/employees/${id}/restore`, { method: "PATCH" });
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
 const TrashIcon = () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4h6v2" /></svg>);
 const EditIcon = () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>);
+const ArchiveIcon = () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="4" rx="1" /><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8" /><path d="M10 12h4" /></svg>);
+const RestoreIcon = () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7" /><polyline points="3 4 3 9 8 9" /></svg>);
 const PlusIcon = () => (<svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>);
 const CloseIcon = () => (<svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>);
 const SortIcon = ({ active, dir }: { active: boolean; dir: SortDir }) => (
@@ -85,6 +92,18 @@ const Field = ({
   </div>
 );
 
+// Native date inputs have their calendar icon hidden in globals.css, so use the app's own picker
+const DateField = ({
+  label, name, value, onChange,
+}: {
+  label: string; name: string; value: string; onChange: (value: string) => void;
+}) => (
+  <div className="flex flex-col gap-1">
+    <label htmlFor={`employee-${name}`} className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">{t(label)}</label>
+    <DateInput id={`employee-${name}`} value={value} onChange={onChange} clearable className="w-full min-w-0" />
+  </div>
+);
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function BasicTableOne() {
@@ -96,6 +115,8 @@ export default function BasicTableOne() {
   const [saving, setSaving] = useState(false);
 
   const [search, setSearch] = useState("");
+  // The people who work here now, or the ones who left (archived)
+  const [showArchived, setShowArchived] = useState(false);
   const [showEntries, setShowEntries] = useState(5);
   const [sortKey, setSortKey] = useState<SortKey>("empNumber");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
@@ -119,14 +140,14 @@ export default function BasicTableOne() {
   // ── Sort / filter / paginate ──────────────────────────────────────────────
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    return data.filter((e) =>
+    return data.filter((e) => !!e.isArchived === showArchived).filter((e) =>
       e.firstName.toLowerCase().includes(q) ||
       e.lastName.toLowerCase().includes(q) ||
       String(e.empNumber).includes(q) ||
       (e.address ?? "").toLowerCase().includes(q) ||
       (e.phoneNumber ?? "").toLowerCase().includes(q)
     );
-  }, [search, data]);
+  }, [search, data, showArchived]);
 
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
@@ -231,6 +252,34 @@ export default function BasicTableOne() {
     }
   };
 
+  // Someone who left is archived: off planning, clock-in and the kiosk, history and pay kept
+  const handleArchive = async (emp: Employee) => {
+    const ok = await confirmDialog({
+      title: t("Archive {name}?", { name: `${emp.firstName} ${emp.lastName}` }),
+      message: t("They leave the planning, clock-in and kiosk lists. Their hours, pay and history are kept, and you can bring them back at any time."),
+      confirmLabel: t("Archive"),
+    });
+    if (!ok) return;
+    try {
+      const saved = await archiveEmployee(emp._id);
+      setData((prev) => prev.map((e) => (e._id === emp._id ? { ...e, ...saved, isArchived: true } : e)));
+      toast.success("Employee archived.");
+    } catch (e) {
+      toast.error(friendlyError(e, "Couldn't archive the employee"));
+    }
+  };
+
+  const handleRestore = async (emp: Employee) => {
+    try {
+      const saved = await restoreEmployee(emp._id);
+      setData((prev) => prev.map((e) => (e._id === emp._id ? { ...e, ...saved, isArchived: false } : e)));
+      toast.success("Employee restored.");
+    } catch (e) {
+      toast.error(friendlyError(e, "Couldn't restore the employee"));
+    }
+  };
+
+  // Only for a record added by mistake: the server refuses one with planning, hours or pay
   const handleDelete = async (id: string) => {
     const emp = data.find((e) => e._id === id);
     const ok = await confirmDialog({
@@ -285,8 +334,10 @@ export default function BasicTableOne() {
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Date of birth" name="birthDate" type="date" value={form.birthDate} onChange={handleChange} />
-                <Field label="Hire date" name="hireDate" type="date" value={form.hireDate} onChange={handleChange} />
+                <DateField label="Date of birth" name="birthDate" value={form.birthDate}
+                  onChange={(v) => setForm((prev) => ({ ...prev, birthDate: v }))} />
+                <DateField label="Hire date" name="hireDate" value={form.hireDate}
+                  onChange={(v) => setForm((prev) => ({ ...prev, hireDate: v }))} />
               </div>
               <Field label="Insurance number" name="socialSecurityNumber" value={form.socialSecurityNumber} onChange={handleChange} />
             </div>
@@ -320,6 +371,19 @@ export default function BasicTableOne() {
                 onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
                 className="ps-9 pe-4 py-2 rounded-lg border border-gray-200 bg-white text-sm text-gray-700 placeholder-gray-400 dark:border-white/[0.1] dark:bg-white/[0.05] dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 w-48"
               />
+            </div>
+            <div role="group" aria-label={t("Employees shown")} className="flex rounded-lg border border-gray-200 p-0.5 text-sm dark:border-white/[0.1]">
+              {[false, true].map((archived) => (
+                <button
+                  key={String(archived)}
+                  type="button"
+                  aria-pressed={showArchived === archived}
+                  onClick={() => { setShowArchived(archived); setCurrentPage(1); }}
+                  className={`rounded-md px-3 py-1.5 font-medium transition-colors ${showArchived === archived ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.05]"}`}
+                >
+                  {archived ? t("Archived") : t("Active")} ({data.filter((e) => !!e.isArchived === archived).length})
+                </button>
+              ))}
             </div>
             <button onClick={openAdd} className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors">
               <PlusIcon /> Add Employee
@@ -376,8 +440,17 @@ export default function BasicTableOne() {
                   <td className="px-4 py-4 text-sm text-gray-600 dark:text-gray-400 font-mono">{emp.phoneNumber ?? "—"}</td>
                   <td className="px-4 py-4">
                     <div className="flex items-center gap-3 text-gray-400">
-                      <button onClick={() => handleDelete(emp._id)} className="hover:text-red-500 transition-colors" title={t("Delete")}><TrashIcon /></button>
-                      <button onClick={() => openEdit(emp)} className="hover:text-blue-500 transition-colors" title={t("Edit")}><EditIcon /></button>
+                      {emp.isArchived ? (
+                        <>
+                          <button onClick={() => handleRestore(emp)} className="hover:text-green-600 transition-colors" title={t("Restore")} aria-label={t("Restore")}><RestoreIcon /></button>
+                          <button onClick={() => handleDelete(emp._id)} className="hover:text-red-500 transition-colors" title={t("Delete")} aria-label={t("Delete")}><TrashIcon /></button>
+                        </>
+                      ) : (
+                        <>
+                          <button onClick={() => handleArchive(emp)} className="hover:text-amber-600 transition-colors" title={t("Archive")} aria-label={t("Archive")}><ArchiveIcon /></button>
+                          <button onClick={() => openEdit(emp)} className="hover:text-blue-500 transition-colors" title={t("Edit")} aria-label={t("Edit")}><EditIcon /></button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>

@@ -95,7 +95,7 @@ describe("AppHeader on a desktop", () => {
   it.each([
     ["/home", "Home"],
     ["/reporting/monthly-payroll", "Monthly Payroll"],
-    ["/account", "Change password"],
+    ["/account", "My account"],
     ["/somewhere-else", "Nexo InOuty"],
   ])("titles %s as %s", (url, title) => {
     renderHeader({ url });

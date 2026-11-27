@@ -269,7 +269,8 @@ describe("useEmployeeReport — monthly payroll", () => {
     expect(result.current.month.hours).toBe(0);
   });
 
-  it("still shows the pay without advances or bonuses when they can't be loaded, with a warning", async () => {
+  // The net comes from the server, so it stays right; only the two lists are missing
+  it("still shows the full pay when the advance and bonus lists can't be loaded, with a warning", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     mockReportingApi(DATA);
     failGet("/advances/employee/:id", 500);
@@ -278,7 +279,9 @@ describe("useEmployeeReport — monthly payroll", () => {
     await waitFor(() => expect(result.current.month.hours).toBe(23.5));
     await waitFor(() => expect(result.current.month.loading).toBe(false));
     expect(result.current.month.error).toBe("");
-    expect(result.current.month.payout).toEqual({ brut: 4700, net: 4250 });
+    expect(result.current.month.payout).toEqual({ brut: 4700, net: 4000 });
+    expect(result.current.month.advancesList).toEqual([]);
+    expect(result.current.month.bonusesList).toEqual([]);
     await waitFor(() => expect(toastMessages("warning").length).toBe(2));
   });
 

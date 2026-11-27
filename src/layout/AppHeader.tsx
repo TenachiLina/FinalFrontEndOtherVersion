@@ -2,6 +2,7 @@
 import { ThemeToggleButton } from "@/components/common/ThemeToggleButton";
 import LanguageSwitcher from "@/components/common/LanguageSwitcher";
 import UserDropdown from "@/components/header/UserDropdown";
+import NotificationDropdown from "@/components/header/NotificationDropdown";
 import { useSidebar } from "@/context/SidebarContext";
 import { useAuth } from "@/context/AuthContext";
 import { DEFAULT_BRAND } from "@/lib/branding";
@@ -30,20 +31,25 @@ const AppHeader: React.FC = () => {
     "/reporting/advances": "Advances",
     "/reporting/bonuses/give": "Give Bonuses",
     "/reporting/bonuses/history": "Bonus History",
-    "/calendar/DoPlanning": "New Planning",
-    "/calendar/ViewPlanning": "View Planning",
-    "/calendar/ShiftsManagment": "Shifts Management",
-    "/clockinpage": "Clock In / Out",
-    "/clockinfacerecognitionpage": "Clock In/Out with Face Recognition",
-    "/clockinpagehistory": "Clock In/Out History",
-    "/addEmployeeForm": "Add Employee",
-    "/basic-tables": "View Employees",
+    "/planning/new": "New Planning",
+    "/planning/view": "View Planning",
+    "/planning/shifts": "Shifts Management",
+    "/clock-in": "Clock In / Out",
+    "/clock-in/face": "Clock In/Out with Face Recognition",
+    "/clock-in/history": "Clock In/Out History",
+    "/employees/new": "Add Employee",
+    "/employees": "View Employees",
     "/insured-employees": "Insured Employees",
     "/insured-employees/new": "Add Insured Employee",
     "/users": "Users",
     "/company-settings": "Company settings",
     "/companies": "Companies",
-    "/account": "Change password",
+    "/account": "My account",
+    "/packs": "Packs",
+    "/activity-log": "Activity log",
+    "/login-sessions": "Login sessions",
+    "/system-errors": "System errors",
+    "/corrections": "Correction requests",
   };
   const currentPage = pageTitles[pathname] ? t(pageTitles[pathname]) : "Nexo InOuty";
 
@@ -198,7 +204,8 @@ const AppHeader: React.FC = () => {
             <ThemeToggleButton />
             {/* <!-- Dark Mode Toggler --> */}
             <LanguageSwitcher />
-            {/* The template's notification bell showed made-up notifications; removed */}
+            {/* Late arrivals, missing clock-ins, a month about to close… (admins and managers) */}
+            <NotificationDropdown />
           </div>
           {/* <!-- User Area --> */}
           <UserDropdown /> 

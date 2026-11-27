@@ -61,6 +61,8 @@ export type ShiftTask = {
 
 export interface EmployeeRecord {
   _id: string;
+  // An employee who left: still shown where already planned, not offered for new planning
+  isArchived?: boolean;
   empNumber: number;
   firstName: string;
   lastName: string;

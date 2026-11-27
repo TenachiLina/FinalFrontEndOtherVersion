@@ -49,7 +49,7 @@ export const GUIDES: Guide[] = [
         "Use the menu on the side to open every page. On a phone, tap the menu button at the top.",
         "Pick your language (English, Français, العربية) with the globe button at the top. Your choice is remembered on this device.",
         "Switch between light and dark mode with the moon/sun button.",
-        "Change your password from your name in the top corner → Change password.",
+        "Change your name, photo and password from your name in the top corner → My account.",
       ],
       fr: [
         "Connectez-vous avec l'e-mail et le mot de passe donnés par votre administrateur. Utilisez le lien de connexion de votre entreprise si vous en avez un.",
@@ -57,7 +57,7 @@ export const GUIDES: Guide[] = [
         "Le menu latéral ouvre toutes les pages. Sur téléphone, touchez le bouton menu en haut.",
         "Choisissez votre langue (English, Français, العربية) avec le bouton globe en haut. Votre choix est mémorisé sur cet appareil.",
         "Passez du mode clair au mode sombre avec le bouton lune/soleil.",
-        "Changez votre mot de passe depuis votre nom en haut → Changer le mot de passe.",
+        "Changez votre nom, votre photo et votre mot de passe depuis votre nom en haut → Mon compte.",
       ],
       ar: [
         "سجّل الدخول بالبريد الإلكتروني وكلمة المرور اللذين أعطاك إياهما المدير. استخدم رابط الدخول الخاص بشركتك إن وُجد.",
@@ -65,13 +65,13 @@ export const GUIDES: Guide[] = [
         "تفتح القائمة الجانبية كل الصفحات. على الهاتف، اضغط زر القائمة في الأعلى.",
         "اختر لغتك (English أو Français أو العربية) من زر الكرة الأرضية في الأعلى. يُحفظ اختيارك على هذا الجهاز.",
         "بدّل بين الوضع الفاتح والداكن بزر القمر/الشمس.",
-        "غيّر كلمة المرور من اسمك في الأعلى ← تغيير كلمة المرور.",
+        "غيّر اسمك وصورتك وكلمة المرور من اسمك في الأعلى ← حسابي.",
       ],
     },
   },
   {
     id: "plan-week",
-    path: "/calendar/DoPlanning",
+    path: "/planning/new",
     title: { en: "Plan the week", fr: "Planifier la semaine", ar: "تخطيط الأسبوع" },
     intro: {
       en: "Assign employees to shifts and posts, day by day, then copy the plan to other days.",
@@ -110,7 +110,7 @@ export const GUIDES: Guide[] = [
   },
   {
     id: "view-planning",
-    path: "/calendar/ViewPlanning",
+    path: "/planning/view",
     title: { en: "View and export the planning", fr: "Consulter et exporter le planning", ar: "عرض التخطيط وتصديره" },
     intro: {
       en: "See who works when, and share the planning as PDF or Excel.",
@@ -140,7 +140,7 @@ export const GUIDES: Guide[] = [
   },
   {
     id: "shifts",
-    path: "/calendar/ShiftsManagment",
+    path: "/planning/shifts",
     title: { en: "Manage shifts", fr: "Gérer les créneaux", ar: "إدارة الفترات" },
     intro: {
       en: "Shifts are the time slots used in the planning (for example 08:00 – 16:00).",
@@ -206,7 +206,7 @@ export const GUIDES: Guide[] = [
   },
   {
     id: "history",
-    path: "/clockinpagehistory",
+    path: "/clock-in/history",
     title: { en: "Check and correct clock-ins", fr: "Vérifier et corriger les pointages", ar: "مراجعة تسجيلات الحضور وتصحيحها" },
     intro: {
       en: "All clock-ins from the machine and the kiosk, with tools to fix mistakes.",
@@ -239,7 +239,7 @@ export const GUIDES: Guide[] = [
   },
   {
     id: "machine",
-    path: "/clockinfacerecognitionpage",
+    path: "/clock-in/face",
     title: { en: "Face-recognition machine", fr: "Pointeuse à reconnaissance faciale", ar: "جهاز التعرف على الوجه" },
     intro: {
       en: "Use a ZKTeco machine so staff clock in with their face.",
@@ -269,7 +269,7 @@ export const GUIDES: Guide[] = [
   },
   {
     id: "employees",
-    path: "/addEmployeeForm",
+    path: "/employees/new",
     title: { en: "Add and manage employees", fr: "Ajouter et gérer les employés", ar: "إضافة الموظفين وإدارتهم" },
     intro: {
       en: "Every person who works shifts needs an employee record.",
@@ -431,7 +431,7 @@ export const FAQ: Faq[] = [
   },
   {
     id: "forgot-clock-out",
-    path: "/clockinpagehistory",
+    path: "/clock-in/history",
     q: { en: "An employee forgot to clock out.", fr: "Un employé a oublié de pointer son départ.", ar: "نسي موظف تسجيل انصرافه." },
     a: {
       en: "Open Clock-in history, find the day, and double-click the empty clock-out to add the right time. On the kiosk, they can still clock in the next day.",
@@ -441,7 +441,7 @@ export const FAQ: Faq[] = [
   },
   {
     id: "wrong-time",
-    path: "/clockinpagehistory",
+    path: "/clock-in/history",
     q: { en: "A clock-in time is wrong.", fr: "Une heure de pointage est fausse.", ar: "وقت تسجيل الحضور خاطئ." },
     a: {
       en: "In Clock-in history, double-click the time and enter the correct one. Worked hours, lateness and overtime are recalculated.",
@@ -461,7 +461,7 @@ export const FAQ: Faq[] = [
   },
   {
     id: "machine-missing",
-    path: "/clockinfacerecognitionpage",
+    path: "/clock-in/face",
     q: { en: "Clock-ins from the machine don't appear.", fr: "Les pointages de la pointeuse n'apparaissent pas.", ar: "تسجيلات الجهاز لا تظهر." },
     a: {
       en: "Check that the machine is online and that its serial number is registered for your company (ask support). Also check the employee numbers match.",

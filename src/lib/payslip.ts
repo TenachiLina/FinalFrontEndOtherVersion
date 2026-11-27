@@ -2,17 +2,23 @@
 // Payslip (fiche de paie)
 //
 // The amounts follow the company's FICHE DE PAIE.xlsx, not the hours-based
-// Monthly Payroll, so the two nets can differ:
-//   salaire de base  = declared salary when set, otherwise the base salary
-//   salaire de poste = salaire de base / 30 * 30 (N/BASE is always 30)
-//   retenue sécu     = salaire de poste * 9 %
-//   net à payer      = salaire de poste - retenue sécu
+// Monthly Payroll, so the two nets can differ. They are calculated by the
+// server (GET /payroll/payslips) and only laid out here.
 // ─────────────────────────────────────────────────────────────────────────
 
 import { EmployeeRaw } from "@/components/reporting/types";
 import { CompanyInfo } from "@/lib/auth";
 
-export const PAYSLIP_BASE_DAYS = 30;
+/** The amounts of one payslip, as the server calculated them. */
+export interface PayslipMoney {
+  days: number;
+  baseSalary: number;
+  postSalary: number;
+  socialSecurity: number;
+  net: number;
+}
+
+const NO_AMOUNTS: PayslipMoney = { days: 0, baseSalary: 0, postSalary: 0, socialSecurity: 0, net: 0 };
 export const SOCIAL_SECURITY_RATE = 0.09;
 
 const MONTHS_FR = [
@@ -55,7 +61,6 @@ export interface Payslip {
   net: number;
 }
 
-const round2 = (n: number) => Math.round(n * 100) / 100;
 
 /** "2026-05" → "MAI 2026" */
 export function payslipPeriod(month: string): string {
@@ -72,13 +77,11 @@ export function formatPayslipDate(date: string): string {
 export function buildPayslip(
   employee: EmployeeRaw,
   company: Pick<CompanyInfo, "name"> & { settings?: Partial<CompanyInfo["settings"]> },
-  month: string
+  month: string,
+  // Missing while the amounts are loading: the sheet shows zeros, never a guess
+  amounts: PayslipMoney = NO_AMOUNTS
 ): Payslip {
-  const days = PAYSLIP_BASE_DAYS;
-  const declared = employee.declaredSalary;
-  const baseSalary = Number(declared != null ? declared : employee.baseSalary || 0);
-  const postSalary = round2((baseSalary / PAYSLIP_BASE_DAYS) * days);
-  const socialSecurity = round2(postSalary * SOCIAL_SECURITY_RATE);
+  const { days, baseSalary, postSalary, socialSecurity, net } = amounts;
   return {
     empNumber: employee.empNumber ?? "",
     company: {
@@ -98,7 +101,7 @@ export function buildPayslip(
     baseSalary,
     postSalary,
     socialSecurity,
-    net: round2(postSalary - socialSecurity),
+    net,
   };
 }
 

@@ -9,20 +9,31 @@ import { useAuth } from "@/context/AuthContext";
 import { Modal } from "@/components/ui/modal";
 import Button from "@/components/ui/button/Button";
 import { t } from "@/lib/i18n";
+import { generatePassword } from "@/lib/mobileApp";
+import ShareCredentialsDialog, { type SignInDetails } from "./ShareCredentialsDialog";
 
 interface UserRow extends Omit<AuthUser, "id"> {
   _id: string;
   active: boolean;
+  // Someone who left: can't sign in, kept for the activity log
+  isArchived?: boolean;
   createdAt?: string;
   // For a manager: the employee record that is this person.
+  // For a mobile app employee: required, whose data the account sees.
   employeeId?: string | null;
 }
+
+// Roles linked to an employee record: optional for a manager, required for a
+// mobile app employee (role "staff").
+const linksEmployee = (role: Role) => role === "manager" || role === "staff";
 
 interface EmployeeOption {
   _id: string;
   empNumber: number;
   firstName: string;
   lastName: string;
+  // For WhatsApp and SMS when sending sign-in details
+  phoneNumber?: string | null;
 }
 
 const employeeLabel = (e: EmployeeOption) => `${e.firstName} ${e.lastName} (#${e.empNumber})`;
@@ -65,11 +76,19 @@ export default function UsersView() {
   const [resetFor, setResetFor] = useState<UserRow | null>(null);
   const [newPassword, setNewPassword] = useState("");
 
+  // Sign-in details of a mobile app employee, shown once to be sent to them
+  const [sharing, setSharing] = useState<SignInDetails | null>(null);
+  const phoneOf = (employeeId?: string | null) =>
+    employees.find((e) => e._id === employeeId)?.phoneNumber ?? null;
+  const shareDetails = (name: string, email: string, password: string, employeeId?: string | null) =>
+    setSharing({ name, email, password, phone: phoneOf(employeeId) });
+
   const load = useCallback(async () => {
     try {
       const [userRows, employeeRows] = await Promise.all([
         api<UserRow[]>("/users"),
-        api<EmployeeOption[]>("/employees").catch(() => [] as EmployeeOption[]),
+        // Only people who work here now can be linked to an account
+        api<EmployeeOption[]>("/employees?status=active").catch(() => [] as EmployeeOption[]),
       ]);
       setUsers(userRows);
       setEmployees(
@@ -98,6 +117,10 @@ export default function UsersView() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (form.role === "staff" && !form.employeeId) {
+      setFormError(t("Choose the employee this account belongs to"));
+      return;
+    }
     setSaving(true);
     setFormError(null);
     try {
@@ -105,10 +128,14 @@ export default function UsersView() {
         method: "POST",
         body: JSON.stringify({
           ...form,
-          employeeId: form.role === "manager" && form.employeeId ? form.employeeId : null,
+          employeeId: linksEmployee(form.role) && form.employeeId ? form.employeeId : null,
         }),
       });
       setCreateOpen(false);
+      // A mobile app employee gets their sign-in details right away
+      if (form.role === "staff") {
+        shareDetails(form.name, form.email.trim().toLowerCase(), form.password, form.employeeId);
+      }
       setForm(emptyForm);
       await load();
     } catch (err) {
@@ -138,9 +165,34 @@ export default function UsersView() {
         body: JSON.stringify({ password: newPassword }),
       });
       toast.success(t("Password updated for {name}.", { name: resetFor.name }));
+      if (resetFor.role === "staff") {
+        shareDetails(resetFor.name, resetFor.email, newPassword, resetFor.employeeId);
+      }
       closeReset();
     } catch (err) {
       toast.error(friendlyError(err, "Couldn't reset the password"));
+    }
+  };
+
+  /**
+   * A new temporary password for a mobile app employee, then the message to
+   * send it. The server never shows a password again, so this is how sign-in
+   * details are sent a second time.
+   */
+  const sendSignInDetails = async (u: UserRow) => {
+    const ok = await confirmDialog({
+      title: t("Send new sign-in details to {name}?", { name: u.name }),
+      message:
+        "A new temporary password replaces the current one, and they are signed out of the app until they use it.",
+      confirmLabel: "Create a new password",
+    });
+    if (!ok) return;
+    const password = generatePassword();
+    try {
+      await api(`/users/${u._id}/password`, { method: "POST", body: JSON.stringify({ password }) });
+      shareDetails(u.name, u.email, password, u.employeeId);
+    } catch (err) {
+      toast.error(friendlyError(err, "Couldn't create a new password"));
     }
   };
 
@@ -162,9 +214,14 @@ export default function UsersView() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          {t("Admins have full access. Managers can use every feature, but not Users, Company settings or the Activity log, so they can't see other users' details. A clock-in kiosk account only sees the kiosk, where staff pick their name and clock in or out.")}
-        </p>
+        <div className="space-y-1 text-sm text-gray-500 dark:text-gray-400">
+          <p>
+            {t("Admins have full access. Managers can use every feature, but not Users, Company settings or the Activity log, so they can't see other users' details. A clock-in kiosk account only sees the kiosk, where staff pick their name and clock in or out.")}
+          </p>
+          <p>
+            {t("A mobile app employee signs in to the employee mobile app and only sees their own planning, profile, worked hours, advances and bonuses. They can't clock in or out from the app, and can't sign in to this website.")}
+          </p>
+        </div>
         <Button size="sm" className="shrink-0 whitespace-nowrap" onClick={() => setCreateOpen(true)}>
           {t("Add user")}
         </Button>
@@ -215,10 +272,11 @@ export default function UsersView() {
                       <option value="admin">{t("Admin")}</option>
                       <option value="manager">{t("Manager")}</option>
                       <option value="employee">{t("Clock-in kiosk")}</option>
+                      <option value="staff">{t("Mobile app employee")}</option>
                     </select>
                   </td>
                   <td className="px-4 py-3">
-                    {u.role === "manager" ? (
+                    {linksEmployee(u.role) ? (
                       <select
                         aria-label={t("Employee record of {name}", { name: u.name })}
                         className="max-w-[220px] rounded-lg border border-gray-300 bg-transparent px-2 py-1 dark:border-gray-700 dark:bg-gray-900"
@@ -232,7 +290,11 @@ export default function UsersView() {
                           )
                         }
                       >
-                        <option value="">{t("Not linked")}</option>
+                        {u.role === "manager" ? (
+                          <option value="">{t("Not linked")}</option>
+                        ) : (
+                          !u.employeeId && <option value="">{t("Choose an employee")}</option>
+                        )}
                         {employeeOptions(u._id)}
                       </select>
                     ) : (
@@ -247,24 +309,57 @@ export default function UsersView() {
                           : "bg-gray-100 text-gray-500 dark:bg-white/5 dark:text-gray-400"
                       }`}
                     >
-                      {u.active ? t("Active") : t("Disabled")}
+                      {u.isArchived ? t("Archived") : u.active ? t("Active") : t("Disabled")}
                     </span>
                   </td>
-                  <td className="space-x-3 whitespace-nowrap px-4 py-3 text-end">
+                  <td className="px-4 py-3">
+                    {/* Wraps instead of running off the table on narrow screens */}
+                    <div className="flex min-w-[180px] flex-wrap justify-end gap-x-3 gap-y-1 whitespace-nowrap">
+                    {u.role === "staff" && u.active && (
+                      <button type="button" className="font-medium text-brand-500 hover:underline" onClick={() => sendSignInDetails(u)}>
+                        {t("Send sign-in details")}
+                      </button>
+                    )}
                     <button type="button" className="text-brand-500 hover:underline" onClick={() => openReset(u)}>
                       {t("Reset password")}
                     </button>
                     {!isMe && (
                       <>
-                        <button
-                          type="button"
-                          className="text-gray-600 hover:underline dark:text-gray-300"
-                          onClick={() =>
-                            run(() => api(`/users/${u._id}`, { method: "PATCH", body: JSON.stringify({ active: !u.active }) }))
-                          }
-                        >
-                          {u.active ? t("Disable") : t("Enable")}
-                        </button>
+                        {u.isArchived ? (
+                          <button
+                            type="button"
+                            className="text-gray-600 hover:underline dark:text-gray-300"
+                            onClick={() => run(() => api(`/users/${u._id}/restore`, { method: "PATCH" }))}
+                          >
+                            {t("Restore")}
+                          </button>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              className="text-gray-600 hover:underline dark:text-gray-300"
+                              onClick={() =>
+                                run(() => api(`/users/${u._id}`, { method: "PATCH", body: JSON.stringify({ active: !u.active }) }))
+                              }
+                            >
+                              {u.active ? t("Disable") : t("Enable")}
+                            </button>
+                            <button
+                              type="button"
+                              className="text-gray-600 hover:underline dark:text-gray-300"
+                              onClick={async () => {
+                                const ok = await confirmDialog({
+                                  title: t("Archive {name}?", { name: u.name }),
+                                  message: t("They are signed out and can no longer sign in. The account stays in the activity log and can be restored."),
+                                  confirmLabel: t("Archive"),
+                                });
+                                if (ok) run(() => api(`/users/${u._id}/archive`, { method: "PATCH" }));
+                              }}
+                            >
+                              {t("Archive")}
+                            </button>
+                          </>
+                        )}
                         <button
                           type="button"
                           className="text-error-500 hover:underline"
@@ -281,6 +376,7 @@ export default function UsersView() {
                         </button>
                       </>
                     )}
+                    </div>
                   </td>
                 </tr>
               );
@@ -302,16 +398,38 @@ export default function UsersView() {
           </div>
           <div>
             <label className={labelClass} htmlFor="new-password">{t("Temporary password (min 8 characters)")}</label>
-            <input id="new-password" type="text" autoComplete="off" className={inputClass} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+            <div className="flex gap-2">
+              <input id="new-password" type="text" autoComplete="off" className={inputClass} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, password: generatePassword() })}
+                className="shrink-0 rounded-lg px-3 text-sm font-medium text-brand-500 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:ring-gray-700 dark:hover:bg-white/[0.03]"
+              >
+                {t("Generate")}
+              </button>
+            </div>
           </div>
           <div>
             <label className={labelClass} htmlFor="new-role">{t("Role")}</label>
             <select id="new-role" className={inputClass} value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as Role })}>
               <option value="manager">{t("Manager")}</option>
               <option value="employee">{t("Clock-in kiosk")}</option>
+              <option value="staff">{t("Mobile app employee")}</option>
               <option value="admin">{t("Admin")}</option>
             </select>
           </div>
+          {form.role === "staff" && (
+            <div>
+              <label className={labelClass} htmlFor="new-staff-employee">{t("This account is for the employee")}</label>
+              <select id="new-staff-employee" className={inputClass} value={form.employeeId} onChange={(e) => setForm({ ...form, employeeId: e.target.value })}>
+                <option value="" disabled>{t("Choose an employee")}</option>
+                {employeeOptions()}
+              </select>
+              <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                {t("Give them this email and password: they sign in to the employee mobile app and only see their own information.")}
+              </p>
+            </div>
+          )}
           {form.role === "manager" && (
             <div>
               <label className={labelClass} htmlFor="new-employee">{t("This manager is the employee")}</label>
@@ -333,6 +451,8 @@ export default function UsersView() {
           </div>
         </form>
       </Modal>
+
+      <ShareCredentialsDialog details={sharing} onClose={() => setSharing(null)} />
 
       <Modal isOpen={!!resetFor} onClose={closeReset} className="max-w-[420px] p-6">
         <form onSubmit={handleReset} className="space-y-4">

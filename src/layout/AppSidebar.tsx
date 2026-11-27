@@ -10,19 +10,47 @@ import {
   AlertIcon,
   BoxCubeIcon,
   CalenderIcon,
+  ChatIcon,
   ChevronDownIcon,
   GridIcon,
   HorizontaLDots,
   ListIcon,
   LockIcon,
   PageIcon,
+  PaperPlaneIcon,
   PieChartIcon,
   PlugInIcon,
   TableIcon,
   UserCircleIcon,
 } from "../icons/index";
 import { t } from "@/lib/i18n";
+import { CORRECTIONS_CHANGED, pendingCorrections } from "@/lib/corrections";
 
+const CORRECTIONS_PATH = "/corrections";
+// How often the badge asks the server for new requests
+const CORRECTIONS_POLL_MS = 60_000;
+
+/** Requests employees sent that wait for an answer (0 when not allowed). */
+function usePendingCorrections(enabled: boolean, pathname: string): number {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    if (!enabled) return;
+    let alive = true;
+    const refresh = () =>
+      pendingCorrections()
+        .then((n) => alive && setCount(n))
+        .catch(() => undefined); // the badge is a hint: never an error
+    refresh();
+    const timer = window.setInterval(refresh, CORRECTIONS_POLL_MS);
+    window.addEventListener(CORRECTIONS_CHANGED, refresh);
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+      window.removeEventListener(CORRECTIONS_CHANGED, refresh);
+    };
+  }, [enabled, pathname]);
+  return enabled ? count : 0;
+}
 
 type SubLink = { name: string; path: string; pro?: boolean; new?: boolean };
 // A sub-item that itself opens a second dropdown (e.g. Reporting → Bonuses → Give / History)
@@ -40,6 +68,11 @@ const navItems: NavItem[] = [
     icon: <GridIcon />,
     name: "Home",
     path: "/home",
+  },
+  {
+    icon: <ChatIcon />,
+    name: "Correction requests",
+    path: "/corrections",
   },
 
   {
@@ -65,71 +98,37 @@ const navItems: NavItem[] = [
     icon: <CalenderIcon />,
     name: "Planning",
     subItems: [
-      { name: "New Planning", path: "/calendar/DoPlanning", pro: false },
-      { name: "View Planning", path: "/calendar/ViewPlanning", pro: false },
-      { name: "Shifts Management", path: "/calendar/ShiftsManagment", pro: false },
+      { name: "New Planning", path: "/planning/new", pro: false },
+      { name: "View Planning", path: "/planning/view", pro: false },
+      { name: "Shifts Management", path: "/planning/shifts", pro: false },
     ]
   },
-  // {
-  //   icon: <UserCircleIcon />,
-  //   name: "User Profile",
-  //   path: "/profile",
-  // },
   {
     icon: <UserCircleIcon />,
     name: "Clock In/Out",
     subItems: [
-      {  name: "Clock In / Out", path: "/clockinpage", pro: false },
-      {  name: "Clock In/Out with Face recognition", path: "/clockinfacerecognitionpage", pro: false },
+      {  name: "Clock In / Out", path: "/clock-in", pro: false },
+      {  name: "Clock In/Out with Face recognition", path: "/clock-in/face", pro: false },
       {  name: "Clock-in kiosk", path: "/kiosk", pro: false },
-      {  name: "Clock In/Out History", path: "/clockinpagehistory", pro: false },
+      {  name: "Clock In/Out History", path: "/clock-in/history", pro: false },
     ]
   },
-  // {
-  //   icon: <UserCircleIcon />,
-  //   name: "Clock In / Out",
-  //   path: "/clockinpage",
-  // },
 
-  // {
-  //   icon: <UserCircleIcon />,
-  //   name: "Clock In/Out with Face recognition",
-  //   path: "/clockinfacerecognitionpage",
-  // },
-
-  // {
-  //   icon: <UserCircleIcon />,
-  //   name: "Clock In/Out History",
-  //   path: "/clockinpagehistory",
-  // },
-  // {
-  //   icon: <UserCircleIcon />,
-  //   name: "Add Employee",
-  //   path: "/addEmployeeForm",
-  // },
-  // {
-  //   name: "Forms",
-  //   icon: <ListIcon />,
-  //   subItems: [{ name: "Form Elements", path: "/addEmployeeForm", pro: false }],
-  // },
   {
     name: "Employees Management",
     icon: <TableIcon />,
     subItems: [
-      { name: "Add Employee", path: "/addEmployeeForm", pro: false },
-      { name: "View Employees", path: "/basic-tables", pro: false },
+      { name: "Add Employee", path: "/employees/new", pro: false },
+      { name: "View Employees", path: "/employees", pro: false },
       { name: "Insured Employees", path: "/insured-employees", pro: false },
 
     ],
   },
-  // {
-  //   name: "Pages",
-  //   icon: <PageIcon />,
-  //   subItems: [
-  //     { name: "Blank Page", path: "/blank", pro: false },
-  //     { name: "404 Error", path: "/error-404", pro: false },
-  //   ],
-  // },
+  {
+    icon: <PaperPlaneIcon />,
+    name: "Mobile app",
+    path: "/mobile-app",
+  },
   {
     icon: <UserCircleIcon />,
     name: "Users",
@@ -144,6 +143,11 @@ const navItems: NavItem[] = [
     icon: <BoxCubeIcon />,
     name: "Companies",
     path: "/companies",
+  },
+  {
+    icon: <BoxCubeIcon />,
+    name: "Packs",
+    path: "/packs",
   },
   {
     icon: <ListIcon />,
@@ -186,36 +190,8 @@ function visibleItems(
   });
 }
 
-const othersItems: NavItem[] = [
-  {
-    icon: <PieChartIcon />,
-    name: "Charts",
-    subItems: [
-      { name: "Line Chart", path: "/line-chart", pro: false },
-      { name: "Bar Chart", path: "/bar-chart", pro: false },
-    ],
-  },
-  {
-    icon: <BoxCubeIcon />,
-    name: "UI Elements",
-    subItems: [
-      { name: "Alerts", path: "/alerts", pro: false },
-      { name: "Avatar", path: "/avatars", pro: false },
-      { name: "Badge", path: "/badge", pro: false },
-      { name: "Buttons", path: "/buttons", pro: false },
-      { name: "Images", path: "/images", pro: false },
-      { name: "Videos", path: "/videos", pro: false },
-    ],
-  },
-  {
-    icon: <PlugInIcon />,
-    name: "Authentication",
-    subItems: [
-      { name: "Sign In", path: "/signin", pro: false },
-      { name: "Sign Up", path: "/signup", pro: false },
-    ],
-  },
-];
+// A second menu group, below the main one. Empty: the app has one menu.
+const othersItems: NavItem[] = [];
 
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
@@ -226,6 +202,10 @@ const AppSidebar: React.FC = () => {
   const visibleNavItems = useMemo(
     () => visibleItems(navItems, user, company),
     [user, company]
+  );
+  const pendingCount = usePendingCorrections(
+    visibleNavItems.some((item) => item.path === CORRECTIONS_PATH),
+    pathname
   );
 
   const renderMenuItems = (
@@ -284,6 +264,14 @@ const AppSidebar: React.FC = () => {
                 </span>
                 {(isExpanded || isHovered || isMobileOpen) && (
                   <span className={`menu-item-text`}>{t(nav.name)}</span>
+                )}
+                {nav.path === CORRECTIONS_PATH && pendingCount > 0 && (
+                  <span
+                    aria-label={t("{n} waiting", { n: pendingCount })}
+                    className="ms-auto rounded-full bg-error-500 px-2 py-0.5 text-xs font-semibold text-white"
+                  >
+                    {pendingCount}
+                  </span>
                 )}
               </Link>
             )
@@ -526,24 +514,8 @@ const AppSidebar: React.FC = () => {
               {renderMenuItems(visibleNavItems, "main")}
             </div>
 
-            {/* <div className="">
-              <h2
-                className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${!isExpanded && !isHovered
-                  ? "lg:justify-center"
-                  : "justify-start"
-                  }`}
-              >
-                {isExpanded || isHovered || isMobileOpen ? (
-                  "Others"
-                ) : (
-                  <HorizontaLDots />
-                )}
-              </h2>
-              {renderMenuItems(othersItems, "others")}
-            </div> */}
           </div>
         </nav>
-        {/* {isExpanded || isHovered || isMobileOpen ? <SidebarWidget /> : null} */}
       </div>
     </aside>
   );

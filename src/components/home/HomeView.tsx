@@ -19,25 +19,26 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { canOpen } from "@/lib/auth";
 import { locale, t } from "@/lib/i18n";
+import TodayDashboard from "./TodayDashboard";
 
 type Icon = React.ComponentType<React.SVGProps<SVGSVGElement>>;
 
 // How the app works, in the order the work happens
 const FLOW: { href: string; title: string; text: string; icon: Icon }[] = [
-  { href: "/calendar/DoPlanning", title: "Plan", text: "Decide who works which shift, day by day.", icon: CalendarDaysIcon },
+  { href: "/planning/new", title: "Plan", text: "Decide who works which shift, day by day.", icon: CalendarDaysIcon },
   { href: "/kiosk", title: "Clock in", text: "Staff clock in and out on the kiosk or the face-recognition machine.", icon: ClockIcon },
-  { href: "/clockinpagehistory", title: "Check", text: "Worked hours, lateness and overtime are calculated; fix any mistakes.", icon: ClipboardDocumentCheckIcon },
+  { href: "/clock-in/history", title: "Check", text: "Worked hours, lateness and overtime are calculated; fix any mistakes.", icon: ClipboardDocumentCheckIcon },
   { href: "/reporting/monthly-payroll", title: "Pay", text: "Advances, bonuses and the monthly payroll come from those hours.", icon: BanknotesIcon },
 ];
 
 // Where to start: each step opens its page and has a video guide on the Help page
 const START: { href: string; guide: string; title: string; text: string; icon: Icon }[] = [
   { href: "/company-settings", guide: "settings", title: "Set up your company", text: "Choose the language, currency and payroll rules.", icon: Cog6ToothIcon },
-  { href: "/addEmployeeForm", guide: "employees", title: "Add your employees", text: "One record per person, with the same number as on the clocking machine.", icon: UserPlusIcon },
-  { href: "/calendar/ShiftsManagment", guide: "shifts", title: "Create your shifts", text: "The time slots you plan with, for example 08:00 – 16:00.", icon: Squares2X2Icon },
-  { href: "/calendar/DoPlanning", guide: "plan-week", title: "Plan the week", text: "Put employees on shifts and posts, then copy the plan to other days.", icon: CalendarDaysIcon },
+  { href: "/employees/new", guide: "employees", title: "Add your employees", text: "One record per person, with the same number as on the clocking machine.", icon: UserPlusIcon },
+  { href: "/planning/shifts", guide: "shifts", title: "Create your shifts", text: "The time slots you plan with, for example 08:00 – 16:00.", icon: Squares2X2Icon },
+  { href: "/planning/new", guide: "plan-week", title: "Plan the week", text: "Put employees on shifts and posts, then copy the plan to other days.", icon: CalendarDaysIcon },
   { href: "/kiosk", guide: "kiosk", title: "Start clocking in", text: "Open the kiosk on a tablet at the entrance, or use the face-recognition machine.", icon: DevicePhoneMobileIcon },
-  { href: "/clockinpagehistory", guide: "history", title: "Check the clock-ins", text: "Correct forgotten or wrong clock-ins so the hours are right.", icon: ClockIcon },
+  { href: "/clock-in/history", guide: "history", title: "Check the clock-ins", text: "Correct forgotten or wrong clock-ins so the hours are right.", icon: ClockIcon },
   { href: "/reporting/monthly-payroll", guide: "payroll", title: "Pay your team", text: "Give weekly advances, then check the monthly payroll.", icon: BanknotesIcon },
   { href: "/users", guide: "users", title: "Invite your team", text: "Give managers and the kiosk tablet their own sign-in.", icon: UsersIcon },
 ];
@@ -78,6 +79,9 @@ export default function HomeView() {
           {t("Help & guides")}
         </Link>
       </div>
+
+      {/* Today at a glance: who is in, late, absent; what is waiting */}
+      <TodayDashboard />
 
       {/* How it works */}
       {flow.length > 0 && (

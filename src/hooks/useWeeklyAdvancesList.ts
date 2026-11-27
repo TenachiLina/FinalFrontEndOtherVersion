@@ -1,16 +1,9 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { Employee, WorktimeRow, DateRange, AdvanceRecord } from "@/components/reporting/types";
-import {
-  getThisWeekRange,
-  fetchEmployees,
-  fetchWorktimeRows,
-  fetchAdvances,
-  fetchScheduledEmpIds,
-  deleteAdvance,
-} from "@/lib/reporting";
-import { payrollConfig, sumHours, sumConsommation, sumAbsences } from "@/lib/payrollConfig";
+import { DateRange } from "@/components/reporting/types";
+import { getThisWeekRange, deleteAdvance } from "@/lib/reporting";
+import { fetchPayrollPeriod, PayrollRow } from "@/lib/payrollApi";
 import { API_BASE_URL } from "@/lib/config";
-import { ensureOk, friendlyError, optionalData } from "@/lib/errors";
+import { ensureOk, friendlyError } from "@/lib/errors";
 import { toast } from "@/lib/notify";
 
 export interface WeeklyAdvanceRow {
@@ -29,13 +22,12 @@ export interface WeeklyAdvanceRow {
 
 export function useWeeklyAdvancesList(initialRange?: DateRange) {
   const [range, setRangeState] = useState<DateRange>(initialRange ?? getThisWeekRange());
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [rows, setRows] = useState<WorktimeRow[]>([]);
-  const [advances, setAdvances] = useState<AdvanceRecord[]>([]);
-  const [scheduledIds, setScheduledIds] = useState<Set<string>>(new Set());
+  // The pay of each employee, calculated by the server (GET /payroll/period)
+  const [lines, setLines] = useState<PayrollRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+
   // Each call gets an id; a response is only applied if no newer call started meanwhile
   const req = useRef(0);
 
@@ -44,19 +36,9 @@ export function useWeeklyAdvancesList(initialRange?: DateRange) {
     setLoading(true);
     setError("");
     try {
-      const emps = await fetchEmployees();
-
-      const [worktimeRows, advanceRecords, scheduled] = await Promise.all([
-        fetchWorktimeRows(r),
-        fetchAdvances(emps, undefined, r).catch(optionalData([] as AdvanceRecord[], "Advances")),
-        fetchScheduledEmpIds(r).catch(optionalData(new Set<string>(), "The planning")),
-      ]);
+      const period = await fetchPayrollPeriod(r);
       if (reqId !== req.current) return; // outdated response → ignore
-
-      setEmployees(emps);
-      setRows(worktimeRows);
-      setAdvances(advanceRecords);
-      setScheduledIds(scheduled);
+      setLines(period.rows);
       setRangeState(r);
     } catch (err) {
       if (reqId !== req.current) return;
@@ -72,58 +54,33 @@ export function useWeeklyAdvancesList(initialRange?: DateRange) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Map emp_id -> that employee's advance record for this range (id is what matters for revoke).
-  const advanceByEmp = useMemo(() => {
-    const map: Record<string, AdvanceRecord> = {};
-    advances.forEach((a) => {
-      map[String(a.empId)] = a;
-    });
-    return map;
-  }, [advances]);
+  const advanceRows: WeeklyAdvanceRow[] = useMemo(
+    () =>
+      lines
+        .filter((l) => {
+          if (!search) return true;
+          const name = `${l.firstName} ${l.lastName}`.toLowerCase();
+          return name.includes(search.toLowerCase());
+        })
+        .map((l) => ({
+          empId: l.empId,
+          firstName: l.firstName,
+          lastName: l.lastName,
+          hourlyRate: l.hourlyRate,
+          hours: l.hours,
+          absences: l.absences,
+          weeklySalary: l.gross,
+          consommation: l.consommation,
+          advanceOffer: l.advanceOffer,
+          advanceGiven: l.advancesCount > 0,
+          advanceId: l.advanceId ?? undefined,
+        })),
+    [lines, search]
+  );
 
-  const advanceRows: WeeklyAdvanceRow[] = useMemo(() => {
-    const groups: Record<string, WorktimeRow[]> = {};
-    rows.forEach((row) => {
-      const key = String(row.emp_id);
-      if (!groups[key]) groups[key] = [];
-      groups[key].push(row);
-    });
-
-    return employees
-      // Employees scheduled (Planning) in this range, or who worked in it: hours worked without a
-      // planning entry are still paid, and the list isn't empty when the planning can't be loaded
-      .filter((emp) => scheduledIds.has(String(emp.emp_id)) || groups[String(emp.emp_id)]?.length > 0)
-      .filter((emp) => {
-        if (!search) return true;
-        const name = `${emp.FirstName} ${emp.LastName}`.toLowerCase();
-        return name.includes(search.toLowerCase());
-      })
-      .map((emp) => {
-        const empRows = groups[String(emp.emp_id)] || [];
-        const hourlyRate = payrollConfig.hourlyRate(emp);
-        const hours = sumHours(empRows);
-        const weeklySalary = hours * hourlyRate;
-        const consommation = sumConsommation(empRows);
-        const absences = empRows.reduce((sum, r) => sum + (r.absent ? 1 : 0), 0);
-        const advanceOffer = payrollConfig.weeklyAdvance({ hours, hourlyRate, consommation });
-        const existing = advanceByEmp[String(emp.emp_id)];
-
-        return {
-          empId: emp.emp_id,
-          firstName: emp.FirstName,
-          lastName: emp.LastName,
-          hourlyRate: Number(hourlyRate.toFixed(2)),
-          hours: Number(hours.toFixed(2)),
-          absences,
-          weeklySalary: Number(weeklySalary.toFixed(2)),
-          consommation: Number(consommation.toFixed(2)),
-          advanceOffer: Number(advanceOffer.toFixed(2)),
-          advanceGiven: Boolean(existing),
-          advanceId: existing?.id,
-        };
-      });
-  }, [employees, rows, search, advanceByEmp, scheduledIds]);
-
+  // The line of one employee, changed in place (after giving or taking back an advance)
+  const patchLine = (empId: number | string, change: (l: PayrollRow) => PayrollRow) =>
+    setLines((prev) => prev.map((l) => (String(l.empId) === String(empId) ? change(l) : l)));
 
   const giveAdvance = useCallback(
     async (empId: number | string, amount: number, date: string) => {
@@ -139,34 +96,33 @@ export function useWeeklyAdvancesList(initialRange?: DateRange) {
       });
       await ensureOk(res); // the modal catches this and shows the message
       const created = await res.json();
-      setAdvances((prev) => [
-        ...prev,
-        { id: created._id, empId, employee: undefined, amount, date, reason: "Weekly advance" },
-      ]);
+      patchLine(empId, (l) => ({ ...l, advancesCount: l.advancesCount + 1, advanceId: created._id }));
       toast.success("Advance given.");
     },
     [range]
   );
 
-
   const revokeAdvance = useCallback(async (advanceId: string | undefined) => {
     if (!advanceId) return;
-    const previous = advances;
-    setAdvances((prev) => prev.filter((a) => a.id !== advanceId));
+    const previous = lines;
+    setLines((prev) =>
+      prev.map((l) =>
+        l.advanceId === advanceId ? { ...l, advancesCount: Math.max(0, l.advancesCount - 1), advanceId: null } : l
+      )
+    );
     try {
       await deleteAdvance(advanceId);
     } catch (err) {
-      setAdvances(previous);
+      setLines(previous);
       toast.error(friendlyError(err, "Couldn't remove the advance"));
     }
-  }, [advances]);
+  }, [lines]);
 
   return {
     range,
     setRange: load,
     advanceRows,
     search,
-    //sumAbsences,
     setSearch,
     loading,
     error,

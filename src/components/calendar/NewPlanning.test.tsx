@@ -30,7 +30,7 @@ const TODAY_PLANNING = [
 
 async function renderPlanning(options: PlanningApiOptions = {}) {
   const api = mockPlanningApi({ plannings: { "2026-10-24": TODAY_PLANNING }, ...options });
-  const view = renderWithProviders(<NewPlanning />, { url: "/DoPlanning" });
+  const view = renderWithProviders(<NewPlanning />, { url: "/planning/new" });
   await waitFor(() => expect(api.loads.length).toBeGreaterThan(0));
   await screen.findByText("Alice Martin");
   return { ...view, api };

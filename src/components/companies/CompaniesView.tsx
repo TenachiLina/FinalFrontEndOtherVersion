@@ -10,12 +10,20 @@ import { useAuth } from "@/context/AuthContext";
 import { Modal } from "@/components/ui/modal";
 import Button from "@/components/ui/button/Button";
 import { t } from "@/lib/i18n";
+import type { Page } from "@/lib/auth";
+import type { CompanySubscription } from "@/lib/billing";
+import PageChecks from "@/components/billing/PageChecks";
+import CompanySubscriptionPanel, { standingLabel } from "@/components/billing/CompanySubscriptionPanel";
 
 interface CompanyRow {
   _id: string;
   name: string;
   active: boolean;
   features: Feature[];
+  /** Pages switched off inside those features */
+  disabledPages?: Page[];
+  /** The pack it has, until when, and the payments recorded; null: no end and no limit */
+  subscription?: CompanySubscription | null;
   devices: { serial: string; name?: string }[];
   slug?: string;
   branding?: Branding;
@@ -122,6 +130,7 @@ export default function CompaniesView() {
 
   const [editing, setEditing] = useState<CompanyRow | null>(null);
   const [editFeatures, setEditFeatures] = useState<Feature[]>([]);
+  const [editPages, setEditPages] = useState<Page[]>([]);
   const [editDevices, setEditDevices] = useState("");
   const [editSlug, setEditSlug] = useState("");
   const [editBranding, setEditBranding] = useState<Branding>({});
@@ -169,6 +178,7 @@ export default function CompaniesView() {
   const openEdit = (c: CompanyRow) => {
     setEditing(c);
     setEditFeatures(c.features);
+    setEditPages(c.disabledPages ?? []);
     setEditDevices(formatDevices(c.devices));
     setEditSlug(c.slug ?? "");
     setEditBranding({ ...(c.branding ?? {}) });
@@ -183,6 +193,7 @@ export default function CompaniesView() {
         method: "PATCH",
         body: JSON.stringify({
           features: editFeatures,
+          disabledPages: editPages,
           devices: parseDevices(editDevices),
           ...(editSlug.trim() ? { slug: editSlug.trim() } : {}),
           branding: editBranding,
@@ -286,6 +297,10 @@ export default function CompaniesView() {
                   )}
                 </td>
                 <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">
+                  <span className="mb-0.5 block text-xs font-medium text-gray-500 dark:text-gray-400">
+                    {c.subscription?.packName ? `${c.subscription.packName} · ` : ""}
+                    {standingLabel(c.subscription)}
+                  </span>
                   {c.features.length === ALL_FEATURES.length
                     ? t("All")
                     : c.features.map((f) => t(FEATURE_LABELS[f])).join(", ") || t("None")}
@@ -370,6 +385,27 @@ export default function CompaniesView() {
             <span className={labelClass}>{t("Features")}</span>
             <FeatureChecks value={editFeatures} onChange={setEditFeatures} />
           </div>
+          <div>
+            <span className={labelClass}>{t("Pages")}</span>
+            <p className="mb-2 text-xs text-gray-500 dark:text-gray-400">
+              {t("Untick a page to switch it off for this company, inside a feature it has.")}
+            </p>
+            <PageChecks features={editFeatures} value={editPages} onChange={setEditPages} />
+          </div>
+          {editing && (
+            <CompanySubscriptionPanel
+              key={editing._id}
+              companyId={editing._id}
+              subscription={editing.subscription ?? null}
+              onChanged={(company) => {
+                // The pack decides the features and pages: show them, and refresh the list
+                setEditing((current) => (current ? { ...current, ...company } : current));
+                setEditFeatures(company.features);
+                setEditPages(company.disabledPages ?? []);
+                load();
+              }}
+            />
+          )}
           <div>
             <label className={labelClass} htmlFor="edit-devices">{t("ZKTeco device serials (one per line)")}</label>
             <textarea id="edit-devices" rows={3} className={`${inputClass} h-auto`} value={editDevices} onChange={(e) => setEditDevices(e.target.value)} />

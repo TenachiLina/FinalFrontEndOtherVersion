@@ -1,9 +1,13 @@
+// Demo mode (the guides on the Help page) is set up before anything reads storage or calls the API
+import "@/lib/demo";
 import { API_BASE_URL } from "@/lib/config";
 import { getLang } from "@/lib/i18n";
 import { t } from "@/lib/i18n";
 
 // employee: a shared clock-in kiosk account that only sees /kiosk
-export type Role = "superadmin" | "admin" | "manager" | "employee";
+// staff: one employee's own account for the employee mobile app; it can't
+//   use this website (refused at sign-in, see AuthContext)
+export type Role = "superadmin" | "admin" | "manager" | "employee" | "staff";
 
 export type Feature =
   | "planning"
@@ -22,6 +26,65 @@ export const FEATURE_LABELS: Record<Feature, string> = {
   bonuses: "Bonuses",
 };
 
+/**
+ * Pages that can be switched off one by one inside a feature the company
+ * has (super admin, or the company's pack). Same keys as the server.
+ */
+export const PAGE_FEATURES = {
+  planningNew: "planning",
+  planningView: "planning",
+  shifts: "planning",
+  clockinManual: "clockin",
+  kiosk: "clockin",
+  clockinHistory: "clockin",
+  overview: "reporting",
+  attendance: "reporting",
+  monthlyPayroll: "reporting",
+  payslips: "reporting",
+  weeklyAdvances: "advances",
+  advancesList: "advances",
+  bonusesGive: "bonuses",
+  bonusesHistory: "bonuses",
+  insuredEmployees: null,
+  corrections: null,
+} as const satisfies Record<string, Feature | null>;
+
+export type Page = keyof typeof PAGE_FEATURES;
+
+export const PAGE_LABELS: Record<Page, string> = {
+  planningNew: "New Planning",
+  planningView: "View Planning",
+  shifts: "Shifts Management",
+  clockinManual: "Clock In / Out",
+  kiosk: "Clock-in kiosk",
+  clockinHistory: "Clock In/Out History",
+  overview: "Overview",
+  attendance: "Attendance",
+  monthlyPayroll: "Monthly Payroll",
+  payslips: "Payslips",
+  weeklyAdvances: "Weekly Advances",
+  advancesList: "Advances list",
+  bonusesGive: "Give Bonuses",
+  bonusesHistory: "Bonuses history",
+  insuredEmployees: "Insured Employees",
+  corrections: "Correction requests",
+};
+
+/** Where the company's subscription stands, as the server works it out. */
+export interface SubscriptionState {
+  /** "expired" once the end date has passed */
+  status: "none" | "trial" | "active" | "expired";
+  kind: "trial" | "active" | null;
+  packName: string | null;
+  endsAt: string | null;
+  daysLeft: number | null;
+  /** 7 days or less left */
+  endingSoon: boolean;
+  /** Past the end date: everything can be seen, nothing changed */
+  readOnly: boolean;
+  maxEmployees: number | null;
+}
+
 export interface CompanySettings {
   /** Default language for people who haven't picked one */
   language?: "en" | "fr" | "ar";
@@ -30,6 +93,8 @@ export interface CompanySettings {
   hoursPerDay: number;
   workingDaysPerMonth: number;
   weeklyAdvanceRatio: number;
+  /** Days after the end of a month at which it closes by itself; null: closed by hand only */
+  monthCloseDelayDays?: number | null;
   /** Payslip header */
   payslipActivity?: string;
   payslipAddress?: string;
@@ -43,7 +108,10 @@ export interface CompanyInfo {
   branding: { logo?: string; title?: string; subtitle?: string; color?: string };
   active: boolean;
   features: Feature[];
+  /** Pages switched off inside those features */
+  disabledPages?: Page[];
   settings: CompanySettings;
+  subscription?: SubscriptionState;
 }
 
 export interface AuthUser {
@@ -52,6 +120,8 @@ export interface AuthUser {
   name: string;
   role: Role;
   companyId: string | null;
+  /** Their picture, as a data URL; they set it on the My account page */
+  photo?: string | null;
 }
 
 const TOKEN_KEY = "auth_token";
@@ -74,7 +144,7 @@ const ADMIN_ONLY_PREFIXES = [
 
 // Pages a super admin can open without choosing a company.
 // (The activity log then shows every company.)
-const NO_COMPANY_PATHS = ["/companies", "/account", "/help", "/activity-log", "/login-sessions"];
+const NO_COMPANY_PATHS = ["/companies", "/packs", "/account", "/help", "/activity-log", "/login-sessions"];
 
 // Any other account without a company only gets its own account and help.
 const NO_COMPANY_PATHS_OTHERS = ["/account", "/help"];
@@ -85,11 +155,31 @@ const PATH_FEATURES: [string, Feature][] = [
   ["/reporting/advances", "advances"],
   ["/reporting/bonuses", "bonuses"],
   ["/reporting", "reporting"],
-  ["/calendar", "planning"],
-  ["/clockinfacerecognitionpage", "faceRecognition"],
-  ["/clockinpagehistory", "clockin"],
-  ["/clockinpage", "clockin"],
+  ["/planning", "planning"],
+  ["/clock-in/face", "faceRecognition"],
+  ["/clock-in/history", "clockin"],
+  ["/clock-in", "clockin"],
   ["/kiosk", "clockin"],
+];
+
+// Page prefix → the page switch it belongs to. The first match wins.
+const PATH_PAGES: [string, Page][] = [
+  ["/planning/new", "planningNew"],
+  ["/planning/view", "planningView"],
+  ["/planning/shifts", "shifts"],
+  ["/clock-in/history", "clockinHistory"],
+  ["/clock-in", "clockinManual"],
+  ["/kiosk", "kiosk"],
+  ["/reporting/overview", "overview"],
+  ["/reporting/attendance", "attendance"],
+  ["/reporting/monthly-payroll", "monthlyPayroll"],
+  ["/reporting/payslips", "payslips"],
+  ["/reporting/weekly-advances", "weeklyAdvances"],
+  ["/reporting/advances", "advancesList"],
+  ["/reporting/bonuses/history", "bonusesHistory"],
+  ["/reporting/bonuses", "bonusesGive"],
+  ["/insured-employees", "insuredEmployees"],
+  ["/corrections", "corrections"],
 ];
 
 function matches(pathname: string, prefix: string) {
@@ -100,13 +190,26 @@ export function isAdminOnlyPath(pathname: string): boolean {
   return ADMIN_ONLY_PREFIXES.some((p) => matches(pathname, p));
 }
 
+/** The page switch a path belongs to, if any. */
+export function pageForPath(pathname: string): Page | null {
+  // Face clock-in sits under /clock-in but is its own feature, not the manual page
+  if (matches(pathname, "/clock-in/face")) return null;
+  return PATH_PAGES.find(([p]) => matches(pathname, p))?.[1] ?? null;
+}
+
+/** True when the company has this path's page switched off. */
+export function isPageOff(pathname: string, company: CompanyInfo | null): boolean {
+  const page = pageForPath(pathname);
+  return !!page && !!company?.disabledPages?.includes(page);
+}
+
 export function featureForPath(pathname: string): Feature | null {
   return PATH_FEATURES.find(([p]) => matches(pathname, p))?.[1] ?? null;
 }
 
 // Pages only the super admin can open, inside a company or not.
 // Login sessions show other people's IP addresses and devices.
-const SUPER_ADMIN_ONLY_PREFIXES = ["/companies", "/system-errors", "/login-sessions"];
+const SUPER_ADMIN_ONLY_PREFIXES = ["/companies", "/packs", "/system-errors", "/login-sessions"];
 
 export function isSuperAdminOnlyPath(pathname: string): boolean {
   return SUPER_ADMIN_ONLY_PREFIXES.some((p) => matches(pathname, p));
@@ -119,15 +222,18 @@ export function canOpen(
   company: CompanyInfo | null
 ): boolean {
   if (isSuperAdminOnlyPath(pathname)) return user.role === "superadmin";
+  // Mobile app employee accounts have no page here.
+  if (user.role === "staff") return false;
   // Kiosk accounts only get the clock-in kiosk.
   if (user.role === "employee") {
-    return matches(pathname, "/kiosk") && !!company?.features.includes("clockin");
+    return matches(pathname, "/kiosk") && !!company?.features.includes("clockin") && !isPageOff(pathname, company);
   }
   if (!company) {
     const allowed = user.role === "superadmin" ? NO_COMPANY_PATHS : NO_COMPANY_PATHS_OTHERS;
     return allowed.some((p) => matches(pathname, p));
   }
   if (user.role === "manager" && isAdminOnlyPath(pathname)) return false;
+  if (isPageOff(pathname, company)) return false;
   const feature = featureForPath(pathname);
   if (feature && !company.features.includes(feature)) return false;
   // Face recognition is a kind of clock-in.
@@ -141,7 +247,7 @@ export function homePathFor(user: AuthUser, company: CompanyInfo | null): string
   if (!company) return user.role === "superadmin" ? "/companies" : "/account";
   if (user.role === "employee") return "/kiosk";
   // Everyone with a company lands on the welcome home page
-  const candidates = ["/home", "/reporting/overview", "/calendar/ViewPlanning", "/clockinpage", "/basic-tables"];
+  const candidates = ["/home", "/reporting/overview", "/planning/view", "/clock-in", "/employees"];
   return candidates.find((p) => canOpen(p, user, company)) ?? "/account";
 }
 

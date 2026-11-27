@@ -122,6 +122,27 @@ export default function CompanySettingsForm() {
       </section>
 
       <section className="space-y-4">
+        <h4 className="font-semibold text-gray-800 dark:text-white/90">{t("Month closing")}</h4>
+        <div className="sm:max-w-xs">
+          <label className={labelClass} htmlFor="close-delay">{t("Close months automatically after (days)")}</label>
+          <input
+            id="close-delay"
+            type="number"
+            min={0}
+            max={365}
+            step={1}
+            placeholder={t("Never")}
+            className={inputClass}
+            value={settings.monthCloseDelayDays ?? ""}
+            onChange={(e) => set("monthCloseDelayDays", e.target.value === "" ? null : Number(e.target.value))}
+          />
+        </div>
+        <p className={hintClass}>
+          {t("Days after the end of a month. Once closed, its hours, advances and bonuses can no longer be changed and its payroll is kept as it was. Leave empty to close months by hand only; an admin can always close a finished month earlier or reopen it.")}
+        </p>
+      </section>
+
+      <section className="space-y-4">
         <h4 className="font-semibold text-gray-800 dark:text-white/90">{t("Payslip")}</h4>
         <div>
           <label className={labelClass} htmlFor="payslip-activity">{t("Company activity")}</label>

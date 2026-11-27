@@ -175,7 +175,7 @@ function backend(b: Backend = {}) {
 async function renderPage(b: Backend = {}, { currentDate = DAY as string | null } = {}) {
   const api = backend(b);
   const view = renderWithProviders(<AttendancePage currentDate={currentDate ?? undefined} />, {
-    url: "/clockinfacerecognitionpage",
+    url: "/clock-in/face",
   });
   await tableReady();
   return { ...view, api };

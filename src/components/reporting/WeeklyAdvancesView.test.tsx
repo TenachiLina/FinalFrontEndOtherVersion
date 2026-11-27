@@ -83,7 +83,7 @@ describe("WeeklyAdvancesView", () => {
     const requests = mockReportingApi(WEEK);
     renderWithProviders(<WeeklyAdvancesView />, { url: "/reporting/weekly-advances?start=2026-03-02&end=2026-03-08" });
     expect(await screen.findByText("Nadia Ouali")).toBeInTheDocument();
-    expect(rangesRequested(requests, "/worktime")).toEqual(["2026-03-02..2026-03-08"]);
+    expect(rangesRequested(requests, "/payroll/period")).toEqual(["2026-03-02..2026-03-08"]);
   });
 
   it("loads the week picked in the range picker", async () => {
@@ -93,7 +93,7 @@ describe("WeeklyAdvancesView", () => {
     await user.type(field, "2026-03-02");
     await user.click(screen.getByRole("button", { name: "Apply" }));
     expect(await screen.findByText("Nadia Ouali")).toBeInTheDocument();
-    expect(rangesRequested(requests, "/worktime").at(-1)).toBe("2026-03-02..2026-03-08");
+    expect(rangesRequested(requests, "/payroll/period").at(-1)).toBe("2026-03-02..2026-03-08");
   });
 
   it("gives an advance through the form", async () => {
@@ -150,7 +150,7 @@ describe("WeeklyAdvancesView", () => {
   it("shows the error and loads again on 'Try again'", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     mockReportingApi(WEEK);
-    failGet("/employees", 500);
+    failGet("/payroll/period", 500);
     const { user } = renderWithProviders(<WeeklyAdvancesView />, { url: "/reporting/weekly-advances" });
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("Couldn't load the weekly advances");

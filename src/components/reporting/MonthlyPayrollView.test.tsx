@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import React from "react";
+import { http, HttpResponse } from "msw";
+import { API, server } from "@/test/server";
 import { renderWithProviders, screen, waitFor, within } from "@/test/render";
 import MonthlyPayrollView from "./MonthlyPayrollView";
 import {
@@ -94,7 +96,7 @@ describe("MonthlyPayrollView", () => {
     await user.selectOptions(screen.getAllByRole("combobox")[0], "1");
     await user.click(screen.getByRole("button", { name: "Apply" }));
     expect(await screen.findByRole("columnheader", { name: "Gross Salary February 2026" })).toBeInTheDocument();
-    expect(rangesRequested(requests, "/worktime").at(-1)).toBe("2026-02-01..2026-02-28");
+    expect(rangesRequested(requests, "/payroll/period").at(-1)).toBe("2026-02-01..2026-02-28");
     expect(tableBody()[0]).toContain("800.00 DA");
   });
 
@@ -103,7 +105,7 @@ describe("MonthlyPayrollView", () => {
     renderWithProviders(<MonthlyPayrollView />, { url: "/reporting/monthly-payroll?start=2026-02-01&end=2026-02-28" });
     expect(await screen.findByRole("columnheader", { name: "Net Salary February 2026" })).toBeInTheDocument();
     // The header shows the month straight away; the data request follows
-    await waitFor(() => expect(rangesRequested(requests, "/worktime")).toEqual(["2026-02-01..2026-02-28"]));
+    await waitFor(() => expect(rangesRequested(requests, "/payroll/period")).toEqual(["2026-02-01..2026-02-28"]));
   });
 
   it("says when nobody is found", async () => {
@@ -116,7 +118,7 @@ describe("MonthlyPayrollView", () => {
   it("shows the error and loads again on 'Try again'", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     mockReportingApi(MARCH);
-    failGet("/worktime", 500);
+    failGet("/payroll/period", 500);
     const { user } = renderWithProviders(<MonthlyPayrollView />, { url: "/reporting/monthly-payroll" });
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("Couldn't load the monthly payroll");
@@ -125,15 +127,53 @@ describe("MonthlyPayrollView", () => {
     expect(await screen.findByText("Amine Kaci")).toBeInTheDocument();
   });
 
-  it("warns that totals may be incomplete when the advances can't be loaded", async () => {
-    vi.spyOn(console, "error").mockImplementation(() => {});
-    mockReportingApi(MARCH);
-    failGet("/advances", 500);
+  it("says nothing about closing for an open month with nothing to close", async () => {
+    await renderView();
+    expect(screen.queryByText(/is closed|is open/)).toBeNull();
+  });
+
+  it("shows that the month is closed", async () => {
+    mockReportingApi({
+      ...MARCH,
+      closings: { "2026-03": { closed: true, closedAt: "2026-04-05T08:00:00.000Z", closedBy: "Nadia Admin" } },
+    });
     renderWithProviders(<MonthlyPayrollView />, { url: "/reporting/monthly-payroll" });
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Advances couldn't be loaded, so the totals shown may be incomplete. Try refreshing."
+    expect(await screen.findByText("March 2026 is closed")).toBeInTheDocument();
+    expect(screen.getByText(/Closed on 5 April 2026 by Nadia Admin\./)).toBeInTheDocument();
+  });
+
+  it("loads the payroll again after the month is closed", async () => {
+    const requests = mockReportingApi({ ...MARCH, closings: { "2026-03": { canClose: true } } });
+    server.use(
+      http.post(`${API}/payroll/closings/:month/close`, ({ params }) =>
+        HttpResponse.json({
+          month: params.month,
+          closed: true,
+          auto: false,
+          closedAt: "2026-04-05T08:00:00.000Z",
+          closedBy: "Nadia Admin",
+          reopenedAt: null,
+          reopenedBy: null,
+          closesAt: null,
+          canClose: false,
+        })
+      )
     );
-    await waitFor(() => expect(pill("Total Net Payout")).toBe("5450.00 DA"));
+    const { user } = renderWithProviders(<MonthlyPayrollView />, { url: "/reporting/monthly-payroll" });
+    await user.click(await screen.findByRole("button", { name: "Close month" }));
+    await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Close month" }));
+    expect(await screen.findByText("March 2026 is closed")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(rangesRequested(requests, "/payroll/period")).toEqual(["2026-03-01..2026-03-31", "2026-03-01..2026-03-31"])
+    );
+  });
+
+  // The server calculates the pay: the page asks for it and for no records to add up itself
+  it("shows the server's numbers without loading the records behind them", async () => {
+    const { requests } = await renderView();
+    expect(pill("Total Net Payout")).toBe("3750.00 DA");
+    expect([...new Set(requests.map((u) => u.pathname))]).toEqual(["/payroll/period"]);
+    expect(requests.some((u) => ["/worktime", "/advances", "/bonuses", "/planning", "/employees"].includes(u.pathname))).toBe(false);
   });
 
   // BUG-509: the totals row adds rounded hours as floats and shows the binary noise
