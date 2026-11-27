@@ -7,6 +7,7 @@ import { ensureOk, friendlyError } from "@/lib/errors";
 import { confirmDialog, toast } from "@/lib/notify";
 import { currency } from "@/lib/payrollConfig";
 import { locale, t } from "@/lib/i18n";
+import DateInput from "../form/DateInput";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -82,6 +83,18 @@ const Field = ({
     <input id={`employee-${name}`} type={type} name={name} value={value} onChange={onChange}
       className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 dark:border-white/[0.1] dark:bg-white/[0.05] dark:text-gray-200 transition"
     />
+  </div>
+);
+
+// Native date inputs have their calendar icon hidden in globals.css, so use the app's own picker
+const DateField = ({
+  label, name, value, onChange,
+}: {
+  label: string; name: string; value: string; onChange: (value: string) => void;
+}) => (
+  <div className="flex flex-col gap-1">
+    <label htmlFor={`employee-${name}`} className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">{t(label)}</label>
+    <DateInput id={`employee-${name}`} value={value} onChange={onChange} clearable className="w-full min-w-0" />
   </div>
 );
 
@@ -285,8 +298,10 @@ export default function BasicTableOne() {
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Date of birth" name="birthDate" type="date" value={form.birthDate} onChange={handleChange} />
-                <Field label="Hire date" name="hireDate" type="date" value={form.hireDate} onChange={handleChange} />
+                <DateField label="Date of birth" name="birthDate" value={form.birthDate}
+                  onChange={(v) => setForm((prev) => ({ ...prev, birthDate: v }))} />
+                <DateField label="Hire date" name="hireDate" value={form.hireDate}
+                  onChange={(v) => setForm((prev) => ({ ...prev, hireDate: v }))} />
               </div>
               <Field label="Insurance number" name="socialSecurityNumber" value={form.socialSecurityNumber} onChange={handleChange} />
             </div>

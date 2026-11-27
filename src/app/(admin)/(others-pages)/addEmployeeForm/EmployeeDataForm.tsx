@@ -5,6 +5,7 @@ import { createEmployee } from "./employee.api";
 import { friendlyError } from "@/lib/errors";
 import { toast } from "@/lib/notify";
 import { t } from "@/lib/i18n";
+import DateInput from "@/components/form/DateInput";
 
 type Field =
   | "empNumber"
@@ -342,11 +343,13 @@ export default function EmployeeDataForm({ insured = false }: { insured?: boolea
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <div>
                 <label className={lbl} htmlFor="birthDate">{t("Date of birth (optional):")}</label>
-                <input id="birthDate" name="birthDate" type="date" className={inp} value={form.birthDate} onChange={set("birthDate")} />
+                <DateInput id="birthDate" className="w-full min-w-0" clearable value={form.birthDate}
+                  onChange={(v) => setForm((prev) => ({ ...prev, birthDate: v }))} />
               </div>
               <div>
                 <label className={lbl} htmlFor="hireDate">{t("Hire date (optional):")}</label>
-                <input id="hireDate" name="hireDate" type="date" className={inp} value={form.hireDate} onChange={set("hireDate")} />
+                <DateInput id="hireDate" className="w-full min-w-0" clearable value={form.hireDate}
+                  onChange={(v) => setForm((prev) => ({ ...prev, hireDate: v }))} />
               </div>
             </div>
 
