@@ -68,7 +68,9 @@ interface DateEditorProps {
 const PayslipDateEditor: React.FC<DateEditorProps> = ({ label, value, disabled, onDraft, onCommit, onCancel }) => {
   const ref = useRef<HTMLDivElement>(null);
   const latest = useRef({ value, onCommit });
-  latest.current = { value, onCommit };
+  useEffect(() => {
+    latest.current = { value, onCommit };
+  });
 
   useEffect(() => {
     const handleOutside = (e: MouseEvent) => {
